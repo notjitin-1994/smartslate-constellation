@@ -74,6 +74,7 @@
 
   /* Page and element enter animations (respect motion settings via utility usage) */
   .page-enter { animation: fadeInUp 300ms ease-out; }
+  .page-leave { animation: fadeOut 220ms ease-in forwards; }
 
   /* Simple skeleton shimmer for loading placeholders */
   .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.12) 37%, rgba(255,255,255,0.04) 63%); background-size: 400% 100%; animation: shimmer 1.8s linear infinite; }
@@ -182,6 +183,17 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(12px);
     }
   }
 

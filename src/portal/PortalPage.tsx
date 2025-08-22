@@ -13,9 +13,10 @@ type NavSectionProps = {
   title: string
   items: NavItem[]
   defaultOpen?: boolean
+  onItemClick?: (item: NavItem) => void
 }
 
-function NavSection({ title, items, defaultOpen = false }: NavSectionProps) {
+function NavSection({ title, items, defaultOpen = false, onItemClick }: NavSectionProps) {
   const [open, setOpen] = useState<boolean>(defaultOpen)
 
   return (
@@ -39,6 +40,7 @@ function NavSection({ title, items, defaultOpen = false }: NavSectionProps) {
               <li key={label}>
                 <a
                   href="#"
+                  onClick={(e) => { e.preventDefault(); onItemClick?.(item) }}
                   className="flex items-center justify-between px-3 py-1.5 text-sm text-white/75 hover:text-primary-500 focus-visible:text-primary-500 active:text-primary-500 hover:bg-primary-500/5 rounded-lg transition pressable"
                 >
                   <span className="truncate">{label}</span>
@@ -375,6 +377,7 @@ export function PortalPage() {
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false)
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false)
+  const [isLeaving, setIsLeaving] = useState<boolean>(false)
 
   useEffect(() => {
     try {
@@ -537,6 +540,22 @@ export function PortalPage() {
   }
 
   
+  function startPageLeaveAndRedirect(url: string) {
+    try {
+      setIsLeaving(true)
+    } finally {
+      window.setTimeout(() => {
+        window.location.href = url
+      }, 220)
+    }
+  }
+
+  function handleSolaraItemClick(item: NavItem) {
+    const label = typeof item === 'string' ? item : item.label
+    if (label === 'Polaris') {
+      startPageLeaveAndRedirect('https://polaris.smartslate.io')
+    }
+  }
 
   const collapsedQuickItems = [
     { title: 'Ignite', icon: IconGraduationCap },
@@ -553,7 +572,7 @@ export function PortalPage() {
   ]
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-[rgb(var(--bg))] text-[rgb(var(--text))]">
+    <div className={`h-screen w-full overflow-hidden bg-[rgb(var(--bg))] text-[rgb(var(--text))]${isLeaving ? ' page-leave' : ''}`}>
       <div className="flex h-full">
         <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16 lg:w-16' : 'md:w-72 lg:w-80'} flex-col border-r border-white/10 bg-white/5/50 backdrop-blur-xl transition-[width] duration-300 ease-in-out`}>
           <div className={`px-3 ${sidebarCollapsed ? 'py-2' : 'px-4 py-4'} border-b border-white/10 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2 sticky top-0 z-10`}>
@@ -586,7 +605,7 @@ export function PortalPage() {
             <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
               <NavSection title="Ignite" items={["Explore Learning", "My Learning"]} />
               <NavSection title="Strategic Skills Architecture" items={["Explore Partnership", "My Architecture"]} />
-              <NavSection title="Solara" items={solaraItems} />
+              <NavSection title="Solara" items={solaraItems} onItemClick={handleSolaraItemClick} />
             </nav>
           )}
 
@@ -1124,7 +1143,7 @@ export function PortalPage() {
                 <nav className="mt-3 space-y-3 overflow-y-auto flex-1 pb-6">
                   <NavSection title="Ignite" items={["Explore Learning", "My Learning"]} defaultOpen />
                   <NavSection title="Strategic Skills Architecture" items={["Explore Partnership", "My Architecture"]} defaultOpen />
-                  <NavSection title="Solara" items={solaraItems} defaultOpen />
+                  <NavSection title="Solara" items={solaraItems} defaultOpen onItemClick={handleSolaraItemClick} />
                 </nav>
                 <div className="mt-auto">
                   <div className="px-1 py-2 border-t border-white/10">
