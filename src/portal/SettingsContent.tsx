@@ -104,6 +104,62 @@ export function SettingsContent() {
     } catch {}
   }
 
+  async function importExistingAvatar() {
+    if (!user) return
+    const sourceUrl = getAvatarUrl(user)
+    if (!sourceUrl) {
+      // eslint-disable-next-line no-alert
+      alert('No existing photo to import')
+      return
+    }
+    try {
+      const previousPath: string | undefined = (user.user_metadata as any)?.avatar_path
+      const response = await fetch(sourceUrl)
+      if (!response.ok) throw new Error('Failed to fetch existing photo')
+      const blob = await response.blob()
+      const type = blob.type || 'image/jpeg'
+      const inferExtFromType = (t: string) => {
+        if (t.includes('png')) return 'png'
+        if (t.includes('webp')) return 'webp'
+        if (t.includes('gif')) return 'gif'
+        if (t.includes('svg')) return 'svg'
+        return 'jpg'
+      }
+      const extFromUrl = (() => {
+        const lower = sourceUrl.toLowerCase()
+        if (lower.includes('.png')) return 'png'
+        if (lower.includes('.webp')) return 'webp'
+        if (lower.includes('.gif')) return 'gif'
+        if (lower.includes('.svg')) return 'svg'
+        if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'jpg'
+        return ''
+      })()
+      const ext = extFromUrl || inferExtFromType(type)
+      const bucket = 'public-assets'
+      const path = `avatars/${user.id}-${Date.now()}.${ext}`
+      const { error: uploadError } = await getSupabase().storage.from(bucket).upload(path, blob, { cacheControl: '3600', upsert: true, contentType: type })
+      if (uploadError) throw uploadError
+      const { data: pub } = getSupabase().storage.from(bucket).getPublicUrl(path)
+      const publicUrl = pub.publicUrl
+      // Best-effort cleanup of previous stored avatar
+      try {
+        if (previousPath && previousPath !== path) {
+          await getSupabase().storage.from(bucket).remove([previousPath])
+        }
+      } catch {}
+      const { error: updateError, data } = await getSupabase().auth.updateUser({ data: { avatar_url: publicUrl, avatar_path: path, noAvatar: false } })
+      if (updateError) throw updateError
+      setUser(data.user)
+      // Best-effort: also persist on profiles table if columns exist and permitted
+      try {
+        await getSupabase().from('profiles').update({ avatar_url: publicUrl, avatar_path: path, updated_at: new Date().toISOString() } as any).eq('id', user.id)
+      } catch {}
+    } catch (err: any) {
+      // eslint-disable-next-line no-alert
+      alert(`Failed to save your current photo: ${err?.message || 'Unknown error'}`)
+    }
+  }
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem('settings:appearance') as Appearance | null
@@ -130,6 +186,15 @@ export function SettingsContent() {
 
   function getAvatarUrl(u: User | null): string | null {
     const meta: any = u?.user_metadata ?? {}
+    if (meta.noAvatar === true) return null
+    const avatarPath: string | undefined = meta.avatar_path
+    if (avatarPath) {
+      try {
+        const { data } = getSupabase().storage.from('public-assets').getPublicUrl(avatarPath)
+        const url = data.publicUrl as string
+        if (url) return url
+      } catch {}
+    }
     const identities: any[] = (u as any)?.identities ?? []
     const identityData = identities.find((i) => i?.identity_data)?.identity_data ?? {}
     return (
@@ -147,7 +212,7 @@ export function SettingsContent() {
       if (uploadError) throw uploadError
       const { data: pub } = getSupabase().storage.from(bucket).getPublicUrl(path)
       const publicUrl = pub.publicUrl
-      const { error: updateError, data } = await getSupabase().auth.updateUser({ data: { avatar_url: publicUrl, avatar_path: path } })
+      const { error: updateError, data } = await getSupabase().auth.updateUser({ data: { avatar_url: publicUrl, avatar_path: path, noAvatar: false } })
       if (updateError) throw updateError
       setUser(data.user)
     } catch (err: any) {
@@ -414,6 +479,27 @@ export function SettingsContent() {
                 {/* Avatar Menu */}
                 {showAvatarMenu && (
                   <div className="absolute bottom-8 right-0 bg-[rgb(var(--bg))] border border-white/10 rounded-lg shadow-xl backdrop-blur-xl p-1 min-w-[140px] z-[9999]">
+                    {getAvatarUrl(user) && !(user as any)?.user_metadata?.avatar_path && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setShowAvatarMenu(false)
+                          importExistingAvatar()
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-white/90 hover:bg-white/10 rounded-md transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+                        </svg>
+                        Save Current Photo
+                      </button>
+                    )}
                     <button
                       type="button"
                       onMouseDown={(e) => {

@@ -1,15 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { getSupabase } from '@/services/supabase'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { StaticSwirls } from '@/components/StaticSwirls'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 
 function resolveUserAvatarUrl(user: User | null): string | null {
   const meta: any = user?.user_metadata ?? {}
+  if (meta.noAvatar === true) return null
+  const avatarPath: string | undefined = meta.avatar_path
+  if (avatarPath) {
+    try {
+      const { data } = getSupabase().storage.from('public-assets').getPublicUrl(avatarPath)
+      const url = data.publicUrl as string
+      if (url) return url
+    } catch {}
+  }
   const identities: any[] = (user as any)?.identities ?? []
   const identityData = identities.find((i) => i?.identity_data)?.identity_data ?? {}
-  if (meta.noAvatar === true) return null
   return (
     meta.avatar_url ||
     meta.avatarURL ||
@@ -57,6 +67,7 @@ export function PublicProfile() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
+  const profilePdfRef = useRef<HTMLDivElement>(null)
   
   // Profile form state
   const [displayName, setDisplayName] = useState<string>('')
@@ -144,7 +155,37 @@ export function PublicProfile() {
     }
   }, [username])
 
-  
+  async function downloadPublicProfilePdf() {
+    const element = profilePdfRef.current
+    if (!element) return
+    const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#050B1C' })
+    const imgData = canvas.toDataURL('image/png')
+    const orientation = canvas.width > canvas.height ? 'l' : 'p'
+    const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height] })
+    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
+    pdf.save(`${username || 'profile'}.pdf`)
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const shouldDownload = params.has('pdf') || params.get('download') === '1'
+    if (!loading && shouldDownload) {
+      const t = setTimeout(() => {
+        downloadPublicProfilePdf().finally(() => {
+          try {
+            if (window.history && 'replaceState' in window.history) {
+              params.delete('pdf')
+              params.delete('download')
+              const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
+              window.history.replaceState({}, '', newUrl)
+            }
+          } catch {}
+        })
+      }, 300)
+      return () => clearTimeout(t)
+    }
+  }, [loading])
+
 
 
 
@@ -183,19 +224,17 @@ export function PublicProfile() {
               href="https://app.smartslate.io/portal"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg transition-colors"
-              title="Join SmartSlate"
+              className="px-3 py-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg transition-colors text-sm font-medium"
+              title="Join Smartslate"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
+              Join Smartslate
             </a>
           </div>
         </div>
       </header>
 
       {/* Master Profile Container */}
-      <div className="relative z-10 mx-auto max-w-5xl px-4 py-8">
+      <div ref={profilePdfRef} className="relative z-10 mx-auto max-w-5xl px-4 py-8">
         <div className="backdrop-blur-xl bg-white/[0.03] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <main className="space-y-8">
             {/* Main Profile Section */}
@@ -246,20 +285,8 @@ export function PublicProfile() {
                   </div>
                 </div>
                 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => window.open('https://app.smartslate.io/portal', '_blank')}
-                    className="p-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg transition-colors"
-                    title="Visit Portal"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                  </button>
-
-                </div>
+                {/* Action Buttons (none for public view) */}
+                <div className="flex gap-2" />
               </div>
               
               {/* Professional Info */}
@@ -482,7 +509,7 @@ export function PublicProfile() {
         <footer className="relative z-10 mt-12 pt-8 border-t border-white/10 text-center">
           <div className="flex flex-col items-center justify-center mb-4">
             <img src="/images/logos/logo.png" alt="SmartSlate" className="h-6 w-auto opacity-60 mb-2" />
-            <span className="text-white/60 text-sm">Powered by SmartSlate</span>
+            <span className="text-white/60 text-sm">Powered by Smartslate</span>
           </div>
           <p className="text-xs text-white/40 mb-4">
             Create your professional profile and showcase your achievements

@@ -2,8 +2,6 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { getSupabase } from '@/services/supabase'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import { paths, portalUserPath, publicProfilePath } from '@/routes/paths'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { getCapitalizedFirstName } from '@/lib/textUtils'
@@ -67,16 +65,25 @@ function NavSection({ title, items, defaultOpen = false }: NavSectionProps) {
 
 function resolveUserAvatarUrl(user: User | null): string | null {
   const meta: any = user?.user_metadata ?? {}
+  if (meta.noAvatar === true) return null
+  // Prefer stored avatar in Supabase storage if available
+  const avatarPath: string | undefined = meta.avatar_path
+  if (avatarPath) {
+    try {
+      const { data } = getSupabase().storage.from('public-assets').getPublicUrl(avatarPath)
+      const url = data.publicUrl as string
+      if (url) return url
+    } catch {}
+  }
   const identities: any[] = (user as any)?.identities ?? []
   const identityData = identities.find((i) => i?.identity_data)?.identity_data ?? {}
-  if (meta.noAvatar === true) return null
   return (
-    meta.avatar_url ||
-    meta.avatarURL ||
-    meta.avatar ||
-    meta.picture ||
-    identityData.avatar_url ||
-    identityData.picture ||
+    (meta.avatar_url as string) ||
+    (meta.avatarURL as string) ||
+    (meta.avatar as string) ||
+    (meta.picture as string) ||
+    (identityData.avatar_url as string) ||
+    (identityData.picture as string) ||
     null
   )
 }
@@ -356,8 +363,7 @@ export function PortalPage() {
 
   const [toast, setToast] = useState<{ id: number; kind: 'success' | 'error'; message: string } | null>(null)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
-  const [downloading, setDownloading] = useState<boolean>(false)
-  const profileCardRef = useRef<HTMLDivElement>(null)
+  
   useDocumentTitle(isSettings ? 'Smartslate | Settings' : (viewingProfile ? 'Smartslate | My Profile' : 'Smartslate | Portal'))
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
@@ -530,42 +536,7 @@ export function PortalPage() {
     navigate(portalUserPath(handle))
   }
 
-
-
-
-
-
-  async function downloadProfilePdf() {
-    const element = profileCardRef.current
-    if (!element) return
-    try {
-      setDownloading(true)
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#0b0b0b' })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' })
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      const margin = 10
-      let renderWidth = pageWidth - margin * 2
-      const imgProps = (pdf as any).getImageProperties(imgData)
-      let renderHeight = (imgProps.height * renderWidth) / imgProps.width
-      const maxHeight = pageHeight - margin * 2
-      if (renderHeight > maxHeight) {
-        renderHeight = maxHeight
-        renderWidth = (imgProps.width * renderHeight) / imgProps.height
-      }
-      const x = (pageWidth - renderWidth) / 2
-      const y = margin
-      pdf.addImage(imgData, 'PNG', x, y, renderWidth, renderHeight)
-      pdf.save(`${username || 'profile'}.pdf`)
-      setToast({ id: Date.now(), kind: 'success', message: 'PDF downloaded successfully.' })
-    } catch (err) {
-      setToast({ id: Date.now(), kind: 'error', message: 'Failed to generate PDF.' })
-      console.error(err)
-    } finally {
-      setDownloading(false)
-    }
-  }
+  
 
   const collapsedQuickItems = [
     { title: 'Ignite', icon: IconGraduationCap },
@@ -763,7 +734,7 @@ export function PortalPage() {
           ) : viewingProfile ? (
             <section className="mx-auto max-w-4xl px-4 py-6 animate-fade-in-up">
               {/* Clean Material Profile Card */}
-              <div ref={profileCardRef} className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 sm:p-8 mb-8 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 sm:p-8 mb-8 shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <div className="flex flex-col sm:flex-row gap-6">
                   {/* Simple Avatar Section */}
                   <div className="flex flex-col items-center sm:items-start">
@@ -847,19 +818,17 @@ export function PortalPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={downloadProfilePdf}
-                          disabled={downloading}
-                          className={`p-2 border border-white/20 text-white/80 hover:text-white hover:border-white/40 rounded-lg transition-colors ${downloading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                          title={downloading ? 'Generating PDF…' : 'Download PDF'}
-                          aria-label={downloading ? 'Generating PDF' : 'Download PDF'}
+                          onClick={() => {
+                            const url = `${window.location.origin}${publicProfilePath(username || 'user')}?pdf=1`
+                            window.open(url, '_blank')
+                          }}
+                          className="p-2 border border-white/20 text-white/80 hover:text-white hover:border-white/40 rounded-lg transition-colors"
+                          title="Download PDF"
+                          aria-label="Download PDF"
                         >
-                          {downloading ? (
-                            <div className="w-5 h-5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" />
-                            </svg>
-                          )}
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" />
+                          </svg>
                         </button>
 
                       </div>

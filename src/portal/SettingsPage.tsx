@@ -92,6 +92,15 @@ export function SettingsPage() {
 
   function getAvatarUrl(u: User | null): string | null {
     const meta: any = u?.user_metadata ?? {}
+    if (meta.noAvatar === true) return null
+    const avatarPath: string | undefined = meta.avatar_path
+    if (avatarPath) {
+      try {
+        const { data } = getSupabase().storage.from('public-assets').getPublicUrl(avatarPath)
+        const url = data.publicUrl as string
+        if (url) return url
+      } catch {}
+    }
     const identities: any[] = (u as any)?.identities ?? []
     const identityData = identities.find((i) => i?.identity_data)?.identity_data ?? {}
     return (
