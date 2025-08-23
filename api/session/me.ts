@@ -29,6 +29,13 @@ export default async function handler(req: AnyReq, res: AnyRes) {
       return
     }
 
+    const origin = req.headers.origin as string | undefined
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Credentials', 'true')
+      res.setHeader('Access-Control-Allow-Origin', origin)
+      res.setHeader('Vary', 'Origin')
+    }
+
     const cookies = parseCookies(req.headers.cookie)
     const token = cookies['ss_session']
     if (!token) {
@@ -42,6 +49,7 @@ export default async function handler(req: AnyReq, res: AnyRes) {
     const body = { sub: payload.sub, roles: (payload as any).roles }
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Cache-Control', 'no-store')
     res.end(JSON.stringify(body))
   } catch (_err) {
     res.statusCode = 401

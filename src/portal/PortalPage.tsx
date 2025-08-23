@@ -48,7 +48,7 @@ function NavSection({ title, items, defaultOpen = false, onItemClick }: NavSecti
                     <span
                       className={`ml-3 shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
                         tagTone === 'preview'
-                          ? 'border-primary-400/30 text-primary-500 bg-primary-400/10'
+                          ? 'border-primary-600/30 text-primary-400 bg-primary-600/10'
                           : 'border-white/10 text-white/60 bg-white/5'
                       }`}
                     >
@@ -564,7 +564,7 @@ export function PortalPage() {
   ]
 
   const solaraItems: NavItem[] = [
-    { label: 'Polaris', tagText: 'V1 - Preview', tagTone: 'preview' },
+    { label: 'Polaris', tagText: 'V2.6: Preview', tagTone: 'preview' },
     { label: 'Constellation', tagText: 'V1 - Preview', tagTone: 'preview' },
     { label: 'Nova', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
     { label: 'Orbit', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
