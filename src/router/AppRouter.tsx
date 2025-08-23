@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { paths } from '@/routes/paths'
 import AuthLanding from '@/pages/AuthLanding'
 import AuthCallback from '@/pages/AuthCallback'
@@ -11,6 +11,8 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path={paths.home} element={<AuthLanding />} />
+        {/* Alias /login to home for external redirects */}
+        <Route path="/login" element={<Navigate to={paths.home} replace />} />
         <Route path={paths.portal} element={<PortalPage />}>
           <Route path="settings" element={<SettingsContent />} />
         </Route>

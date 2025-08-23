@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
     "html2canvas": "^1.4.1",
+    "jose": "^5.2.4",
     "jspdf": "^3.0.1",
     "libphonenumber-js": "^1.12.13",
     "react": "^19.1.1",

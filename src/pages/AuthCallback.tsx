@@ -12,13 +12,38 @@ export default function AuthCallback() {
     getSupabase().auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return
       if (session) {
-        navigate(paths.portal, { replace: true })
+        // Issue shared session cookie and then redirect
+        const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || undefined
+        const sub = session.user?.email || session.user?.id || 'user'
+        const roles: string[] = []
+        fetch('/api/session/issue' + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ sub, roles }),
+        }).then(() => {
+          navigate(redirectTo || paths.portal, { replace: true })
+        }).catch(() => {
+          navigate(paths.portal, { replace: true })
+        })
         return
       }
       // Even if session isn't immediately available, auth.onAuthStateChange will handle it
     })
     const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
-      if (session) navigate(paths.portal, { replace: true })
+      if (session) {
+        const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || undefined
+        const sub = session.user?.email || session.user?.id || 'user'
+        const roles: string[] = []
+        fetch('/api/session/issue' + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ sub, roles }),
+        }).finally(() => {
+          navigate(redirectTo || paths.portal, { replace: true })
+        })
+      }
     })
     return () => {
       isMounted = false
