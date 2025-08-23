@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import { useParams } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { getSupabase } from '@/services/supabase'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { StaticSwirls } from '@/components/StaticSwirls'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
+import { generateProfilePDF } from '@/utils/pdfGenerator'
 
 function resolveUserAvatarUrl(user: User | null): string | null {
   const meta: any = user?.user_metadata ?? {}
@@ -40,7 +39,7 @@ function getUserInitial(user: User | null): string {
   return rawName.toString().trim().charAt(0).toUpperCase()
 }
 
-function UserAvatar({ user, sizeClass, textClass = 'text-sm font-semibold text-white/90', fallbackInitial }: { user: User | null; sizeClass: string; textClass?: string; fallbackInitial?: string }) {
+const UserAvatar = memo(function UserAvatar({ user, sizeClass, textClass = 'text-sm font-semibold text-white/90', fallbackInitial }: { user: User | null; sizeClass: string; textClass?: string; fallbackInitial?: string }) {
   const [imgError, setImgError] = useState(false)
   const url = resolveUserAvatarUrl(user)
   const showImg = Boolean(url) && !imgError
@@ -60,7 +59,7 @@ function UserAvatar({ user, sizeClass, textClass = 'text-sm font-semibold text-w
       )}
     </span>
   )
-}
+})
 
 export function PublicProfile() {
   const { username } = useParams()
@@ -158,12 +157,13 @@ export function PublicProfile() {
   async function downloadPublicProfilePdf() {
     const element = profilePdfRef.current
     if (!element) return
-    const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#050B1C' })
-    const imgData = canvas.toDataURL('image/png')
-    const orientation = canvas.width > canvas.height ? 'l' : 'p'
-    const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height] })
-    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
-    pdf.save(`${username || 'profile'}.pdf`)
+    
+    try {
+      await generateProfilePDF(element, `${username || 'profile'}.pdf`)
+    } catch (error) {
+      console.error('Failed to generate PDF:', error)
+      // You could add toast notification here if needed
+    }
   }
 
   useEffect(() => {

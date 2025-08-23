@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, memo, type CSSProperties } from 'react'
 
 type Props = {
   imageSrc: string
@@ -44,7 +44,7 @@ function createSeededRng(seed: number) {
   }
 }
 
-export function SwirlField({
+export const SwirlField = memo(function SwirlField({
   imageSrc,
   count = 120,
   minSize = 22,
@@ -376,6 +376,6 @@ export function SwirlField({
       ))}
     </div>
   )
-}
+})
 
 
