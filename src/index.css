@@ -109,13 +109,53 @@
   .logo-glow:hover {
     filter: drop-shadow(0 0 14px rgba(var(--primary), 0.45));
   }
+  /* Teal text outline (no fill) */
+  .text-outline-teal {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    /* Crisp 1px outline only */
+    -webkit-text-stroke: 1px rgb(var(--primary));
+    paint-order: stroke fill;
+    text-shadow: none;
+  }
+
+  /* Graceful fallback: if stroke isn't supported, show simple teal text instead of faux-fill shadow */
+  @supports not (-webkit-text-stroke: 1px #000) {
+    .text-outline-teal {
+      color: rgb(var(--primary));
+      -webkit-text-fill-color: initial;
+      -webkit-text-stroke: 0;
+    }
+  }
+
+  /* Image-filled text utility */
+  .text-image-fill {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    background-image: url('https://oyjslszrygcajdpwgxbe.supabase.co/storage/v1/object/public/public-assets/anime-character-near-galaxy-planet-illustration_converted.webp');
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    -webkit-background-clip: text;
+    background-clip: text;
+    /* Optional subtle lift for readability on dark bg */
+    text-shadow: 0 0 6px rgba(0,0,0,0.15);
+  }
   .swirl-pattern {
     position: absolute;
     inset: 0;
-    background-image: url('/images/logos/logo-swirl.png');
-    background-repeat: repeat;
-    background-size: 64px 64px;
-    opacity: 0.07;
+    /* Layered repeats for staggered rows and varied sizes */
+    background-image: url('/images/logos/logo-swirl.png'), url('/images/logos/logo-swirl.png'), url('/images/logos/logo-swirl.png');
+    background-repeat: repeat, repeat, repeat;
+    /* Balanced tiles: smaller, aesthetic, and still low density */
+    background-size: 240px 240px, 180px 180px, 140px 140px;
+    /* Offsets create a staggered lattice */
+    background-position: 0 0, 32px 32px, -16px 48px;
+    opacity: 0.065;
+    mix-blend-mode: soft-light;
+    /* Subtle vertical fade so swirls don't compete with header text */
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 20%, rgba(0,0,0,0.9) 70%, rgba(0,0,0,1) 100%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 20%, rgba(0,0,0,0.9) 70%, rgba(0,0,0,1) 100%);
     pointer-events: none;
   }
 

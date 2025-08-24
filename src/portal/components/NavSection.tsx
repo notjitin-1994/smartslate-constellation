@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 
 export type NavItem = string | { 
   label: string
@@ -16,10 +16,26 @@ export interface NavSectionProps {
 export const NavSection = memo(function NavSection({ 
   title, 
   items, 
-  defaultOpen = false, 
+  defaultOpen = true, 
   onItemClick 
 }: NavSectionProps) {
-  const [open, setOpen] = useState<boolean>(defaultOpen)
+  const sectionId = title.replace(/\s+/g, '-')
+  const storageKey = `portal:nav:${sectionId}:open`
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return defaultOpen ?? true
+    try {
+      const stored = localStorage.getItem(storageKey)
+      if (stored === '1') return true
+      if (stored === '0') return false
+    } catch {}
+    return defaultOpen ?? true
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, open ? '1' : '0')
+    } catch {}
+  }, [open, storageKey])
 
   return (
     <div className="select-none">
@@ -28,12 +44,12 @@ export const NavSection = memo(function NavSection({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-primary-500 hover:bg-white/5 rounded-lg transition pressable"
         aria-expanded={open}
-        aria-controls={`section-${title.replace(/\s+/g, '-')}`}
+        aria-controls={`section-${sectionId}`}
       >
         <span>{title}</span>
         <span className={`inline-block text-xs text-primary-500/70 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
       </button>
-      <div id={`section-${title.replace(/\s+/g, '-')}`} className={`${open ? 'block' : 'hidden'} mt-1 pl-2`}>
+      <div id={`section-${sectionId}`} className={`${open ? 'block' : 'hidden'} mt-1 pl-2`}>
         <ul className="space-y-0.5">
           {items.map((item) => {
             const { label, tagText, tagTone } =

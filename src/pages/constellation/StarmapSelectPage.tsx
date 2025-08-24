@@ -4,6 +4,7 @@ import { paths } from '@/routes/paths'
 import { constellationService } from '@/services/constellationService'
 import type { Starmap } from '@/types/constellation'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { PolarisStarmapEmbed } from '@/components/PolarisStarmapEmbed'
 
 export function StarmapSelectPage() {
   const navigate = useNavigate()
@@ -85,6 +86,13 @@ export function StarmapSelectPage() {
           Back
         </button>
       </div>
+
+      {selectedStarmap?.html && (
+        <div className="mb-8">
+          <PolarisStarmapEmbed html={selectedStarmap.html} title={selectedStarmap.title} />
+        </div>
+      )}
+
       <div>
           {/* Search and Filter */}
           <div className="flex flex-col md:flex-row gap-4 mb-8">

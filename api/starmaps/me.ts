@@ -52,14 +52,25 @@ export default async function handler(req: AnyReq, res: AnyRes) {
     const { payload } = await jwtVerify(token, secret, { issuer: 'app.smartslate.io', audience: 'smartslate.io' })
     const userId = payload.sub as string
 
-    // Query Polaris/Supabase directly via service role key (server-side only)
+    // Polaris service config
     const polarisUrl = getEnv('POLARIS_SUPABASE_URL')
     const polarisServiceKey = getEnv('POLARIS_SUPABASE_SERVICE_ROLE_KEY')
 
-    const url = new URL('/rest/v1/starmaps', polarisUrl)
+    // Optional single fetch by id
+    const baseUrl = new URL(req.url || '/', `https://${req.headers['x-forwarded-host'] || req.headers.host || 'app.smartslate.io'}`)
+    const id = baseUrl.searchParams.get('id') || undefined
+
+    // Source of truth: polaris_summaries
+    const url = new URL('/rest/v1/polaris_summaries', polarisUrl)
     url.searchParams.set('select', '*')
-    url.searchParams.set('created_by', `eq.${userId}`)
-    url.searchParams.set('order', 'updated_at.desc')
+    if (id) {
+      url.searchParams.set('id', `eq.${id}`)
+      url.searchParams.set('limit', '1')
+    } else {
+      // try common user columns
+      url.searchParams.set('or', `created_by.eq.${userId},user_id.eq.${userId},owner_id.eq.${userId},author_id.eq.${userId}`)
+      url.searchParams.set('order', 'updated_at.desc')
+    }
 
     const rsp = await fetch(url.toString(), {
       headers: {
@@ -67,7 +78,6 @@ export default async function handler(req: AnyReq, res: AnyRes) {
         'Authorization': `Bearer ${polarisServiceKey}`,
         'Content-Type': 'application/json',
       },
-      // cookies not needed; service role used
     })
 
     if (!rsp.ok) {
@@ -78,7 +88,34 @@ export default async function handler(req: AnyReq, res: AnyRes) {
       return
     }
 
-    const starmaps = await rsp.json()
+    const rows = await rsp.json()
+    const list = Array.isArray(rows) ? rows : []
+    const starmaps = list.map((r: any) => {
+      const title = r.title || r.name || r.report_title || r.company_name || 'Untitled'
+      const description = r.description || r.summary || r.executive_summary || ''
+      const created_at = r.created_at || new Date().toISOString()
+      const updated_at = r.updated_at || created_at
+      const metadata: Record<string, any> = {}
+      if (r.category) metadata.category = r.category
+      if (r.difficulty) metadata.difficulty = r.difficulty
+      if (r.duration) metadata.duration = r.duration
+      if (r.tags) metadata.tags = r.tags
+      return {
+        id: String(r.id),
+        title,
+        description,
+        created_at,
+        updated_at,
+        metadata,
+        source: 'polaris_summaries',
+        summary: r.summary,
+        cover_image_url: r.cover_image_url,
+        tags: r.tags,
+        html: r.summary_content || r.html || r.content_html,
+        raw: r,
+      }
+    })
+
     res.statusCode = 200
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Cache-Control', 'no-store')

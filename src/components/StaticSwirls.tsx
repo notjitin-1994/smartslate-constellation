@@ -34,8 +34,8 @@ export function StaticSwirls({
   count = 120,
   minSize = 22,
   maxSize = 48,
-  opacityMin = 0.06,
-  opacityMax = 0.12,
+  opacityMin = 0.084,
+  opacityMax = 0.168,
   areaPadding = 24,
 }: Props) {
   const [viewport, setViewport] = useState<{ width: number; height: number }>({ width: 0, height: 0 })

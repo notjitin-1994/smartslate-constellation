@@ -30,12 +30,13 @@ export default function AuthLanding() {
     }
   }, [navigate])
 
-  // Responsive swirl count: 40% of original on desktop, 32% on mobile
+  // Responsive swirl count: reduce more (~90% desktop / ~94% mobile)
   const originalCount = 128
   const computeSwirlCount = () => {
     const w = window.innerWidth
-    const desktopCount = Math.round(originalCount * 0.4)
-    const mobileCount = Math.round(originalCount * 0.32)
+    // 10% on desktop, 6% on mobile
+    const desktopCount = Math.round(originalCount * 0.10)
+    const mobileCount = Math.round(originalCount * 0.06)
     return w < 768 ? mobileCount : desktopCount
   }
   const [swirlCount, setSwirlCount] = useState<number>(computeSwirlCount())

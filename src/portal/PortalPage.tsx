@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { getSupabase } from '@/services/supabase'
-import { paths, publicProfilePath } from '@/routes/paths'
+import { paths, publicProfilePath, constellationPath } from '@/routes/paths'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { getCapitalizedFirstName } from '@/lib/textUtils'
 import { Brand } from '@/portal/components/Brand'
 import { NavSection, type NavItem } from '@/portal/components/NavSection'
 import { UserAvatar } from '@/portal/components/UserAvatar'
 import { SidebarToggleIcon, IconGraduationCap, IconChecklist, IconSun, SettingsIconImg, IconConstellation } from '@/portal/components/Icons'
+import { HeaderBackground } from '@/components/HeaderBackground'
+import { constellationService } from '@/services/constellationService'
+import type { Constellation } from '@/types/constellation'
 
 export function PortalPage() {
   const navigate = useNavigate()
@@ -31,6 +34,8 @@ export function PortalPage() {
 
   const [toast, setToast] = useState<{ id: number; kind: 'success' | 'error'; message: string } | null>(null)
   const [copySuccess, setCopySuccess] = useState<boolean>(false)
+  const [recentConstellations, setRecentConstellations] = useState<Constellation[]>([])
+  const [loadingRecents, setLoadingRecents] = useState<boolean>(false)
   
   useDocumentTitle(isSettings ? 'Smartslate | Settings' : (viewingProfile ? 'Smartslate | My Profile' : 'Smartslate | Portal'))
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -77,6 +82,30 @@ export function PortalPage() {
       subscription.unsubscribe()
     }
   }, [])
+
+  // Load recent constellations for sidebar
+  useEffect(() => {
+    let isMounted = true
+    async function loadRecents() {
+      try {
+        if (!user) {
+          if (isMounted) setRecentConstellations([])
+          return
+        }
+        setLoadingRecents(true)
+        const all = await constellationService.getUserConstellations()
+        if (!isMounted) return
+        setRecentConstellations((all || []).slice(0, 3))
+      } catch (err) {
+        if (isMounted) setRecentConstellations([])
+        console.error('Failed to load recent constellations:', err)
+      } finally {
+        if (isMounted) setLoadingRecents(false)
+      }
+    }
+    loadRecents()
+    return () => { isMounted = false }
+  }, [user])
 
   // profile menu opener removed; profile page navigation is used instead
 
@@ -222,6 +251,14 @@ export function PortalPage() {
     }
   }
 
+  function formatDateShort(iso: string): string {
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })
+    } catch {
+      return ''
+    }
+  }
+
   const collapsedQuickItems = [
     { title: 'Ignite', icon: IconGraduationCap },
     { title: 'Strategic Skills Architecture', icon: IconChecklist },
@@ -293,6 +330,40 @@ export function PortalPage() {
               <NavSection title="Ignite" items={["Explore Learning", "My Learning"]} />
               <NavSection title="Strategic Skills Architecture" items={["Explore Partnership", "My Architecture"]} />
               <NavSection title="Solara" items={solaraItems} onItemClick={handleSolaraItemClick} />
+
+              {/* Recent Constellations */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <h4 className="px-3 text-xs font-semibold text-white/60 mb-2">Recent Constellations</h4>
+                {loadingRecents ? (
+                  <div className="px-3 py-2 text-xs text-white/50">Loading…</div>
+                ) : recentConstellations.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-white/50">No constellations yet</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {recentConstellations.map((c) => (
+                      <li
+                        key={c.id}
+                        onClick={() => navigate(constellationPath(c.id))}
+                        className="px-3 py-1.5 text-sm text-white/80 hover:text-white hover:bg-white/5 rounded-lg flex items-center justify-between cursor-pointer pressable"
+                        title={c.title || 'Untitled'}
+                      >
+                        <span className="truncate mr-2">{c.title || 'Untitled'}</span>
+                        <span className="text-[11px] text-white/50 shrink-0">{formatDateShort(c.created_at)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-2 px-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate(paths.constellations)}
+                    className="text-xs text-primary-400 hover:text-primary-300 hover:underline"
+                    title="View all Constellations"
+                  >
+                    View all constellations →
+                  </button>
+                </div>
+              </div>
             </nav>
           )}
 
@@ -377,10 +448,9 @@ export function PortalPage() {
         </aside>
 
         <main className="flex-1 min-w-0 h-full overflow-y-auto">
-          <header className="sticky top-0 z-10 border-b border-white/10 bg-[rgb(var(--bg))]/80 backdrop-blur-xl mb-12 md:mb-0">
+          <header className="sticky top-0 z-10 border-b border-white/10 bg-[rgb(var(--bg))]/80 backdrop-blur-xl mb-12 md:mb-0 relative">
+            <HeaderBackground mode="scatter" />
             <div className="relative mx-auto max-w-7xl px-4 py-3 sm:py-4">
-              <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-gradient-to-br from-primary-400/10 via-fuchsia-400/5 to-transparent blur-2xl" />
-              <div aria-hidden="true" className="pointer-events-none swirl-pattern" />
               <div className="relative animate-fade-in-up">
                 <div className="flex items-center md:hidden gap-2">
                   <Brand />
@@ -430,14 +500,11 @@ export function PortalPage() {
                 ) : (
                   <>
                     <h1 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white animate-fade-in-up">
-                      <span className="gradient-text-animated">Into the celestial canvas of learning—Constellation</span>
+                      <span className="block text-primary-500">Into the celestial canvas of learning:</span>
+                      <span className="block text-image-fill">Constellation</span>
                     </h1>
-                    <p className="mt-2 text-sm sm:text-base text-white/70 max-w-2xl animate-fade-in-up animate-delay-150">
-                      Turn raw content into world‑class learning experiences with AI.
-                    </p>
                   </>
                 )}
-                <div aria-hidden="true" className="mt-3 h-px w-16 bg-gradient-to-r from-white/40 to-transparent" />
               </div>
             </div>
           </header>

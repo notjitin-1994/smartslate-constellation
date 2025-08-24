@@ -16,6 +16,7 @@ const CreateConstellationPage = lazy(() => import('@/pages/constellation/CreateC
 const StarmapSelectPage = lazy(() => import('@/pages/constellation/StarmapSelectPage').then(m => ({ default: m.StarmapSelectPage })))
 const ConstellationEditorPage = lazy(() => import('@/pages/constellation/ConstellationEditorPage').then(m => ({ default: m.ConstellationEditorPage })))
 const ConstellationViewPage = lazy(() => import('@/pages/constellation/ConstellationViewPage').then(m => ({ default: m.ConstellationViewPage })))
+const ConstellationsPage = lazy(() => import('@/pages/constellation/ConstellationsPage').then(m => ({ default: m.ConstellationsPage })))
 
 // Loading component
 function PageLoader() {
@@ -47,21 +48,22 @@ export function AppRouter() {
             <Route path="settings" element={<SettingsContent />} />
           </Route>
           
-          {/* Catch-all: send any unknown routes to dashboard */}
-          <Route path="*" element={<Navigate to={paths.dashboard} replace />} />
-          
           {/* Constellations inside portal layout */}
           <Route path={paths.constellations} element={
             <RequireAuth>
               <PortalPage />
             </RequireAuth>
           }>
+            <Route index element={<ConstellationsPage />} />
             <Route path="create" element={<CreateConstellationPage />} />
             <Route path="create/starmap" element={<StarmapSelectPage />} />
             <Route path=":id" element={<ConstellationViewPage />} />
             <Route path=":id/edit" element={<ConstellationEditorPage />} />
             <Route path="create/new" element={<ConstellationEditorPage />} />
           </Route>
+          
+          {/* Catch-all: send any unknown routes to dashboard */}
+          <Route path="*" element={<Navigate to={paths.dashboard} replace />} />
           
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path={paths.publicProfile} element={<PublicProfile />} />

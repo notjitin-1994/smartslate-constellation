@@ -1,42 +1,16 @@
-import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { paths, constellationPath } from '@/routes/paths'
-import { constellationService } from '@/services/constellationService'
-import type { Constellation } from '@/types/constellation'
+import { paths } from '@/routes/paths'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function DashboardPage() {
   const navigate = useNavigate()
-  const [constellations, setConstellations] = useState<Constellation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
   useDocumentTitle('Constellation - Dashboard')
-
-  useEffect(() => {
-    loadConstellations()
-  }, [])
-
-  async function loadConstellations() {
-    try {
-      setLoading(true)
-      const data = await constellationService.getUserConstellations()
-      setConstellations(data)
-    } catch (err) {
-      setError('Failed to load constellations')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function handleCreateNew() {
     navigate(paths.constellationCreate)
   }
 
-  function handleViewConstellation(id: string) {
-    navigate(constellationPath(id))
-  }
+  
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-6">
@@ -57,7 +31,7 @@ export function DashboardPage() {
             {/* Existing Constellations */}
             <div 
               className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-              onClick={() => setActiveView('existing')}
+              onClick={() => navigate(paths.constellations)}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative z-10">
@@ -105,83 +79,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Existing Constellations List */}
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white/80" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-400">{error}</p>
-              <button 
-                onClick={loadConstellations}
-                className="mt-4 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          ) : constellations.length === 0 ? (
-            <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/10">
-              <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                <svg className="w-12 h-12 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">No Constellations Yet</h3>
-              <p className="text-white/60 mb-6">Create your first constellation to get started</p>
-              <button
-                onClick={handleCreateNew}
-                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105"
-              >
-                Create Your First Constellation
-              </button>
-            </div>
-          ) : (
-            <div>
-              <h3 className="text-2xl font-bold text-white mb-6">Your Constellations</h3>
-              <div className="grid gap-4">
-                {constellations.map((constellation) => (
-                  <div
-                    key={constellation.id}
-                    onClick={() => handleViewConstellation(constellation.id)}
-                    className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
-                          {constellation.title}
-                        </h4>
-                        <p className="text-white/60 mb-3 line-clamp-2">
-                          {constellation.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className={`px-3 py-1 rounded-full ${
-                            constellation.status === 'completed' 
-                              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                              : constellation.status === 'processing'
-                              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                              : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                          }`}>
-                            {constellation.status}
-                          </span>
-                          <span className="text-white/50">
-                            {constellation.media_items?.length || 0} media items
-                          </span>
-                          <span className="text-white/50">
-                            {constellation.artifacts?.length || 0} artifacts
-                          </span>
-                        </div>
-                      </div>
-                      <svg className="w-6 h-6 text-white/40 group-hover:text-white/80 transform group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Removed the extra CTA section per requirements */}
 
           {/* Features Section */}
           <div className="mt-16 grid md:grid-cols-3 gap-6">
@@ -216,9 +114,4 @@ export function DashboardPage() {
       </div>
     </section>
   )
-}
-
-function setActiveView(view: string) {
-  // This would be implemented to switch views
-  console.log('Switching to view:', view)
 }

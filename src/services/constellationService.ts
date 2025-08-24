@@ -325,8 +325,8 @@ export class ConstellationService {
   // Get a specific starmap
   async getStarmap(id: string): Promise<Starmap | null> {
     try {
-      // Try Polaris API first
-      const response = await fetch(`https://polaris.smartslate.io/api/starmaps/${id}`, {
+      // Use our server proxy (polaris_summaries) for exact parity
+      const response = await fetch(`/api/starmaps/me?id=${encodeURIComponent(id)}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -336,7 +336,8 @@ export class ConstellationService {
       if (response.ok) {
         if (this.isJsonResponse(response)) {
           const data = await response.json()
-          return data.starmap
+          const starmap = Array.isArray(data?.starmaps) ? data.starmaps[0] : null
+          if (starmap) return starmap
         } else {
           const text = await response.text()
           console.warn('Expected JSON from Polaris API but received non-JSON. First 120 chars:', text.slice(0, 120))

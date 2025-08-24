@@ -8,6 +8,13 @@ export interface Starmap {
   updated_at: string
   modules?: StarmapModule[]
   metadata?: Record<string, any>
+  // Polaris integration (optional)
+  source?: 'polaris_summaries' | 'starmaps' | string
+  summary?: string
+  cover_image_url?: string
+  tags?: string[] | string
+  html?: string
+  raw?: any
 }
 
 export interface StarmapModule {
