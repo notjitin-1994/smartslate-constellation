@@ -13,7 +13,9 @@ export async function login(params: { identifier: IdentifierValue; password: str
   if (error) throw new Error(error.message)
 
   try {
-    const sub = identifier.email
+    // Prefer stable Supabase user id for cross-app correlation
+    const { data: { user } } = await getSupabase().auth.getUser()
+    const sub = user?.id || identifier.email
     const roles: string[] = []
     const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || undefined
     await fetch('/api/session/issue' + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''), {

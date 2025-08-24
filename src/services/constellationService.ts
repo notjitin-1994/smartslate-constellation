@@ -3,6 +3,7 @@ import type {
   Constellation, 
   MediaItem, 
   LearningArtifact, 
+  NewLearningArtifact,
   Starmap,
   AIAnalysis 
 } from '@/types/constellation'
@@ -192,14 +193,19 @@ export class ConstellationService {
   // Add learning artifact
   async addArtifact(
     constellationId: string,
-    artifact: Omit<LearningArtifact, 'id' | 'created_at' | 'updated_at'>
+    artifact: NewLearningArtifact
   ): Promise<LearningArtifact> {
+    const insertPayload = {
+      type: artifact.type,
+      title: artifact.title,
+      content: artifact.content,
+      metadata: artifact.metadata || {},
+      constellation_id: constellationId,
+    }
+
     const { data, error } = await this.supabase
       .from('learning_artifacts')
-      .insert({
-        ...artifact,
-        constellation_id: constellationId
-      })
+      .insert(insertPayload)
       .select()
       .single()
 
@@ -239,20 +245,31 @@ export class ConstellationService {
 
   // Fetch only the current user's starmaps (created in Polaris)
   async fetchUserStarmaps(): Promise<Starmap[]> {
-    const { data: { user } } = await this.supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    // Try server-side proxy first (uses Polaris service role)
+    try {
+      const response = await fetch('/api/starmaps/me', {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (response.ok) {
+        const body = await response.json()
+        if (Array.isArray(body?.starmaps)) return body.starmaps as Starmap[]
+      }
+    } catch (err) {
+      console.error('Proxy starmap fetch failed, falling back to Supabase:', err)
+    }
 
-    const { data, error } = await this.supabase
+    // Fallback to app database (expects shared starmaps table)
+    const { data: supaData, error: supaError } = await this.supabase
       .from('starmaps')
       .select('*')
-      .eq('created_by', user.id)
       .order('updated_at', { ascending: false })
 
-    if (error) {
-      console.error('Failed to fetch user starmaps:', error)
+    if (supaError) {
+      console.error('Failed to fetch starmaps from Supabase:', supaError)
       return []
     }
-    return data || []
+    return (supaData as Starmap[]) || []
   }
 
   // Subscribe to realtime changes for the current user's starmaps

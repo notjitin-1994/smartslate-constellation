@@ -14,7 +14,7 @@ export default function AuthCallback() {
       if (session) {
         // Issue shared session cookie and then redirect
         const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || undefined
-        const sub = session.user?.email || session.user?.id || 'user'
+        const sub = session.user?.id || session.user?.email || 'user'
         const roles: string[] = []
         fetch('/api/session/issue' + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''), {
           method: 'POST',
@@ -33,7 +33,7 @@ export default function AuthCallback() {
     const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
       if (session) {
         const redirectTo = new URLSearchParams(window.location.search).get('redirectTo') || undefined
-        const sub = session.user?.email || session.user?.id || 'user'
+        const sub = session.user?.id || session.user?.email || 'user'
         const roles: string[] = []
         fetch('/api/session/issue' + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''), {
           method: 'POST',

@@ -69,6 +69,14 @@ export interface LearningArtifact {
   updated_at: string
 }
 
+// Used when creating new artifacts client-side before persistence
+export interface NewLearningArtifact {
+  type: ArtifactType
+  title: string
+  content: any
+  metadata?: Record<string, any>
+}
+
 export type ArtifactType = 
   | 'storyboard'
   | 'voiceover_script'

@@ -1,7 +1,7 @@
 import type { 
   MediaItem, 
   AIAnalysis, 
-  LearningArtifact,
+  NewLearningArtifact,
   StoryboardSlide,
   ColorPalette,
   VoiceoverScript,
@@ -129,8 +129,8 @@ export class LLMService {
   async generateAllArtifacts(
     mediaItems: MediaItem[],
     metadata?: ConstellationMetadata
-  ): Promise<LearningArtifact[]> {
-    const artifacts: LearningArtifact[] = []
+  ): Promise<NewLearningArtifact[]> {
+    const artifacts: NewLearningArtifact[] = []
     
     // Generate each type of artifact
     const [generatedStoryboard, voiceover, colorPalette, soundInspiration] = await Promise.all([
@@ -145,53 +145,33 @@ export class LLMService {
       // Generate interaction designs
       const interactions = await this.generateInteractionDesigns(mediaItems, metadata)
       artifacts.push({
-        id: '',
-        constellation_id: '',
         type: 'interaction_design',
         title: 'Interaction Design Guide',
         content: interactions,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       })
     }
 
     // Package artifacts
     artifacts.push(
       {
-        id: '',
-        constellation_id: '',
         type: 'storyboard',
         title: 'Course Storyboard',
         content: generatedStoryboard,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       },
       {
-        id: '',
-        constellation_id: '',
         type: 'voiceover_script',
         title: 'Voiceover Script',
         content: voiceover,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       },
       {
-        id: '',
-        constellation_id: '',
         type: 'color_palette',
         title: 'Visual Design Palette',
         content: colorPalette,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       },
       {
-        id: '',
-        constellation_id: '',
         type: 'sound_inspiration',
         title: 'Audio Design Guide',
         content: soundInspiration,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       }
     )
 
