@@ -266,7 +266,7 @@ export function PortalPage() {
   ]
 
   const solaraItems: NavItem[] = [
-    { label: 'Polaris', tagText: 'V2.6 Preview', tagTone: 'preview' },
+    { label: 'Polaris', tagText: '2.5 Preview', tagTone: 'preview' },
     { label: 'Constellation', tagText: 'V2: Preview', tagTone: 'preview' },
     { label: 'Nova', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
     { label: 'Orbit', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
