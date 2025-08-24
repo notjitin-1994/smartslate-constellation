@@ -11,6 +11,11 @@ import type {
 export class ConstellationService {
   private supabase = getSupabase()
 
+  private isJsonResponse(response: Response): boolean {
+    const contentType = response.headers.get('content-type') || ''
+    return contentType.includes('application/json')
+  }
+
   // Fetch all constellations for the current user
   async getUserConstellations(): Promise<Constellation[]> {
     const { data: { user } } = await this.supabase.auth.getUser()
@@ -222,8 +227,18 @@ export class ConstellationService {
         headers: { 'Content-Type': 'application/json' },
       })
       if (response.ok) {
-        const data = await response.json()
-        return data.starmaps || []
+        if (this.isJsonResponse(response)) {
+          const data = await response.json()
+          return data.starmaps || []
+        } else {
+          const text = await response.text()
+          console.warn('Expected JSON from /api/starmaps/me but received non-JSON. First 120 chars:', text.slice(0, 120))
+        }
+      } else {
+        try {
+          const text = await response.text()
+          console.error('Proxy /api/starmaps/me returned', response.status, text.slice(0, 200))
+        } catch {}
       }
     } catch (error) {
       console.error('Failed to fetch Polaris starmaps via proxy:', error)
@@ -252,8 +267,18 @@ export class ConstellationService {
         headers: { 'Content-Type': 'application/json' },
       })
       if (response.ok) {
-        const body = await response.json()
-        if (Array.isArray(body?.starmaps)) return body.starmaps as Starmap[]
+        if (this.isJsonResponse(response)) {
+          const body = await response.json()
+          if (Array.isArray(body?.starmaps)) return body.starmaps as Starmap[]
+        } else {
+          const text = await response.text()
+          console.warn('Expected JSON from /api/starmaps/me but received non-JSON. First 120 chars:', text.slice(0, 120))
+        }
+      } else {
+        try {
+          const text = await response.text()
+          console.error('Proxy /api/starmaps/me returned', response.status, text.slice(0, 200))
+        } catch {}
       }
     } catch (err) {
       console.error('Proxy starmap fetch failed, falling back to Supabase:', err)
@@ -309,8 +334,13 @@ export class ConstellationService {
       })
 
       if (response.ok) {
-        const data = await response.json()
-        return data.starmap
+        if (this.isJsonResponse(response)) {
+          const data = await response.json()
+          return data.starmap
+        } else {
+          const text = await response.text()
+          console.warn('Expected JSON from Polaris API but received non-JSON. First 120 chars:', text.slice(0, 120))
+        }
       }
     } catch (error) {
       console.error('Failed to fetch from Polaris API:', error)

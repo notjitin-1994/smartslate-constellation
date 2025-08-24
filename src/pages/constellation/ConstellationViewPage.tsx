@@ -41,7 +41,7 @@ export function ConstellationViewPage() {
     
     try {
       await constellationService.deleteConstellation(constellation.id)
-      navigate(paths.portal)
+      navigate(paths.dashboard)
     } catch (error) {
       console.error('Failed to delete constellation:', error)
       alert('Failed to delete constellation')
@@ -194,7 +194,7 @@ export function ConstellationViewPage() {
         <div className="text-center py-24">
           <p className="text-white/60 mb-4">Constellation not found</p>
           <button
-            onClick={() => navigate(paths.portal)}
+            onClick={() => navigate(paths.dashboard)}
             className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
           >
             Back to Portal
@@ -213,7 +213,7 @@ export function ConstellationViewPage() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => navigate(paths.portal)}
+            onClick={() => navigate(paths.dashboard)}
             className="px-3 py-2 text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-colors"
           >
             Portal

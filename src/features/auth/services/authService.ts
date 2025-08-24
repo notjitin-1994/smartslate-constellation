@@ -27,7 +27,7 @@ export async function login(params: { identifier: IdentifierValue; password: str
     if (redirectTo) {
       window.location.assign(redirectTo)
     } else {
-      window.location.assign(paths.portal)
+      window.location.assign(paths.dashboard)
     }
   } catch (e) {
     // eslint-disable-next-line no-console

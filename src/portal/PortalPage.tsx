@@ -2,230 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { getSupabase } from '@/services/supabase'
-import { paths, portalUserPath, publicProfilePath } from '@/routes/paths'
+import { paths, publicProfilePath } from '@/routes/paths'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { getCapitalizedFirstName } from '@/lib/textUtils'
-
-
-type NavItem = string | { label: string; tagText?: string; tagTone?: 'preview' | 'soon' | 'info'; active?: boolean }
-
-type NavSectionProps = {
-  title: string
-  items: NavItem[]
-  defaultOpen?: boolean
-  onItemClick?: (item: NavItem) => void
-}
-
-function NavSection({ title, items, defaultOpen = false, onItemClick }: NavSectionProps) {
-  const [open, setOpen] = useState<boolean>(defaultOpen)
-
-  return (
-    <div className="select-none">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-primary-500 hover:bg-white/5 rounded-lg transition pressable"
-        aria-expanded={open}
-        aria-controls={`section-${title.replace(/\s+/g, '-')}`}
-      >
-        <span>{title}</span>
-        <span className={`inline-block text-xs text-primary-500/70 transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
-      </button>
-      <div id={`section-${title.replace(/\s+/g, '-')}`} className={`${open ? 'block' : 'hidden'} mt-1 pl-2`}>
-        <ul className="space-y-0.5">
-          {items.map((item) => {
-            const { label, tagText, tagTone, active } =
-              typeof item === 'string' ? { label: item } : item
-            return (
-              <li key={label}>
-                <a
-                  href="#"
-                  onClick={(e) => { e.preventDefault(); onItemClick?.(item) }}
-                  className={`flex items-center justify-between px-3 py-1.5 text-sm rounded-lg transition pressable ${active ? 'text-primary-400 bg-primary-600/10 border border-primary-600/30' : 'text-white/75 hover:text-primary-500 focus-visible:text-primary-500 active:text-primary-500 hover:bg-primary-500/5'}`}
-                >
-                  <span className="truncate">{label}</span>
-                  {tagText && (
-                    <span
-                      className={`ml-3 shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                        tagTone === 'preview'
-                          ? 'border-primary-600/30 text-primary-400 bg-primary-600/10'
-                          : 'border-white/10 text-white/60 bg-white/5'
-                      }`}
-                    >
-                      {tagText}
-                    </span>
-                  )}
-                </a>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-function resolveUserAvatarUrl(user: User | null): string | null {
-  const meta: any = user?.user_metadata ?? {}
-  if (meta.noAvatar === true) return null
-  // Prefer stored avatar in Supabase storage if available
-  const avatarPath: string | undefined = meta.avatar_path
-  if (avatarPath) {
-    try {
-      const { data } = getSupabase().storage.from('public-assets').getPublicUrl(avatarPath)
-      const url = data.publicUrl as string
-      if (url) return url
-    } catch {}
-  }
-  const identities: any[] = (user as any)?.identities ?? []
-  const identityData = identities.find((i) => i?.identity_data)?.identity_data ?? {}
-  return (
-    (meta.avatar_url as string) ||
-    (meta.avatarURL as string) ||
-    (meta.avatar as string) ||
-    (meta.picture as string) ||
-    (identityData.avatar_url as string) ||
-    (identityData.picture as string) ||
-    null
-  )
-}
-
-function getUserInitial(user: User | null): string {
-  const rawName = (user?.user_metadata?.first_name as string) ||
-    (user?.user_metadata?.name as string) ||
-    (user?.user_metadata?.full_name as string) ||
-    (user?.email as string) ||
-    'U'
-  return rawName.toString().trim().charAt(0).toUpperCase()
-}
-
-function UserAvatar({ user, sizeClass, textClass = 'text-sm font-semibold text-white/90' }: { user: User | null; sizeClass: string; textClass?: string }) {
-  const [imgError, setImgError] = useState(false)
-  const url = resolveUserAvatarUrl(user)
-  const showImg = Boolean(url) && !imgError
-  return (
-    <span className={`inline-flex items-center justify-center ${sizeClass} rounded-full border border-white/10 bg-white/5 overflow-hidden`}>
-      {showImg ? (
-        <img
-          src={url as string}
-          alt="User avatar"
-          className="w-full h-full object-cover"
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <span className={textClass}>{getUserInitial(user)}</span>
-      )}
-    </span>
-  )
-}
-
-// Removed unused WorkspaceActionCard to align with nested portal content
-
-function Brand() {
-  return (
-    <a href="/portal" className="inline-flex items-center gap-2" aria-label="SmartSlate">
-      <img src="/images/logos/logo.png" alt="SmartSlate" className="h-6 w-auto logo-glow" />
-    </a>
-  )
-}
-
-function SidebarToggleIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
-      <path d="M9 5v14" />
-    </svg>
-  )
-}
-
-// Removed unused icon components that were part of the previous landing cards
-
-// Removed unused IconArrowRight
-
-function IconGraduationCap({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M22 9L12 5 2 9l10 4 6-2.4V16" />
-      <path d="M6 10v3.5c0 1.6 2.7 2.9 6 2.9s6-1.3 6-2.9V10" />
-    </svg>
-  )
-}
-
-function IconChecklist({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="4" y="3.5" width="16" height="17" rx="2.5" />
-      <path d="M8 8.5h6" />
-      <path d="M8 12h6" />
-      <path d="M8 15.5h6" />
-      <path d="M6.5 9.5l1 1 2-2" />
-      <path d="M6.5 13l1 1 2-2" />
-    </svg>
-  )
-}
-
-function IconSun({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2.5v2.5M12 19v2.5M4.5 12H2M22 12h-2.5M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8" />
-    </svg>
-  )
-}
-
-function SettingsIconImg({ className = '' }: { className?: string }) {
-  return (
-    <img
-      src="https://oyjslszrygcajdpwgxbe.supabase.co/storage/v1/object/public/public-assets/gear.png"
-      alt="Settings"
-      className={`select-none ${className}`}
-      style={{ objectFit: 'contain' }}
-      loading="lazy"
-    />
-  )
-}
+import { Brand } from '@/portal/components/Brand'
+import { NavSection, type NavItem } from '@/portal/components/NavSection'
+import { UserAvatar } from '@/portal/components/UserAvatar'
+import { SidebarToggleIcon, IconGraduationCap, IconChecklist, IconSun, SettingsIconImg, IconConstellation } from '@/portal/components/Icons'
 
 export function PortalPage() {
   const navigate = useNavigate()
@@ -410,17 +193,14 @@ export function PortalPage() {
   }, [user])
 
   useEffect(() => {
+    // If profile routes are no longer supported, skip redirect logic
     if (!viewingProfile) return
-    const param = decodeURIComponent((userParam as string) || '')
-    if (username && param && param !== username) {
-      navigate(portalUserPath(username), { replace: true })
-    }
   }, [username, viewingProfile, userParam, navigate])
 
   function goToProfile() {
-    const handle = getUsernameFromMeta() || sanitizeUsername(getFirstName())
+    // Profile pages deprecated from navigation; could navigate to dashboard or settings instead
     closeProfileMenu()
-    navigate(portalUserPath(handle))
+    navigate(paths.dashboard)
   }
 
   
@@ -439,7 +219,7 @@ export function PortalPage() {
     if (label === 'Polaris') {
       startPageLeaveAndRedirect('https://polaris.smartslate.io')
     } else if (label === 'Constellation') {
-      navigate(paths.portal)
+      navigate(paths.dashboard)
     }
   }
 
@@ -451,7 +231,7 @@ export function PortalPage() {
 
   const solaraItems: NavItem[] = [
     { label: 'Polaris', tagText: 'V2.6 Preview', tagTone: 'preview' },
-    { label: 'Constellation', tagText: 'V2: Preview', tagTone: 'preview', active: isConstellationDomain },
+    { label: 'Constellation', tagText: 'V2: Preview', tagTone: 'preview' },
     { label: 'Nova', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
     { label: 'Orbit', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
     { label: 'Spectrum', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
@@ -460,7 +240,7 @@ export function PortalPage() {
   return (
     <div className={`h-screen w-full overflow-hidden bg-[rgb(var(--bg))] text-[rgb(var(--text))]${isLeaving ? ' page-leave' : ''}`}>
       <div className="flex h-full">
-        <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16 lg:w-16' : 'md:w-72 lg:w-80'} flex-col border-r border-white/10 bg-white/5/50 backdrop-blur-xl transition-[width] duration-300 ease-in-out`}>
+        <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16 lg:w-16' : 'md:w-72 lg:w-80'} flex-col border-r border-white/10 bg-white/5 backdrop-blur-xl transition-[width] duration-300 ease-in-out`}>
           <div className={`px-3 ${sidebarCollapsed ? 'py-2' : 'px-4 py-4'} border-b border-white/10 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2 sticky top-0 z-10`}>
             {!sidebarCollapsed && <Brand />}
             <button
@@ -489,13 +269,11 @@ export function PortalPage() {
               {/* Subscribe (collapsed) */}
               <button
                 type="button"
-                title="Subscribe"
+                title="Subscribe to Constellation"
                 onClick={() => startPageLeaveAndRedirect('https://smartslate.io/subscribe')}
                 className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
               >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3l2.39 4.84L20 9.27l-4 3.89.94 5.48L12 16.9l-4.94 1.74L8 13.16 4 9.27l5.61-1.43L12 3z" />
-                </svg>
+                <IconConstellation className="h-5 w-5" />
               </button>
               {/* Logout (collapsed) */}
               <button
@@ -543,6 +321,15 @@ export function PortalPage() {
               <div className="px-3 py-3 space-y-2">
                 <button
                   type="button"
+                  onClick={() => startPageLeaveAndRedirect('https://smartslate.io/subscribe')}
+                  className="w-full inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-primary-600/30 bg-primary-600/15 text-primary-200 hover:bg-primary-600/25 transition pressable"
+                  title="Subscribe to Constellation"
+                >
+                  <IconConstellation className="w-5 h-5" />
+                  <span>Subscribe to Constellation</span>
+                </button>
+                <button
+                  type="button"
                   onClick={goToProfile}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 transition pressable"
                   title={`${getCapitalizedFirstName((user?.user_metadata?.first_name as string) || (user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || 'Your')}'s Profile`}
@@ -559,17 +346,6 @@ export function PortalPage() {
                       return user && first && first !== 'Your' ? `${first}'s Profile` : 'Your Profile'
                     })()}
                   </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => startPageLeaveAndRedirect('https://smartslate.io/subscribe')}
-                  className="w-full inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-primary-600/30 bg-primary-600/15 text-primary-200 hover:bg-primary-600/25 transition pressable"
-                  title="Subscribe"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3l2.39 4.84L20 9.27l-4 3.89.94 5.48L12 16.9l-4.94 1.74L8 13.16 4 9.27l5.61-1.43L12 3z" />
-                  </svg>
-                  <span>Subscribe</span>
                 </button>
                 <button
                   type="button"
@@ -605,6 +381,7 @@ export function PortalPage() {
           <header className="sticky top-0 z-10 border-b border-white/10 bg-[rgb(var(--bg))]/80 backdrop-blur-xl mb-12 md:mb-0">
             <div className="relative mx-auto max-w-7xl px-4 py-3 sm:py-4">
               <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-gradient-to-br from-primary-400/10 via-fuchsia-400/5 to-transparent blur-2xl" />
+              <div aria-hidden="true" className="pointer-events-none swirl-pattern" />
               <div className="relative animate-fade-in-up">
                 <div className="flex items-center md:hidden gap-2">
                   <Brand />
@@ -631,7 +408,7 @@ export function PortalPage() {
                     <div className="mt-2 flex items-start justify-between gap-3">
                       <div>
                         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white animate-fade-in-up">
-                          <span className="text-primary-600">{getFirstName()}</span>
+                          <span className="gradient-text-animated">{getFirstName()}</span>
                           <span>'s Profile</span>
                         </h1>
                         <p className="mt-2 text-sm sm:text-base text-white/70 max-w-3xl animate-fade-in-up animate-delay-150">
@@ -654,26 +431,10 @@ export function PortalPage() {
                 ) : (
                   <>
                     <h1 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white animate-fade-in-up">
-                      {(() => {
-                        const rawName = (user?.user_metadata?.first_name as string) ||
-                          (user?.user_metadata?.name as string) ||
-                          (user?.user_metadata?.full_name as string) ||
-                          (user?.email as string) ||
-                          ''
-                        const firstName = rawName.toString().trim().split(' ')[0]
-                        return user && firstName ? (
-                          <>
-                            <span>Welcome to the Portal, </span>
-                            <span className="text-primary-600">{firstName}</span>
-                            <span>.</span>
-                          </>
-                        ) : (
-                          <>Welcome to the Portal.</>
-                        )
-                      })()}
+                      <span className="gradient-text-animated">Into the celestial canvas of learning—Constellation</span>
                     </h1>
-                    <p className="mt-2 text-sm sm:text-base text-white/70 max-w-3xl animate-fade-in-up animate-delay-150">
-                      Your gateway to explore and connect with the Smartslate ecosystem — discover the home of every product in one place.
+                    <p className="mt-2 text-sm sm:text-base text-white/70 max-w-2xl animate-fade-in-up animate-delay-150">
+                      Turn raw content into world‑class learning experiences with AI.
                     </p>
                   </>
                 )}
@@ -687,13 +448,13 @@ export function PortalPage() {
           ) : viewingProfile ? (
             <section className="mx-auto max-w-4xl px-4 py-6 animate-fade-in-up">
               {/* Clean Material Profile Card */}
-              <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 sm:p-8 mb-8 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="glass-card p-6 sm:p-8 mb-8 profile-card-hover">
                 <div className="flex flex-col sm:flex-row gap-6">
                   {/* Simple Avatar Section */}
                   <div className="flex flex-col items-center sm:items-start">
                     <div className="relative">
                       <UserAvatar user={user} sizeClass="w-24 h-24" textClass="text-2xl font-semibold" />
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 border-2 border-white rounded-full" />
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 border-2 border-white rounded-full status-pulse" />
                     </div>
                   </div>
                   
@@ -738,10 +499,10 @@ export function PortalPage() {
                       <div className="flex gap-2">
                         <button 
                           type="button" 
-                          onClick={() => navigate(paths.portal)} 
-                          className="p-2 border border-white/20 text-white/80 hover:text-white hover:border-white/40 rounded-lg transition-colors"
-                          title="Back to Portal"
-                          aria-label="Back to Portal"
+                          onClick={() => navigate(paths.dashboard)} 
+                          className="btn-ghost px-3 py-2 text-sm text-white/90"
+                          title="Back to Dashboard"
+                          aria-label="Back to Dashboard"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -761,7 +522,7 @@ export function PortalPage() {
                               navigator.clipboard.writeText(profileUrl)
                             }
                           }}
-                          className="p-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg transition-colors"
+                          className="btn-primary px-3 py-2 text-sm"
                           title="Share Profile"
                           aria-label="Share Profile"
                         >
@@ -775,7 +536,7 @@ export function PortalPage() {
                             const url = `${window.location.origin}${publicProfilePath(username || 'user')}?pdf=1`
                             window.open(url, '_blank')
                           }}
-                          className="p-2 border border-white/20 text-white/80 hover:text-white hover:border-white/40 rounded-lg transition-colors"
+                          className="btn-ghost px-3 py-2 text-sm text-white/90"
                           title="Download PDF"
                           aria-label="Download PDF"
                         >
@@ -886,7 +647,7 @@ export function PortalPage() {
               {/* Portfolio Sections */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Certificates Section */}
-                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+                <div className="glass-card p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-lg bg-primary-500/20 border border-primary-500/30 flex items-center justify-center">
                       <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -912,7 +673,7 @@ export function PortalPage() {
                 </div>
 
                 {/* Achievements Section */}
-                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+                <div className="glass-card p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
                       <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -938,7 +699,7 @@ export function PortalPage() {
                 </div>
 
                 {/* Skills Section */}
-                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+                <div className="glass-card p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
                       <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -964,7 +725,7 @@ export function PortalPage() {
                 </div>
 
                 {/* Projects Section */}
-                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+                <div className="glass-card p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-lg bg-green-500/20 border border-green-500/30 flex items-center justify-center">
                       <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1073,13 +834,11 @@ export function PortalPage() {
                       </button>
                       <button
                         type="button"
-                        title="Subscribe"
+                        title="Subscribe to Constellation"
                         onClick={() => startPageLeaveAndRedirect('https://smartslate.io/subscribe')}
                         className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
                       >
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 3l2.39 4.84L20 9.27l-4 3.89.94 5.48L12 16.9l-4.94 1.74L8 13.16 4 9.27l5.61-1.43L12 3z" />
-                        </svg>
+                        <IconConstellation className="h-5 w-5" />
                       </button>
                       <button
                         type="button"

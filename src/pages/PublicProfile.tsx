@@ -221,7 +221,7 @@ export function PublicProfile() {
               <p className="text-sm font-medium text-primary-400 -mt-1">Professional Profile</p>
             </div>
             <a 
-              href="https://app.smartslate.io/portal"
+              href="https://app.smartslate.io/dashboard"
               target="_blank"
               rel="noopener noreferrer"
               className="px-3 py-2 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg transition-colors text-sm font-medium"
@@ -516,7 +516,7 @@ export function PublicProfile() {
           </p>
           <div className="flex items-center justify-center gap-4 text-xs text-white/40">
             <a href="https://smartslate.io" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">About SmartSlate</a>
-            <a href="https://app.smartslate.io/portal" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">Create Profile</a>
+            <a href="https://app.smartslate.io/dashboard" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">Create Profile</a>
             <a href="#" className="hover:text-white/60 transition-colors">Privacy</a>
           </div>
         </footer>

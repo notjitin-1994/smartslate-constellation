@@ -22,9 +22,9 @@ export default function AuthCallback() {
           credentials: 'include',
           body: JSON.stringify({ sub, roles }),
         }).then(() => {
-          navigate(redirectTo || paths.portal, { replace: true })
+          navigate(redirectTo || paths.dashboard, { replace: true })
         }).catch(() => {
-          navigate(paths.portal, { replace: true })
+          navigate(paths.dashboard, { replace: true })
         })
         return
       }
@@ -41,7 +41,7 @@ export default function AuthCallback() {
           credentials: 'include',
           body: JSON.stringify({ sub, roles }),
         }).finally(() => {
-          navigate(redirectTo || paths.portal, { replace: true })
+          navigate(redirectTo || paths.dashboard, { replace: true })
         })
       }
     })

@@ -37,25 +37,18 @@ export function AppRouter() {
           {/* Alias /login to home for external redirects */}
           <Route path="/login" element={<Navigate to={paths.home} replace />} />
           
-          {/* Protected routes */}
-          <Route path={paths.portal} element={
+          {/* Protected routes (dashboard is the primary entry) */}
+          <Route path={paths.dashboard} element={
             <RequireAuth>
               <PortalPage />
             </RequireAuth>
           }>
-            {/* Default portal content shows the dashboard */}
             <Route index element={<DashboardPage />} />
             <Route path="settings" element={<SettingsContent />} />
           </Route>
           
-          <Route path={paths.portalUser} element={
-            <RequireAuth>
-              <PortalPage />
-            </RequireAuth>
-          } />
-          
-          {/* Preserve old /dashboard URL by redirecting into portal */}
-          <Route path={paths.dashboard} element={<Navigate to={paths.portal} replace />} />
+          {/* Catch-all: send any unknown routes to dashboard */}
+          <Route path="*" element={<Navigate to={paths.dashboard} replace />} />
           
           {/* Constellations inside portal layout */}
           <Route path={paths.constellations} element={

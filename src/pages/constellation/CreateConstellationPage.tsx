@@ -25,7 +25,7 @@ export function CreateConstellationPage() {
           <p className="mt-1 text-white/70">Choose how to begin your instructional design journey</p>
         </div>
         <button
-          onClick={() => navigate(paths.portal)}
+          onClick={() => navigate(paths.dashboard)}
           className="px-3 py-2 text-white/80 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-colors"
         >
           Back to Portal

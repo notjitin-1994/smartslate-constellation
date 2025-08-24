@@ -160,3 +160,28 @@ export const SettingsIconImg = memo(function SettingsIconImg({ className = '' }:
     />
   )
 })
+
+export const IconConstellation = memo(function IconConstellation({ className = '' }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="5" cy="5" r="2" />
+      <circle cx="19" cy="5" r="2" />
+      <circle cx="12" cy="10" r="2" />
+      <circle cx="7" cy="19" r="2" />
+      <circle cx="19" cy="17" r="2" />
+      <path d="M5 5l7 5" />
+      <path d="M19 5l-7 5" />
+      <path d="M12 10l7 7" />
+      <path d="M12 10l-5 9" />
+    </svg>
+  )
+})

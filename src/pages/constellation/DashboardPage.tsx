@@ -40,21 +40,15 @@ export function DashboardPage() {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-6">
-      <div className="mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
-          <span className="text-3xl md:text-4xl">✨</span>
-          Constellation
-        </h2>
-        <p className="mt-1 text-white/70">Instructional Design Intelligence</p>
-      </div>
+      <div className="mb-8" />
       <div>
           {/* Welcome Section */}
-          <div className="text-center mb-12 animate-fade-in-up">
+          <div className="mb-12 animate-fade-in-up">
             <h2 className="text-4xl font-bold text-white mb-4">
               Welcome to Your Design Universe
             </h2>
-            <p className="text-xl text-white/70 max-w-3xl mx-auto">
-              Transform your content into world-class instructional experiences with AI-powered design intelligence
+            <p className="text-xl text-white/70 max-w-3xl">
+              Transform your content into world‑class instructional experiences with AI‑powered design intelligence
             </p>
           </div>
 

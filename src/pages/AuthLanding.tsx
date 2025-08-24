@@ -18,11 +18,11 @@ export default function AuthLanding() {
 
     getSupabase().auth.getSession().then(({ data: { session } }) => {
       if (isMounted && session) {
-        navigate(redirectTo || paths.portal, { replace: true })
+        navigate(redirectTo || paths.dashboard, { replace: true })
       }
     })
     const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
-      if (session) navigate(redirectTo || paths.portal, { replace: true })
+      if (session) navigate(redirectTo || paths.dashboard, { replace: true })
     })
     return () => {
       isMounted = false

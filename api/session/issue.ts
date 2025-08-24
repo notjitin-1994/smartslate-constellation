@@ -12,15 +12,15 @@ function getEnvSecret(): string {
   return secret
 }
 
-function makeCookie(name: string, value: string, opts: { domain?: string; maxAgeSeconds: number }) {
+function makeCookie(name: string, value: string, opts: { domain?: string; maxAgeSeconds: number; secure: boolean; sameSite: 'None' | 'Lax' }) {
   const parts = [
     `${name}=${value}`,
     'Path=/',
     'HttpOnly',
-    'Secure',
-    'SameSite=None',
+    opts.secure ? 'Secure' : undefined,
+    `SameSite=${opts.sameSite}`,
     `Max-Age=${opts.maxAgeSeconds}`,
-  ]
+  ].filter(Boolean) as string[]
   if (opts.domain) parts.push(`Domain=${opts.domain}`)
   const expires = new Date(Date.now() + opts.maxAgeSeconds * 1000).toUTCString()
   parts.push(`Expires=${expires}`)
@@ -67,8 +67,14 @@ export default async function handler(req: AnyReq, res: AnyRes) {
       .sign(jwtSecret)
 
     const host = (req.headers['x-forwarded-host'] || req.headers.host || '').toString()
-    const domain = cookieDomainFor(host)
-    const setCookie = makeCookie('ss_session', token, { domain, maxAgeSeconds: FIFTEEN_MINUTES_SECONDS })
+    const xfProto = (req.headers['x-forwarded-proto'] || '').toString()
+    const isLocal = /localhost|127\.0\.0\.1|\.smartslate\.test(?::|$)/i.test(host)
+    const isHttps = xfProto === 'https' || /^https:/i.test((req.headers.referer as string) || '')
+    const secure = isHttps && !isLocal
+    const sameSite: 'None' | 'Lax' = secure ? 'None' : 'Lax'
+
+    const domain = secure ? cookieDomainFor(host) : undefined
+    const setCookie = makeCookie('ss_session', token, { domain, maxAgeSeconds: FIFTEEN_MINUTES_SECONDS, secure, sameSite })
 
     res.setHeader('Set-Cookie', setCookie)
     res.setHeader('Cache-Control', 'no-store')

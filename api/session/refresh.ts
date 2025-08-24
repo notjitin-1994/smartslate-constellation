@@ -22,17 +22,17 @@ function parseCookies(header: string | undefined): Record<string, string> {
   return out
 }
 
-function makeCookie(name: string, value: string, opts: { domain?: string; maxAgeSeconds: number }) {
+function makeCookie(name: string, value: string, opts: { domain?: string; maxAgeSeconds: number; secure: boolean; sameSite: 'None' | 'Lax' }) {
   const parts = [
     `${name}=${value}`,
     'Path=/',
     'HttpOnly',
-    'Secure',
-    'SameSite=None',
+    opts.secure ? 'Secure' : undefined,
+    `SameSite=${opts.sameSite}`,
     `Max-Age=${opts.maxAgeSeconds}`,
     `Expires=${new Date(Date.now() + opts.maxAgeSeconds * 1000).toUTCString()}`,
-    'Domain=.smartslate.io',
-  ]
+    opts.domain ? `Domain=${opts.domain}` : undefined,
+  ].filter(Boolean) as string[]
   return parts.join('; ')
 }
 
@@ -81,7 +81,14 @@ export default async function handler(req: AnyReq, res: AnyRes) {
       .setExpirationTime('15m')
       .sign(secret)
 
-    const setCookie = makeCookie('ss_session', newToken, { maxAgeSeconds: FIFTEEN_MINUTES_SECONDS })
+    const host = (req.headers['x-forwarded-host'] || req.headers.host || '').toString()
+    const xfProto = (req.headers['x-forwarded-proto'] || '').toString()
+    const isLocal = /localhost|127\.0\.0\.1|\.smartslate\.test(?::|$)/i.test(host)
+    const isHttps = xfProto === 'https' || /^https:/i.test((req.headers.referer as string) || '')
+    const secure = isHttps && !isLocal
+    const sameSite: 'None' | 'Lax' = secure ? 'None' : 'Lax'
+    const domain = secure ? '.smartslate.io' : undefined
+    const setCookie = makeCookie('ss_session', newToken, { maxAgeSeconds: FIFTEEN_MINUTES_SECONDS, secure, sameSite, domain })
 
     const origin = req.headers.origin as string | undefined
     if (origin) {
