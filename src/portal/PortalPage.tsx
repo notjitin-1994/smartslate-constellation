@@ -267,7 +267,7 @@ export function PortalPage() {
 
   const solaraItems: NavItem[] = [
     { label: 'Polaris', tagText: '2.5 Preview', tagTone: 'preview' },
-    { label: 'Constellation', tagText: 'V2: Preview', tagTone: 'preview' },
+    { label: 'Constellation', tagText: '2.0 Preview', tagTone: 'preview' },
     { label: 'Nova', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
     { label: 'Orbit', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
     { label: 'Spectrum', tagText: isMobile ? 'Visit on Desktop' : 'Coming Soon', tagTone: 'info' },
@@ -320,22 +320,22 @@ export function PortalPage() {
 
               {/* Recent Constellations */}
               <div className="mt-4 pt-4 border-t border-white/10">
-                <h4 className="px-3 text-xs font-semibold text-white/60 mb-2">Recent Constellations</h4>
+                <h4 className="px-3 text-xs font-semibold text-primary-400 mb-2">Recent Constellations</h4>
                 {loadingRecents ? (
-                  <div className="px-3 py-2 text-xs text-white/50">Loading…</div>
+                  <div className="px-3 py-2 text-xs text-primary-300">Loading…</div>
                 ) : recentConstellations.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-white/50">No constellations yet</div>
+                  <div className="px-3 py-2 text-xs text-primary-300">No constellations yet</div>
                 ) : (
                   <ul className="space-y-1">
                     {recentConstellations.map((c) => (
                       <li
                         key={c.id}
                         onClick={() => navigate(constellationPath(c.id))}
-                        className="px-3 py-1.5 text-sm text-white/80 hover:text-white hover:bg-white/5 rounded-lg flex items-center justify-between cursor-pointer pressable"
+                        className="px-3 py-1.5 text-sm text-primary-300 hover:text-primary-200 hover:bg-primary-500/10 rounded-lg flex items-center justify-between cursor-pointer pressable"
                         title={c.title || 'Untitled'}
                       >
                         <span className="truncate mr-2">{c.title || 'Untitled'}</span>
-                        <span className="text-[11px] text-white/50 shrink-0">{formatDateShort(c.created_at)}</span>
+                        <span className="text-[11px] text-primary-400 shrink-0">{formatDateShort(c.created_at)}</span>
                       </li>
                     ))}
                   </ul>
