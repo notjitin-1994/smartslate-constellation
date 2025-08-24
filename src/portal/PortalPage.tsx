@@ -7,7 +7,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { getCapitalizedFirstName } from '@/lib/textUtils'
 import { Brand } from '@/portal/components/Brand'
 import { NavSection, type NavItem } from '@/portal/components/NavSection'
-import { UserAvatar } from '@/portal/components/UserAvatar'
+import { UserAvatar, resolveUserAvatarUrl, getUserInitial } from '@/portal/components/UserAvatar'
 import { SidebarToggleIcon, IconGraduationCap, IconChecklist, IconSun, SettingsIconImg, IconConstellation } from '@/portal/components/Icons'
 import { HeaderBackground } from '@/components/HeaderBackground'
 import { constellationService } from '@/services/constellationService'
@@ -276,7 +276,7 @@ export function PortalPage() {
   return (
     <div className={`h-screen w-full overflow-hidden bg-[rgb(var(--bg))] text-[rgb(var(--text))]${isLeaving ? ' page-leave' : ''}`}>
       <div className="flex h-full">
-        <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16 lg:w-16' : 'md:w-72 lg:w-80'} flex-col border-r border-white/10 bg-white/5 backdrop-blur-xl transition-[width] duration-300 ease-in-out`}>
+        <aside className={`hidden md:flex ${sidebarCollapsed ? 'md:w-16 lg:w-16' : 'md:w-72 lg:w-80'} flex-col border-r border-white/10 bg-[#0D1B2A] backdrop-blur-xl transition-[width] duration-300 ease-in-out`}>
           <div className={`px-3 ${sidebarCollapsed ? 'py-2' : 'px-4 py-4'} border-b border-white/10 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2 sticky top-0 z-10`}>
             {!sidebarCollapsed && <Brand />}
             <button
@@ -371,9 +371,18 @@ export function PortalPage() {
                   type="button"
                   title={`${getCapitalizedFirstName((user?.user_metadata?.first_name as string) || (user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || 'Your')}'s Profile`}
                   onClick={goToProfile}
-                  className="w-10 h-10 rounded-full text-white/85 hover:text-white flex items-center justify-center pressable"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white/85 hover:text-white pressable"
                 >
-                  <UserAvatar user={user} sizeClass="w-5 h-5" textClass="text-sm font-semibold" />
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-white/10 bg-white/5 overflow-hidden">
+                    {(() => {
+                      const url = resolveUserAvatarUrl(user)
+                      return url ? (
+                        <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="text-sm font-semibold text-white/90">{getUserInitial(user)}</span>
+                      )
+                    })()}
+                  </span>
                 </button>
                 {/* Settings (collapsed) */}
                 <button
