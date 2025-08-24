@@ -260,9 +260,9 @@ export function PortalPage() {
   }
 
   const collapsedQuickItems = [
-    { title: 'Ignite', icon: IconGraduationCap },
-    { title: 'Strategic Skills Architecture', icon: IconChecklist },
-    { title: 'Solara', icon: IconSun },
+    { title: 'Ignite', icon: IconGraduationCap, target: 'Ignite' },
+    { title: 'Strategic Skills Architecture', icon: IconChecklist, target: 'Strategic-Skills-Architecture' },
+    { title: 'Solara', icon: IconSun, target: 'Solara' },
   ]
 
   const solaraItems: NavItem[] = [
@@ -291,39 +291,26 @@ export function PortalPage() {
           </div>
           {sidebarCollapsed ? (
             <div className="flex-1 overflow-y-auto py-4 flex flex-col items-center gap-3">
-              {collapsedQuickItems.map(({ title, icon: Icon }) => (
+              {collapsedQuickItems.map(({ title, icon: Icon, target }) => (
                 <button
                   key={title}
                   type="button"
                   title={title}
                   aria-label={title}
+                  onClick={() => {
+                    setSidebarCollapsed(false)
+                    window.setTimeout(() => {
+                      const el = document.querySelector(`#nav-${target}`)
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }
+                    }, 250)
+                  }}
                   className="w-10 h-10 rounded-lg text-white/80 hover:text-white flex items-center justify-center transition-transform duration-200 hover:scale-[1.04] pressable"
                 >
                   <Icon className="h-5 w-5" />
                 </button>
               ))}
-              {/* Subscribe (collapsed) */}
-              <button
-                type="button"
-                title="Subscribe to Constellation"
-                onClick={() => startPageLeaveAndRedirect('https://smartslate.io/subscribe')}
-                className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
-              >
-                <IconConstellation className="h-5 w-5" />
-              </button>
-              {/* Logout (collapsed) */}
-              <button
-                type="button"
-                title="Logout"
-                onClick={onLogout}
-                className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                  <path d="M16 17l5-5-5-5" />
-                  <path d="M21 12H9" />
-                </svg>
-              </button>
             </div>
           ) : (
             <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
@@ -370,14 +357,25 @@ export function PortalPage() {
           <div className="mt-auto w-full">
             {sidebarCollapsed ? (
               <div className="px-0 py-3 flex flex-col items-center gap-2">
+                {/* Subscribe (collapsed, bottom to mirror expanded layout) */}
+                <button
+                  type="button"
+                  title="Subscribe to Constellation"
+                  onClick={() => startPageLeaveAndRedirect('https://smartslate.io/subscribe')}
+                  className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
+                >
+                  <IconConstellation className="w-5 h-5" />
+                </button>
+                {/* Profile (collapsed) */}
                 <button
                   type="button"
                   title={`${getCapitalizedFirstName((user?.user_metadata?.first_name as string) || (user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || 'Your')}'s Profile`}
                   onClick={goToProfile}
                   className="w-10 h-10 rounded-full text-white/85 hover:text-white flex items-center justify-center pressable"
                 >
-                  <UserAvatar user={user} sizeClass="w-10 h-10" textClass="text-sm font-semibold" />
+                  <UserAvatar user={user} sizeClass="w-5 h-5" textClass="text-sm font-semibold" />
                 </button>
+                {/* Settings (collapsed) */}
                 <button
                   type="button"
                   title="Settings"
@@ -385,6 +383,19 @@ export function PortalPage() {
                   className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
                 >
                   <SettingsIconImg className="w-5 h-5" />
+                </button>
+                {/* Logout (collapsed, bottom like expanded) */}
+                <button
+                  type="button"
+                  title="Logout"
+                  onClick={onLogout}
+                  className="w-10 h-10 rounded-lg text-white/85 hover:text-white flex items-center justify-center pressable"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                    <path d="M16 17l5-5-5-5" />
+                    <path d="M21 12H9" />
+                  </svg>
                 </button>
               </div>
             ) : (

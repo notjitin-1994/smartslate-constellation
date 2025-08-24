@@ -38,7 +38,7 @@ export const NavSection = memo(function NavSection({
   }, [open, storageKey])
 
   return (
-    <div className="select-none">
+    <div className="select-none" id={`nav-${sectionId}`} data-section-id={sectionId}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
