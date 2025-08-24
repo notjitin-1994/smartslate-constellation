@@ -44,7 +44,6 @@ export function PortalPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false)
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false)
   const [isLeaving, setIsLeaving] = useState<boolean>(false)
-  const isConstellationDomain = typeof window !== 'undefined' && window.location.hostname === 'constellation.smartslate.io'
 
   useEffect(() => {
     try {
