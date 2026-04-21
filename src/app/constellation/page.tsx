@@ -5,8 +5,8 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, Suspense } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { 
   LayoutDashboard, 
   FileCode, 
@@ -20,7 +20,8 @@ import {
   Users, 
   ChevronRight,
   Database,
-  Type
+  Type,
+  AlertCircle
 } from 'lucide-react';
 import { 
   Box, 
@@ -29,8 +30,11 @@ import {
   IconButton,
   Button,
   Divider,
-  TextField
+  CircularProgress
 } from '@mui/material';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { useSidebar } from '@/lib/SidebarContext';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 const COLORS = {
@@ -50,74 +54,63 @@ const glassStyles = {
   boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
 };
 
-// --- COMPONENTS ---
+// --- HELPERS ---
 
-const NavigationSidebar = () => {
-  const navItems = [
-    { icon: <Database size={18} />, label: 'Asset Ingest' },
-    { icon: <FileCode size={18} />, label: 'ScriptGen' },
-    { icon: <Layers size={18} />, label: 'Storyboard' },
-    { icon: <SearchCheck size={18} />, label: 'Gap Analysis' },
-  ];
+/**
+ * Extracts human-readable modules from the complex questionnaire structure
+ */
+const extractModules = (blueprint: any) => {
+  if (!blueprint) return [];
+  
+  // 1. Check for standard blueprint_json modules
+  const bj = blueprint.blueprint_json || {};
+  const directModules = bj.curriculum_modules || bj.modules || [];
+  if (directModules.length > 0) return directModules;
 
-  return (
-    <Box
-      component={motion.div}
-      initial={{ x: -20, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      sx={{
-        width: '64px',
-        height: 'calc(100vh - 32px)',
-        m: 2,
-        borderRadius: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        py: 3,
-        gap: 4,
-        position: 'fixed',
-        left: 0,
-        zIndex: 100,
-        ...glassStyles,
-      }}
-    >
-      <Box sx={{ color: COLORS.secondary, mb: 2 }}>
-        <LayoutDashboard size={24} />
-      </Box>
-      {navItems.map((item, index) => (
-        <Tooltip key={index} title={item.label} placement="right">
-          <IconButton
-            sx={{
-              color: index === 2 ? COLORS.primary : COLORS.textSecondary,
-              transition: 'all 0.3s ease',
-              '&:hover': { color: COLORS.primary, background: 'rgba(124, 105, 245, 0.1)' },
-              position: 'relative'
-            }}
-          >
-            {item.icon}
-            {index === 2 && (
-              <Box
-                component={motion.div}
-                layoutId="navIndicator"
-                sx={{
-                  position: 'absolute',
-                  right: -8,
-                  width: '3px',
-                  height: '20px',
-                  background: COLORS.primary,
-                  borderRadius: '0 4px 4px 0',
-                  boxShadow: `0 0 10px ${COLORS.primary}`
-                }}
-              />
-            )}
-          </IconButton>
-        </Tooltip>
-      ))}
-    </Box>
-  );
+  // 2. Extract from dynamic_questions (Section 3: Content Scope)
+  const dq = blueprint.dynamic_questions || [];
+  const section3 = dq.find((s: any) => s.id === 's3');
+  if (section3) {
+    const moduleQuestion = section3.questions?.find((q: any) => q.id === 's3_q1');
+    if (moduleQuestion && moduleQuestion.answer) {
+      // Split newline-separated list into array of module objects
+      return moduleQuestion.answer
+        .split('\n')
+        .filter((line: string) => line.trim())
+        .map((line: string) => ({
+          title: line.replace(/^\d+[\.\)]\s*/, '').trim(), // Remove leading numbers
+          description: 'Strategic module mapped from Polaris strategy questionnaire.'
+        }));
+    }
+  }
+
+  return [];
 };
 
-const BlueprintPanel = () => {
+/**
+ * Extracts target persona from static answers
+ */
+const extractPersona = (blueprint: any) => {
+  const sa = blueprint?.static_answers || {};
+  return sa.section_1_role_experience?.current_role || 'General Professional';
+};
+
+/**
+ * Extracts primary objective
+ */
+const extractObjective = (blueprint: any) => {
+  const sa = blueprint?.static_answers || {};
+  const bj = blueprint?.blueprint_json || {};
+  return bj.objective || sa.section_3_learning_gap?.learning_gap_description || 'No strategic objective defined.';
+};
+
+// --- COMPONENTS ---
+
+const BlueprintPanel = ({ blueprint }: { blueprint: any }) => {
+  const modules = extractModules(blueprint);
+  const objective = extractObjective(blueprint);
+  const persona = extractPersona(blueprint);
+  
   return (
     <Box
       sx={{
@@ -142,10 +135,10 @@ const BlueprintPanel = () => {
         <section>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <Target size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>[Objective Title]</Typography>
+            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Strategic Objective</Typography>
           </Box>
           <Typography variant="body2" sx={{ color: COLORS.textSecondary, lineHeight: 1.6, fontSize: '0.85rem' }}>
-            [Description of the strategic learning objective mapped from the original Polaris ingest.]
+            {objective}
           </Typography>
         </section>
 
@@ -154,23 +147,26 @@ const BlueprintPanel = () => {
         <section>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <BookOpen size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Curriculum Modules</Typography>
+            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Strategy Modules</Typography>
           </Box>
-          {[1, 2, 3].map((i) => (
+          {modules.map((mod: any, i: number) => (
             <Box key={i} sx={{ mb: 2, p: 1.5, borderRadius: '8px', ...glassStyles, border: '1px solid rgba(124, 105, 245, 0.05)' }}>
-              <Typography variant="caption" sx={{ color: COLORS.secondary, display: 'block', mb: 0.5 }}>Module 0{i}</Typography>
-              <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontSize: '0.8rem' }}>[Module Title Placeholder]</Typography>
+              <Typography variant="caption" sx={{ color: COLORS.secondary, display: 'block', mb: 0.5 }}>Module 0{i + 1}</Typography>
+              <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontSize: '0.8rem' }}>{mod.title}</Typography>
             </Box>
           ))}
+          {modules.length === 0 && (
+             <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>No modules found in strategy.</Typography>
+          )}
         </section>
 
         <section>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <Users size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Target Audience</Typography>
+            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Target Persona</Typography>
           </Box>
           <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: '0.85rem' }}>
-            [Defined Persona Group]
+            {persona}
           </Typography>
         </section>
       </Box>
@@ -178,7 +174,7 @@ const BlueprintPanel = () => {
   );
 };
 
-const InstructionalNode = ({ index, isActive, onSelect }: { index: number, isActive: boolean, onSelect: () => void }) => {
+const InstructionalNode = ({ index, isActive, onSelect, title }: { index: number, isActive: boolean, onSelect: () => void, title: string }) => {
   return (
     <Box
       component={motion.div}
@@ -198,25 +194,21 @@ const InstructionalNode = ({ index, isActive, onSelect }: { index: number, isAct
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 600 }}>
-          MOMENT 0{index + 1}
+          NODE 0{index + 1}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title="Asset Linked">
+          <Tooltip title="Neural Path Active">
             <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: COLORS.secondary, boxShadow: `0 0 8px ${COLORS.secondary}` }} />
           </Tooltip>
         </Box>
       </Box>
-      <Typography variant="body2" sx={{ color: COLORS.textPrimary, mb: 1, fontWeight: 500 }}>
-        [Instructional Moment Title]
+      <Typography variant="body2" sx={{ color: COLORS.textPrimary, mb: 1, fontWeight: 500, lineClamp: 1 }}>
+        {title}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.6 }}>
           <Type size={12} color={COLORS.textSecondary} />
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>[Duration]</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.6 }}>
-          <Database size={12} color={COLORS.textSecondary} />
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>{index % 2 === 0 ? '2' : '1'} Assets</Typography>
+          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Analysis Active</Typography>
         </Box>
       </Box>
 
@@ -238,11 +230,69 @@ const InstructionalNode = ({ index, isActive, onSelect }: { index: number, isAct
   );
 };
 
-import { useSidebar } from '@/lib/SidebarContext';
-
-export default function ArchitectureCanvas() {
+function ArchitectureCanvasContent() {
+  const searchParams = useSearchParams();
+  const blueprintId = searchParams.get('blueprintId');
+  const [loading, setLoading] = useState(true);
+  const [blueprint, setBlueprint] = useState<any>(null);
   const [activeNode, setActiveNode] = useState(0);
-  const { collapsed } = useSidebar();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchBlueprint = async () => {
+      if (!blueprintId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const { data, error: bpError } = await supabase
+          .from('blueprint_generator')
+          .select('*')
+          .eq('id', blueprintId)
+          .single();
+
+        if (bpError) throw bpError;
+        setBlueprint(data);
+      } catch (err: any) {
+        console.error('Canvas Fetch Error:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlueprint();
+  }, [blueprintId]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: COLORS.bg }}>
+        <CircularProgress sx={{ color: COLORS.primary, mb: 3 }} />
+        <Typography sx={{ color: COLORS.textSecondary, fontMono: 'monospace', fontSize: '10px', letterSpacing: '0.2em' }}>
+          INITIALIZING ARCHITECTURAL ENGINE...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error || (!blueprint && blueprintId)) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: COLORS.bg, p: 4, textAlign: 'center' }}>
+        <AlertCircle size={48} className="text-red-500 mb-6" />
+        <Typography variant="h5" sx={{ color: 'white', mb: 2 }}>Handover Protocol Interrupted</Typography>
+        <Typography sx={{ color: COLORS.textSecondary, mb: 4, maxWidth: '400px' }}>{error || 'Strategic blueprint not found in Solara network.'}</Typography>
+        <Button variant="outlined" onClick={() => router.push('/handover')} sx={{ color: COLORS.secondary, borderColor: COLORS.secondary }}>
+          Return to Gateway
+        </Button>
+      </Box>
+    );
+  }
+
+  const modules = extractModules(blueprint);
+  const currentModule = modules[activeNode] || null;
 
   return (
     <Box sx={{ 
@@ -263,7 +313,7 @@ export default function ArchitectureCanvas() {
         overflow: 'hidden' 
       }}>
         {/* LEFT PANE: Polaris Reference */}
-        <BlueprintPanel />
+        <BlueprintPanel blueprint={blueprint} />
 
         {/* RIGHT PANE: Architecture Canvas */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -278,7 +328,7 @@ export default function ArchitectureCanvas() {
             <Box>
               <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600 }}>Architecture Canvas</Typography>
               <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                Constructing instructional flow from Polaris intelligence
+                Constructing instructional flow for <span className="text-[#A7DADB] font-bold">{blueprint?.title || 'Standalone Architecture'}</span>
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -338,20 +388,28 @@ export default function ArchitectureCanvas() {
               background: 'rgba(2, 12, 27, 0.2)'
             }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="overline" sx={{ color: COLORS.textSecondary }}>Flow Sequences</Typography>
+                <Typography variant="overline" sx={{ color: COLORS.textSecondary }}>Strategic Nodes</Typography>
                 <IconButton size="small" sx={{ color: COLORS.primary }}>
                   <Plus size={18} />
                 </IconButton>
               </Box>
               
-              {[0, 1, 2, 3, 4].map((i) => (
+              {modules.map((mod: any, i: number) => (
                 <InstructionalNode 
                   key={i} 
                   index={i} 
                   isActive={activeNode === i} 
                   onSelect={() => setActiveNode(i)}
+                  title={mod.title || mod.name || `Node 0${i+1}`}
                 />
               ))}
+
+              {modules.length === 0 && (
+                <Box sx={{ py: 10, textAlign: 'center', opacity: 0.5 }}>
+                  <Layers size={32} style={{ margin: '0 auto 12px', display: 'block' }} />
+                  <Typography variant="caption">Ready for Ingestion</Typography>
+                </Box>
+              )}
             </Box>
 
             {/* Script & Asset Mapping Workspace */}
@@ -368,14 +426,14 @@ export default function ArchitectureCanvas() {
                   <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                     <Box>
                       <Typography variant="h5" sx={{ mb: 1, fontWeight: 700 }}>
-                        [Instructional Moment 0{activeNode + 1}]
+                        {currentModule?.title || '[Select Strategic Node]'}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Box sx={{ px: 1, py: 0.5, borderRadius: '4px', border: `1px solid ${COLORS.primary}44`, fontSize: '10px', color: COLORS.primary }}>
-                          SCRIPTING
+                          ARCHITECTING
                         </Box>
                         <Box sx={{ px: 1, py: 0.5, borderRadius: '4px', border: `1px solid ${COLORS.secondary}44`, fontSize: '10px', color: COLORS.secondary }}>
-                          ASSET LINKED
+                          READY FOR RAG
                         </Box>
                       </Box>
                     </Box>
@@ -391,7 +449,7 @@ export default function ArchitectureCanvas() {
                     position: 'relative'
                   }}>
                     <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>
-                      Script Draft
+                      Architecture Logic
                     </Typography>
                     
                     <Typography 
@@ -414,11 +472,7 @@ export default function ArchitectureCanvas() {
                         }
                       }}
                     >
-                      [Narrative content here. Constellation analyzes the Polaris Blueprint to generate technical scripts.] 
-                      <span className="highlight">
-                        [Highlighted AI-suggested instructional segment with glow effect]
-                      </span> 
-                      [Continue script generation based on organizational assets.]
+                      {currentModule?.description || 'Select a node from the strategy to initialize the architectural drafting engine. Constellation will map this node to your ingested organizational data.'}
                     </Typography>
 
                     {/* AI Glow Element */}
@@ -437,40 +491,33 @@ export default function ArchitectureCanvas() {
                       backdropFilter: 'blur(4px)'
                     }}>
                       <Sparkles size={14} color={COLORS.secondary} />
-                      <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 600 }}>AI Refinement Active</Typography>
+                      <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 600 }}>Engine Ready</Typography>
                     </Box>
                   </Box>
 
                   {/* Asset Map Section */}
                   <Box sx={{ mt: 4 }}>
                     <Typography variant="subtitle2" sx={{ color: COLORS.textSecondary, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Database size={14} /> Linked Organizational Assets
+                      <Database size={14} /> Local Data Grounding
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      {[1, 2].map((a) => (
-                        <Box 
-                          key={a}
-                          sx={{ 
-                            p: 2, 
-                            borderRadius: '12px', 
-                            ...glassStyles, 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 2,
-                            width: '240px',
-                            transition: 'transform 0.2s',
-                            '&:hover': { transform: 'translateY(-2px)' }
-                          }}
-                        >
-                          <Box sx={{ p: 1, borderRadius: '8px', background: 'rgba(167, 218, 219, 0.1)' }}>
-                            <FileCode size={20} color={COLORS.secondary} />
-                          </Box>
-                          <Box>
-                            <Typography variant="caption" sx={{ display: 'block', color: COLORS.textPrimary, fontWeight: 600 }}>[Asset_File_Name.pdf]</Typography>
-                            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Source: Polaris Ingest</Typography>
-                          </Box>
-                        </Box>
-                      ))}
+                    <Box sx={{ 
+                      p: 4, 
+                      borderRadius: '16px', 
+                      border: '1px dashed rgba(167, 218, 219, 0.2)',
+                      textAlign: 'center',
+                      background: 'rgba(167, 218, 219, 0.02)'
+                    }}>
+                       <Plus size={24} color={COLORS.secondary} style={{ margin: '0 auto 12px' }} />
+                       <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
+                         Upload organizational assets (SOPs, Manuals, PDFs) to ground this module.
+                       </Typography>
+                       <Button 
+                        size="small" 
+                        sx={{ mt: 2, color: COLORS.secondary, textTransform: 'none' }}
+                        onClick={() => router.push('/assets')}
+                       >
+                         Initialize Ingest Engine
+                       </Button>
                     </Box>
                   </Box>
                 </Box>
@@ -502,5 +549,17 @@ export default function ArchitectureCanvas() {
         pointerEvents: 'none'
       }} />
     </Box>
+  );
+}
+
+export default function ArchitectureCanvas() {
+  return (
+    <Suspense fallback={
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: COLORS.bg }}>
+        <CircularProgress sx={{ color: COLORS.primary }} />
+      </Box>
+    }>
+      <ArchitectureCanvasContent />
+    </Suspense>
   );
 }
