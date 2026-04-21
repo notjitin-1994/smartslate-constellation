@@ -11,6 +11,7 @@ import {
 } from './icons';
 import { useSidebar } from '@/lib/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const quickAccessItems = [
   { title: 'Dashboard', icon: Icons.Dashboard, path: '/dashboard' },
