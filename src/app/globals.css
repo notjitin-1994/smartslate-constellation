@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #020c1b;
+    --foreground: #e0e0e0;
+    --primary: #a7dadb;
+    --secondary: #4f46e5;
+    --surface: #0d1b2a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #b0c5c6;
+    --text-disabled: #7a8a8b;
+    --success: #10b981;
+    --error: #ef4444;
+    --info: #3b82f6;
+  }
+
+  body {
+    @apply antialiased bg-background text-foreground;
+    font-family: var(--font-lato), ui-sans-serif, system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+  }
+
+  /* Global Brand Scrollbar Styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(167, 218, 219, 0.2) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(167, 218, 219, 0.1);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(167, 218, 219, 0.3);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .glass-sidebar {
+    background: rgba(13, 27, 42, 0.75);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-card {
+    position: relative;
+    border-radius: 1rem;
+    background: rgba(13, 27, 42, 0.55);
+    border: none;
+    box-shadow:
+      0 8px 40px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 12px 48px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+}
+
+@layer utilities {
+  @keyframes scan {
+    0% { left: -100%; opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { left: 100%; opacity: 0; }
+  }
+  .animate-scan {
+    animation: scan 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  .font-heading {
+    font-family: 'Quicksand', ui-sans-serif, system-ui, sans-serif;
+  }
+}
