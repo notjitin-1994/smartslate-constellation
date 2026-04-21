@@ -268,7 +268,7 @@ export default function IntegratedHandoverPage() {
             
             <Grid container spacing={2}>
               {blueprints.map((bp, idx) => (
-                <Grid item xs={12} sm={6} md={4} key={bp.id}>
+                <Grid key={bp.id} size={{ xs: 12, sm: 6, md: 4 }}>
                   <BlueprintCard 
                     title={bp.title || bp.blueprint_json?.title || 'Untitled Blueprint'} 
                     date={new Date(bp.created_at).toLocaleDateString()} 
@@ -276,7 +276,7 @@ export default function IntegratedHandoverPage() {
                   />
                 </Grid>
               ))}
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <Box
                   onClick={() => window.location.href = 'http://localhost:3000/blueprint/new'}
                   sx={{
@@ -326,7 +326,7 @@ export default function IntegratedHandoverPage() {
               </Box>
 
               <Grid container spacing={6} alignItems="center">
-                <Grid item xs={12} md={7}>
+                <Grid size={{ xs: 12, md: 7 }}>
                   <Box sx={{ mb: 2 }}>
                     <StatusBadge text="Subscription Required" />
                   </Box>
@@ -372,7 +372,7 @@ export default function IntegratedHandoverPage() {
                     </Button>
                   </Box>
                 </Grid>
-                <Grid item xs={12} md={5}>
+                <Grid size={{ xs: 12, md: 5 }}>
                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {['Strategic Alignment', 'Automated Storyboarding', 'Asset Enrichment'].map((feat) => (
                         <Box key={feat} sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.03)' }}>

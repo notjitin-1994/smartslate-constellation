@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, Transition } from 'framer-motion';
 import { 
   ShieldCheck, 
   Chrome, 
@@ -90,7 +90,7 @@ export default function SignupPage() {
       initial={{ opacity: 0, scale: 0.95, x: 20 }}
       animate={{ opacity: 1, scale: 1, x: 0 }}
       exit={{ opacity: 0, scale: 0.95, x: -20 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] } as Transition}
       style={glassStyles}
       className="w-full max-w-[460px] rounded-2xl p-8 md:p-10"
     >

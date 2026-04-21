@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Box, 
   Container, 
-  Grid2 as Grid, 
+  Grid, 
   Typography, 
   Button, 
   Chip,
