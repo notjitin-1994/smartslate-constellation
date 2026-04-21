@@ -33,14 +33,30 @@ export default function Sidebar() {
   const [isMounted, setIsMounted] = useState(false);
   const [quickAccessOpen, setQuickAccessOpen] = useState(true);
   const [solaraSuiteOpen, setSolaraSuiteOpen] = useState(false);
+  const [dbName, setDbName] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+    const fetchProfile = async () => {
+      if (user?.id) {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (data?.first_name) {
+          setDbName(`${data.first_name} ${data.last_name || ''}`.trim());
+        }
+      }
+    };
+    fetchProfile();
+  }, [user?.id]);
 
   if (!isMounted) return null;
 
   const getFullName = (): string => {
+    if (dbName) return dbName;
     const rawName =
       (user?.user_metadata?.full_name as string) ||
       (user?.user_metadata?.name as string) ||
