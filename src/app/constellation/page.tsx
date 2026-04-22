@@ -255,7 +255,7 @@ function ArchitectureCanvasContent() {
             />
           ) : (
             <Grid container spacing={3}>
-              <Grid item xs={12} md={8}>
+              <Grid size={{ xs: 12, md: 8 }}>
                 <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px', mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}><Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary }}><BrainCircuit size={16} /> Instructional Strategy Layer (ISL)</Typography><Chip label={currentModule?.pedagogicalMode} size="small" sx={{ bgcolor: COLORS.primary, color: 'white', fontWeight: 700, fontSize: '10px' }} /></Box>
                   <Typography variant="body1" sx={{ color: 'white', mb: 4, lineHeight: 1.7 }}>{currentModule?.description}</Typography>
@@ -270,7 +270,7 @@ function ArchitectureCanvasContent() {
                   </Box>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px' }}>
                     <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary, mb: 3 }}><ShieldCheck size={16} /> Cognitive Guardrails (CLG)</Typography>

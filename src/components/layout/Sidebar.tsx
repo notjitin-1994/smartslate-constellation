@@ -227,7 +227,7 @@ export default function Sidebar() {
             >
               <Icons.Pro size={16} />
             </button>
-            <UserAvatar user={user} sizeClass="w-8 h-8" />
+            <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-8 h-8" />
           </div>
         ) : (
           <div className="space-y-4">
@@ -244,7 +244,7 @@ export default function Sidebar() {
               className="group hover:bg-white/5 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 active:scale-[0.98]"
             >
               <div className="relative">
-                <UserAvatar user={user} sizeClass="w-9 h-9" textClass="text-sm font-bold" />
+                <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
                 <div className="bg-success absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-surface" />
               </div>
               <div className="min-w-0 flex-1 text-left">

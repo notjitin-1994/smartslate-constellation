@@ -87,8 +87,7 @@ export class KnowledgeIngestService {
             {
               type: 'file',
               data: asset.content,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              mimeType: this.getMimeType(asset.contentType, asset.fileName) as any,
+              mediaType: this.getMimeType(asset.contentType, asset.fileName),
             },
           ],
         },
