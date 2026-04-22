@@ -21,7 +21,10 @@ import {
   ChevronRight,
   Database,
   Type,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  ExternalLink,
+  CheckCircle2
 } from 'lucide-react';
 import { 
   Box, 
@@ -30,7 +33,8 @@ import {
   IconButton,
   Button,
   Divider,
-  CircularProgress
+  CircularProgress,
+  Chip
 } from '@mui/material';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -57,28 +61,42 @@ const glassStyles = {
 // --- HELPERS ---
 
 /**
- * Extracts human-readable modules from the complex questionnaire structure
+ * Extracts full module data from the AI-generated Content Outline
  */
 const extractModules = (blueprint: any) => {
   if (!blueprint) return [];
   
-  // 1. Check for standard blueprint_json modules
   const bj = blueprint.blueprint_json || {};
+  
+  // PRIMARY: AI-Generated Content Outline (from blueprint_json)
+  const finalModules = bj.content_outline?.modules || [];
+  if (finalModules.length > 0) {
+    return finalModules.map((mod: any) => ({
+      ...mod,
+      title: mod.title || 'Untitled Module',
+      description: mod.description || 'Strategic module from AI-generated blueprint.',
+      topics: mod.topics || [],
+      activities: mod.learning_activities || [],
+      delivery: mod.delivery_method || 'Interactive Content',
+      duration: mod.duration || 'Variable'
+    }));
+  }
+
+  // FALLBACK: Legacy path
   const directModules = bj.curriculum_modules || bj.modules || [];
   if (directModules.length > 0) return directModules;
 
-  // 2. Extract from dynamic_questions (Section 3: Content Scope)
+  // FALLBACK: User Input Questionnaire
   const dq = blueprint.dynamic_questions || [];
   const section3 = dq.find((s: any) => s.id === 's3');
   if (section3) {
     const moduleQuestion = section3.questions?.find((q: any) => q.id === 's3_q1');
     if (moduleQuestion && moduleQuestion.answer) {
-      // Split newline-separated list into array of module objects
       return moduleQuestion.answer
         .split('\n')
         .filter((line: string) => line.trim())
         .map((line: string) => ({
-          title: line.replace(/^\d+[\.\)]\s*/, '').trim(), // Remove leading numbers
+          title: line.replace(/^\d+[\.\)]\s*/, '').trim(),
           description: 'Strategic module mapped from Polaris strategy questionnaire.'
         }));
     }
@@ -88,7 +106,7 @@ const extractModules = (blueprint: any) => {
 };
 
 /**
- * Extracts target persona from static answers or final blueprint
+ * Extracts target persona from demographics
  */
 const extractPersona = (blueprint: any) => {
   const bj = blueprint?.blueprint_json || {};
@@ -101,7 +119,7 @@ const extractPersona = (blueprint: any) => {
 };
 
 /**
- * Extracts primary objective from executive summary or static answers
+ * Extracts high-level objective/summary
  */
 const extractObjective = (blueprint: any) => {
   const bj = blueprint?.blueprint_json || {};
@@ -135,7 +153,7 @@ const BlueprintPanel = ({ blueprint }: { blueprint: any }) => {
           Polaris Blueprint
         </Typography>
         <Box sx={{ px: 1, py: 0.2, borderRadius: '4px', border: `1px solid ${COLORS.secondary}44`, fontSize: '10px', color: COLORS.secondary }}>
-          V.4-ALPHA
+          V.4-FINAL
         </Box>
       </Box>
 
@@ -155,12 +173,12 @@ const BlueprintPanel = ({ blueprint }: { blueprint: any }) => {
         <section>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <BookOpen size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Strategy Modules</Typography>
+            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Course Architecture</Typography>
           </Box>
           {modules.map((mod: any, i: number) => (
             <Box key={i} sx={{ mb: 2, p: 1.5, borderRadius: '8px', ...glassStyles, border: '1px solid rgba(124, 105, 245, 0.05)' }}>
               <Typography variant="caption" sx={{ color: COLORS.secondary, display: 'block', mb: 0.5 }}>Module 0{i + 1}</Typography>
-              <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontSize: '0.8rem' }}>{mod.title}</Typography>
+              <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontSize: '0.8rem', fontWeight: 600 }}>{mod.title}</Typography>
             </Box>
           ))}
           {modules.length === 0 && (
@@ -171,7 +189,7 @@ const BlueprintPanel = ({ blueprint }: { blueprint: any }) => {
         <section>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <Users size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Target Persona</Typography>
+            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Target Audience</Typography>
           </Box>
           <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: '0.85rem' }}>
             {persona}
@@ -182,7 +200,7 @@ const BlueprintPanel = ({ blueprint }: { blueprint: any }) => {
   );
 };
 
-const InstructionalNode = ({ index, isActive, onSelect, title }: { index: number, isActive: boolean, onSelect: () => void, title: string }) => {
+const InstructionalNode = ({ index, isActive, onSelect, module }: { index: number, isActive: boolean, onSelect: () => void, module: any }) => {
   return (
     <Box
       component={motion.div}
@@ -205,18 +223,22 @@ const InstructionalNode = ({ index, isActive, onSelect, title }: { index: number
           NODE 0{index + 1}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title="Neural Path Active">
+          <Tooltip title="Neural Path Logic Linked">
             <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: COLORS.secondary, boxShadow: `0 0 8px ${COLORS.secondary}` }} />
           </Tooltip>
         </Box>
       </Box>
-      <Typography variant="body2" sx={{ color: COLORS.textPrimary, mb: 1, fontWeight: 500, lineClamp: 1 }}>
-        {title}
+      <Typography variant="body2" sx={{ color: COLORS.textPrimary, mb: 1, fontWeight: 600, fontSize: '0.85rem' }}>
+        {module.title}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.6 }}>
-          <Type size={12} color={COLORS.textSecondary} />
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Analysis Active</Typography>
+          <Clock size={10} color={COLORS.textSecondary} />
+          <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontSize: '9px' }}>{module.duration || 'Variable'}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.6 }}>
+          <Layers size={10} color={COLORS.textSecondary} />
+          <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontSize: '9px' }}>{module.topics?.length || 0} Topics</Typography>
         </Box>
       </Box>
 
@@ -408,7 +430,7 @@ function ArchitectureCanvasContent() {
                   index={i} 
                   isActive={activeNode === i} 
                   onSelect={() => setActiveNode(i)}
-                  title={mod.title || mod.name || `Node 0${i+1}`}
+                  module={mod}
                 />
               ))}
 
@@ -423,112 +445,121 @@ function ArchitectureCanvasContent() {
             {/* Script & Asset Mapping Workspace */}
             <Box sx={{ flex: 1, p: 4, overflowY: 'auto', position: 'relative' }}>
               <AnimatePresence mode="wait">
-                <Box
-                  key={activeNode}
-                  component={motion.div}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="h5" sx={{ mb: 1, fontWeight: 700 }}>
-                        {currentModule?.title || '[Select Strategic Node]'}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Box sx={{ px: 1, py: 0.5, borderRadius: '4px', border: `1px solid ${COLORS.primary}44`, fontSize: '10px', color: COLORS.primary }}>
-                          ARCHITECTING
+                {currentModule ? (
+                  <Box
+                    key={activeNode}
+                    component={motion.div}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h5" sx={{ mb: 1, fontWeight: 700, color: 'white' }}>
+                          {currentModule.title}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                          <Chip 
+                            label={currentModule.delivery || 'Standard Delivery'} 
+                            size="small" 
+                            sx={{ bgcolor: `${COLORS.primary}22`, color: COLORS.primary, border: `1px solid ${COLORS.primary}44`, fontSize: '10px', fontWeight: 600 }} 
+                          />
+                          <Chip 
+                            label={currentModule.duration} 
+                            size="small" 
+                            icon={<Clock size={12} color={COLORS.secondary} />}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.03)', color: COLORS.secondary, border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }} 
+                          />
                         </Box>
-                        <Box sx={{ px: 1, py: 0.5, borderRadius: '4px', border: `1px solid ${COLORS.secondary}44`, fontSize: '10px', color: COLORS.secondary }}>
-                          READY FOR RAG
+                      </Box>
+                      <IconButton sx={{ color: COLORS.textSecondary }}>
+                        <ExternalLink size={18} />
+                      </IconButton>
+                    </Box>
+
+                    {/* Module Logic Workspace */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {/* 1. Objective Description */}
+                      <Box sx={{ p: 3, borderRadius: '16px', ...glassStyles, border: '1px solid rgba(124, 105, 245, 0.1)' }}>
+                        <Typography variant="overline" sx={{ color: COLORS.secondary, mb: 1, display: 'block', fontWeight: 700 }}>Module Objective</Typography>
+                        <Typography variant="body1" sx={{ color: COLORS.textPrimary, lineHeight: 1.7 }}>
+                          {currentModule.description}
+                        </Typography>
+                      </Box>
+
+                      <Grid container spacing={3}>
+                        {/* 2. Topic Mapping */}
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Box sx={{ height: '100%', p: 3, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Key Topics</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                              {currentModule.topics?.map((topic: string, tidx: number) => (
+                                <Box key={tidx} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                                  <CheckCircle2 size={16} color={COLORS.primary} style={{ marginTop: 2, shrink: 0 }} />
+                                  <Typography variant="body2" sx={{ color: COLORS.textPrimary }}>{topic}</Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                          </Box>
+                        </Grid>
+
+                        {/* 3. Learning Activities */}
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Box sx={{ height: '100%', p: 3, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Neural Interactions</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {currentModule.activities?.map((act: any, aidx: number) => (
+                                <Box key={aidx} sx={{ p: 1.5, borderRadius: '10px', bgcolor: 'rgba(124, 105, 245, 0.05)', border: '1px solid rgba(124, 105, 245, 0.1)' }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                    <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 700 }}>{act.type}</Typography>
+                                    <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>{act.duration}</Typography>
+                                  </Box>
+                                  <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontWeight: 500 }}>{act.activity}</Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                          </Box>
+                        </Grid>
+                      </Grid>
+
+                      {/* 4. Asset Ingest Zone */}
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" sx={{ color: COLORS.textSecondary, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Database size={14} /> Local Data Grounding
+                        </Typography>
+                        <Box sx={{ 
+                          p: 4, 
+                          borderRadius: '16px', 
+                          border: '1px dashed rgba(167, 218, 219, 0.2)',
+                          textAlign: 'center',
+                          background: 'rgba(167, 218, 219, 0.02)',
+                          transition: 'all 0.3s ease',
+                          '&:hover': { background: 'rgba(167, 218, 219, 0.05)', borderColor: COLORS.secondary }
+                        }}>
+                           <Plus size={24} color={COLORS.secondary} style={{ margin: '0 auto 12px' }} />
+                           <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
+                             Upload organizational assets (SOPs, Manuals, PDFs) to ground <span className="text-[#A7DADB] font-bold">{currentModule.title}</span>.
+                           </Typography>
+                           <Button 
+                            size="small" 
+                            variant="outlined"
+                            sx={{ mt: 2, color: COLORS.secondary, borderColor: COLORS.secondary, textTransform: 'none', borderRadius: '8px' }}
+                            onClick={() => router.push('/assets')}
+                           >
+                             Initialize Ingest Engine
+                           </Button>
                         </Box>
                       </Box>
                     </Box>
                   </Box>
-
-                  {/* Script Editor Simulation */}
-                  <Box sx={{ 
-                    minHeight: '300px', 
-                    p: 3, 
-                    borderRadius: '16px', 
-                    ...glassStyles, 
-                    border: '1px solid rgba(124, 105, 245, 0.1)',
-                    position: 'relative'
-                  }}>
-                    <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>
-                      Architecture Logic
-                    </Typography>
-                    
-                    <Typography 
-                      variant="body1" 
-                      sx={{ 
-                        color: COLORS.textPrimary, 
-                        lineHeight: 1.8, 
-                        fontSize: '1rem',
-                        '& .highlight': {
-                          background: `linear-gradient(90deg, ${COLORS.primary}33, transparent)`,
-                          borderLeft: `2px solid ${COLORS.primary}`,
-                          px: 1,
-                          py: 0.5,
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            background: `linear-gradient(90deg, ${COLORS.primary}66, transparent)`,
-                            boxShadow: `0 0 20px ${COLORS.primary}22`
-                          }
-                        }
-                      }}
-                    >
-                      {currentModule?.description || 'Select a node from the strategy to initialize the architectural drafting engine. Constellation will map this node to your ingested organizational data.'}
-                    </Typography>
-
-                    {/* AI Glow Element */}
-                    <Box sx={{ 
-                      position: 'absolute', 
-                      bottom: 20, 
-                      right: 20, 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 1,
-                      p: 1,
-                      px: 2,
-                      borderRadius: '20px',
-                      background: `linear-gradient(135deg, ${COLORS.primary}22, ${COLORS.secondary}22)`,
-                      border: `1px solid ${COLORS.primary}44`,
-                      backdropFilter: 'blur(4px)'
-                    }}>
-                      <Sparkles size={14} color={COLORS.secondary} />
-                      <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 600 }}>Engine Ready</Typography>
-                    </Box>
+                ) : (
+                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                    <Layers size={48} color={COLORS.textSecondary} style={{ marginBottom: 16 }} />
+                    <Typography variant="h6">Select a Strategy Node</Typography>
+                    <Typography variant="body2">Choose a module from the sequence to begin architectural drafting.</Typography>
                   </Box>
-
-                  {/* Asset Map Section */}
-                  <Box sx={{ mt: 4 }}>
-                    <Typography variant="subtitle2" sx={{ color: COLORS.textSecondary, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Database size={14} /> Local Data Grounding
-                    </Typography>
-                    <Box sx={{ 
-                      p: 4, 
-                      borderRadius: '16px', 
-                      border: '1px dashed rgba(167, 218, 219, 0.2)',
-                      textAlign: 'center',
-                      background: 'rgba(167, 218, 219, 0.02)'
-                    }}>
-                       <Plus size={24} color={COLORS.secondary} style={{ margin: '0 auto 12px' }} />
-                       <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-                         Upload organizational assets (SOPs, Manuals, PDFs) to ground this module.
-                       </Typography>
-                       <Button 
-                        size="small" 
-                        sx={{ mt: 2, color: COLORS.secondary, textTransform: 'none' }}
-                        onClick={() => router.push('/assets')}
-                       >
-                         Initialize Ingest Engine
-                       </Button>
-                    </Box>
-                  </Box>
-                </Box>
+                )}
               </AnimatePresence>
             </Box>
           </Box>
@@ -559,6 +590,8 @@ function ArchitectureCanvasContent() {
     </Box>
   );
 }
+
+import { Grid } from '@mui/material';
 
 export default function ArchitectureCanvas() {
   return (
