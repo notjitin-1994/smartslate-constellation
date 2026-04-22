@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { User } from '@lucide-react/icons';
+import { User } from 'lucide-react';
 import Image from 'next/image';
 
 interface UserAvatarProps {
