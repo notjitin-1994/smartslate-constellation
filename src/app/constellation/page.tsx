@@ -88,19 +88,27 @@ const extractModules = (blueprint: any) => {
 };
 
 /**
- * Extracts target persona from static answers
+ * Extracts target persona from static answers or final blueprint
  */
 const extractPersona = (blueprint: any) => {
+  const bj = blueprint?.blueprint_json || {};
+  const roles = bj.target_audience?.demographics?.roles;
+  if (roles && Array.isArray(roles)) return roles.join(', ');
+  if (roles && typeof roles === 'string') return roles;
+
   const sa = blueprint?.static_answers || {};
   return sa.section_1_role_experience?.current_role || 'General Professional';
 };
 
 /**
- * Extracts primary objective
+ * Extracts primary objective from executive summary or static answers
  */
 const extractObjective = (blueprint: any) => {
-  const sa = blueprint?.static_answers || {};
   const bj = blueprint?.blueprint_json || {};
+  const summary = bj.executive_summary?.content;
+  if (summary) return summary;
+
+  const sa = blueprint?.static_answers || {};
   return bj.objective || sa.section_3_learning_gap?.learning_gap_description || 'No strategic objective defined.';
 };
 
