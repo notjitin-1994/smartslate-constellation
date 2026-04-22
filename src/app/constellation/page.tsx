@@ -210,7 +210,7 @@ function ArchitectureCanvasContent() {
       overflow: 'hidden'
     }}>
       {/* --- LEFT NAVIGATION: Polaris Strategy Trace --- */}
-      <Box sx={{ width: '320px', borderRight: `1px solid ${COLORS.glassBorder}`, p: 3, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ width: '288px', borderRight: `1px solid ${COLORS.glassBorder}`, p: 3, display: 'flex', flexDirection: 'column' }}>
         <HandoverStatus status="ARCHITECTING" />
         
         <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Strategy Trace</Typography>

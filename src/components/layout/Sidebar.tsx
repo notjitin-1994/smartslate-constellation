@@ -83,7 +83,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`hidden h-screen flex-col md:flex fixed left-0 top-0 z-50 transition-all duration-300 ease-out glass-sidebar ${
-        collapsed ? 'w-16' : 'w-72 lg:w-80'
+        collapsed ? 'w-16' : 'w-72'
       }`}
     >
       {/* Header with Brand & Toggle */}
