@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircleIcon } from 'lucide-react';
+import Image from 'next/image';
 import { personasData } from './personasData';
 import type { PersonaType } from './types';
 
@@ -13,7 +14,7 @@ export function LoginMarketingSection() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div className="relative z-10 mb-4 xl:mb-6">
-        <img src="/logo.png" alt="Smartslate" className="h-7 xl:h-8 w-auto" />
+        <Image src="/logo.png" alt="Smartslate" width={160} height={32} className="h-7 xl:h-8 w-auto" />
       </div>
 
       <div className="relative z-10 mb-6 xl:mb-8 text-left">

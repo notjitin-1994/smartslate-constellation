@@ -16,11 +16,10 @@ import {
   Ship, 
   Crown,
   ChevronRight,
-  Info,
   Check,
   Activity
 } from 'lucide-react';
-import { Box, Tooltip } from '@mui/material';
+import { Box } from '@mui/material';
 
 // --- Constellation Design System Tokens ---
 const THEME = {
@@ -87,7 +86,7 @@ const PremiumAction = ({ children, onClick, active = false }: { children: React.
   );
 };
 
-const UsageCircularProgress = ({ used, total, label }: { used: number, total: any, label: string }) => {
+const UsageCircularProgress = ({ used, total, label }: { used: number, total: number | string, label: string }) => {
   const percentage = typeof total === 'number' ? (used / total) * 100 : 0;
   const radius = 36;
   const circumference = 2 * Math.PI * radius;

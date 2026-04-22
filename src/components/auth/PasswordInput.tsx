@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type React from 'react';
-import { Lock, Eye, EyeOff, Check, X } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 
 type Props = {
   label: string;
@@ -18,9 +18,7 @@ export function PasswordInput({ label, value, onChange, placeholder, autoComplet
   const [focused, setFocused] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  const hasValue = value.length > 0;
   const meetsCriteria = value.length >= 6;
-  const showValidation = touched && !focused;
 
   return (
     <div className="space-y-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 
 type Tier = 'mobile' | 'tablet' | 'desktop' | 'ultra';
 
@@ -98,12 +99,8 @@ const SwirlBackground = memo(({ className = '' }: SwirlBackgroundProps) => {
   return (
     <div className={`pointer-events-none absolute inset-0 overflow-hidden select-none ${className}`} aria-hidden suppressHydrationWarning>
       {swirls.map((s) => (
-        <img
+        <div
           key={s.id}
-          src="/logo-swirl.png"
-          alt=""
-          decoding="async"
-          loading="lazy"
           style={{
             position: 'absolute',
             left: `${s.x}%`,
@@ -116,7 +113,14 @@ const SwirlBackground = memo(({ className = '' }: SwirlBackgroundProps) => {
             mixBlendMode: 'soft-light',
             zIndex: s.z,
           }}
-        />
+        >
+          <Image
+            src="/logo-swirl.png"
+            alt=""
+            fill
+            className="object-contain"
+          />
+        </div>
       ))}
       <div className="absolute inset-0 bg-black/10" />
     </div>

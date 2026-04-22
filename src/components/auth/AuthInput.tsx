@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type React from 'react';
-import { Mail, Check, X, Loader2 } from 'lucide-react';
+import { Mail, Check, X } from 'lucide-react';
 
 type IdentifierValue = { kind: 'email'; email: string } | { kind: 'unknown'; raw: string };
 

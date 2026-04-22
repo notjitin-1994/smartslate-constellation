@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Ingest API Error]:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred during asset ingestion.';
     return NextResponse.json(
-      { error: error.message || 'An error occurred during asset ingestion.' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

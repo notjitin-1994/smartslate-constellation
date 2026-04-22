@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence, Transition } from 'framer-motion';
+import { motion, Transition } from 'framer-motion';
 import { 
   ShieldCheck, 
   Chrome, 
@@ -56,11 +56,12 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       router.push('/dashboard');
-    } catch (err: any) {
-      alert(err.message || 'Login failed.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed.';
+      alert(errorMessage);
       setLoading(false);
     }
   };

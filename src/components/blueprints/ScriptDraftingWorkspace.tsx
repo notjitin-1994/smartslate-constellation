@@ -9,12 +9,9 @@ import {
   AlertTriangle, 
   Link as LinkIcon, 
   FileText, 
-  ChevronRight, 
-  Crosshair,
-  Info,
   Loader2
 } from 'lucide-react';
-import { Box, Typography, Tooltip, IconButton, Button } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
 
 interface ScriptDraftingWorkspaceProps {
   scriptTitle: string;

@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   FileText, 
   Video, 
@@ -59,8 +59,6 @@ export const KnowledgeVaultModal = ({
     setProgress(10);
     
     try {
-      // In a real implementation, we would loop through files or use a FormData upload
-      // For this prototype, we'll simulate the ingestion of the first file to show the loop
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = fileInput?.files?.[0];
       
@@ -85,7 +83,6 @@ export const KnowledgeVaultModal = ({
         if (!response.ok) throw new Error('Ingestion failed');
         setProgress(100);
       } else {
-        // Fallback for simulation if no real file selected via hidden input
         let p = 10;
         const interval = setInterval(() => {
           p += 5;
@@ -98,7 +95,6 @@ export const KnowledgeVaultModal = ({
       setFiles(prev => prev.map(f => ({ ...f, status: 'complete' })));
     } catch (error) {
       console.error('Ingestion Error:', error);
-      alert('Failed to ingest knowledge. Check console.');
     } finally {
       setTimeout(() => {
         setIsSynthesizing(false);
@@ -118,8 +114,7 @@ export const KnowledgeVaultModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      <div 
         onClick={onClose}
         className="absolute inset-0 bg-[#020C1B]/80 backdrop-blur-md" 
       />

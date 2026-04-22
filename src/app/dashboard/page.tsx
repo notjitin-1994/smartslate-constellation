@@ -16,7 +16,6 @@ import {
   ArrowUpRight,
   Zap
 } from 'lucide-react';
-import { Typography, Box, Container, Grid, CircularProgress } from '@mui/material';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -168,7 +167,11 @@ const ActionCard = ({
             border: `1px solid ${isPrimaryCTA ? 'rgba(124, 105, 245, 0.2)' : 'rgba(167, 218, 219, 0.1)'}`
           }}
         >
-          {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { 
+          {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<{ 
+            size?: number, 
+            color?: string,
+            strokeWidth?: number 
+          }>, { 
             size: 24, 
             color: isPrimaryCTA ? COLORS.primaryCTA : COLORS.accent,
             strokeWidth: 1.5 
@@ -233,7 +236,7 @@ export default function DashboardPage() {
 
       setHasBlueprints(!!(count && count > 0));
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Dashboard logic error:', error);
     } finally {
       setTimeout(() => setLoading(false), 800);

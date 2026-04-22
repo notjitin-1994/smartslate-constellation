@@ -40,8 +40,9 @@ export function LoginFormContent(): React.JSX.Element {
       setTimeout(() => {
         router.push('/dashboard');
       }, 600);
-    } catch (err: any) {
-      setError(err.message || 'Login failed.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed.';
+      setError(errorMessage);
       setLoading(false);
     }
   }

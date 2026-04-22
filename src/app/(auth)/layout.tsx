@@ -9,8 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Zap, 
   Layout, 
-  Layers,
-  Sparkles,
   Hexagon
 } from 'lucide-react';
 import Image from 'next/image';
@@ -48,7 +46,7 @@ const BackgroundTrajectory = () => (
   </div>
 );
 
-const FeatureItem = ({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) => (
+const FeatureItem = ({ icon: Icon, title, desc }: { icon: React.ElementType, title: string, desc: string }) => (
   <div className="group flex gap-5 items-start p-4 rounded-xl transition-colors hover:bg-white/[0.02]">
     <div className="mt-1 p-2.5 rounded-lg bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB] group-hover:scale-110 transition-transform">
       <Icon size={18} />

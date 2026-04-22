@@ -8,12 +8,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { 
-  Box, 
   Container, 
   Typography, 
   Button, 
-  CircularProgress,
-  Tooltip
+  CircularProgress
 } from '@mui/material';
 import { 
   Plus, 
@@ -21,8 +19,6 @@ import {
   ChevronLeft, 
   Sparkles, 
   Layers, 
-  Zap, 
-  ShieldCheck,
   Compass,
   AlertCircle
 } from 'lucide-react';
@@ -61,9 +57,19 @@ const itemVariants: Variants = {
   visible: { y: 0, opacity: 1, transition: { duration: 0.5, ease: [0.23, 1, 0.32, 1] } }
 };
 
+// --- TYPES ---
+interface Blueprint {
+  id: string;
+  title: string;
+  created_at: string;
+  blueprint_json?: {
+    objective?: string;
+  };
+}
+
 // --- SUB-COMPONENTS ---
 
-const HandoverTrigger = ({ onClick, children, className = "" }: any) => (
+const HandoverTrigger = ({ onClick, children, className = "" }: { onClick: () => void, children: React.ReactNode, className?: string }) => (
   <button
     onClick={onClick}
     className={`group relative px-6 py-2.5 rounded-full overflow-hidden transition-all duration-300 ${className}`}
@@ -77,7 +83,7 @@ const HandoverTrigger = ({ onClick, children, className = "" }: any) => (
   </button>
 );
 
-const BlueprintCard = ({ blueprint, onSelect }: any) => (
+const BlueprintCard = ({ blueprint, onSelect }: { blueprint: Blueprint, onSelect: (id: string) => void }) => (
   <motion.div
     variants={itemVariants}
     whileHover={{ y: -4, borderColor: 'rgba(124, 105, 245, 0.4)' }}
@@ -125,7 +131,7 @@ type PageState = 'loading' | 'error' | 'marketing' | 'guidance' | 'selection';
 
 export default function HandoverGateway() {
   const [appState, setAppState] = useState<PageState>('loading');
-  const [blueprints, setBlueprints] = useState<any[]>([]);
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 6;
@@ -141,17 +147,6 @@ export default function HandoverGateway() {
         return;
       }
 
-      // Fetch User Profile for Sub Check
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('subscription_tier')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (!profile?.subscription_tier || profile.subscription_tier === 'free') {
-        // Marketing mode for free users if required
-      }
-
       // Fetch Blueprints
       const { data: bps, error: bpError } = await supabase
         .from('blueprint_generator')
@@ -164,9 +159,10 @@ export default function HandoverGateway() {
       setBlueprints(bps || []);
       setAppState(bps && bps.length > 0 ? 'selection' : 'guidance');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Handover Error:', err);
-      setError(err.message);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
       setAppState('error');
     }
   }, []);
@@ -234,7 +230,7 @@ export default function HandoverGateway() {
               className="flex flex-col items-center justify-center py-20"
             >
               <CircularProgress sx={{ color: COLORS.primary, mb: 3 }} />
-              <Typography sx={{ color: COLORS.textSecondary, fontMono: 'monospace', fontSize: '10px', tracking: '0.2em' }}>
+              <Typography sx={{ color: COLORS.textSecondary, fontFamily: 'monospace', fontSize: '10px', letterSpacing: '0.2em' }}>
                 INITIALIZING HANDOVER PROTOCOL...
               </Typography>
             </motion.div>
@@ -278,7 +274,7 @@ export default function HandoverGateway() {
 
               <div className="relative z-10 max-w-lg">
                 <div className="flex items-center gap-2 mb-6 text-[#A7DADB]">
-                  <ShieldCheck size={20} />
+                  <Layers size={20} />
                   <span className="text-xs font-bold tracking-widest uppercase">Premium Capability</span>
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-6 leading-tight">

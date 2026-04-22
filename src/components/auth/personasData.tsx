@@ -1,4 +1,4 @@
-import { Sparkles, Award, BookOpen, Users2, TrendingUp, Presentation } from 'lucide-react';
+import { Sparkles, Award, BookOpen, Users2, TrendingUp } from 'lucide-react';
 import type { PersonaData } from './types';
 import React from 'react';
 

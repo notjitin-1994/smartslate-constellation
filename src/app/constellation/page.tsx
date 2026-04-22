@@ -8,46 +8,35 @@
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  LayoutDashboard, 
-  FileCode, 
   Layers, 
-  SearchCheck, 
   Sparkles, 
-  Plus, 
-  Share2, 
   Target, 
-  BookOpen, 
-  Users, 
   ChevronRight,
   Database,
-  Type,
   AlertCircle,
-  Clock,
-  ExternalLink,
   CheckCircle2,
   BrainCircuit,
   Zap,
   ShieldCheck,
   Code2,
-  ArrowRightLeft,
   Activity
 } from 'lucide-react';
 import { 
   Box, 
   Typography, 
-  Tooltip, 
-  IconButton,
-  Button,
-  Divider,
-  CircularProgress,
-  Chip,
-  LinearProgress,
-  Grid
+  Button, 
+  Divider, 
+  CircularProgress, 
+  Chip, 
+  LinearProgress, 
+  Grid,
+  IconButton
 } from '@mui/material';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
 import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
+import { ScriptOutput } from '@/lib/services/instructionalArchitectService';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 const COLORS = {
@@ -69,6 +58,29 @@ const glassStyles = {
   boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
 };
 
+// --- TYPES ---
+interface ModuleData {
+  id: string;
+  title: string;
+  description: string;
+  pedagogicalMode: string;
+  cognitiveLoad: number;
+  scaffolding: string;
+  assetGroundingStatus: string;
+  learning_activities?: Array<{ type: string; activity: string; duration: string }>;
+}
+
+interface Blueprint {
+  id: string;
+  title: string;
+  blueprint_json?: {
+    executive_summary?: { content: string };
+    target_audience?: { demographics?: { roles: string[] } };
+    learning_objectives?: { objectives?: Array<{ title: string }> };
+    content_outline?: { modules: Record<string, unknown>[] };
+  };
+}
+
 // --- HELPERS ---
 
 const mapScaffolding = (bloomLevel: string) => {
@@ -83,12 +95,14 @@ const mapScaffolding = (bloomLevel: string) => {
   return map[bloomLevel?.toLowerCase()] || 'MEDIUM';
 };
 
-const extractEnrichedModules = (blueprint: any) => {
+const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
   if (!blueprint) return [];
-  const bj = blueprint.blueprint_json || {};
+  const bj = blueprint.blueprint_json || { content_outline: { modules: [] }, learning_objectives: { objectives: [] } };
   const modules = bj.content_outline?.modules || [];
-  return modules.map((mod: any, i: number) => ({
-    ...mod,
+  return modules.map((mod: Record<string, unknown>, i: number) => ({
+    title: String(mod.title || ''),
+    description: String(mod.description || ''),
+    learning_activities: Array.isArray(mod.learning_activities) ? (mod.learning_activities as Array<{ type: string; activity: string; duration: string }>) : [],
     id: `NODE_0${i + 1}`,
     pedagogicalMode: i === 0 ? 'ACTIVATION' : mod.assessment ? 'APPLICATION' : 'DEMONSTRATION',
     cognitiveLoad: Math.floor(Math.random() * 4) + 3,
@@ -97,7 +111,7 @@ const extractEnrichedModules = (blueprint: any) => {
   }));
 };
 
-const StatBadge = ({ icon: Icon, label, value, color = COLORS.primary }: any) => (
+const StatBadge = ({ icon: Icon, label, value, color = COLORS.primary }: { icon: React.ElementType, label: string, value: string, color?: string }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.02)', p: 1, px: 1.5, borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
     <Icon size={14} color={color} />
     <Box>
@@ -124,13 +138,13 @@ function ArchitectureCanvasContent() {
   const searchParams = useSearchParams();
   const blueprintId = searchParams.get('blueprintId');
   const [loading, setLoading] = useState(true);
-  const [blueprint, setBlueprint] = useState<any>(null);
+  const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [activeNodeIdx, setActiveNodeIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showUlsPreview, setShowUlsPreview] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
-  const [scriptOutputs, setScriptOutputs] = useState<Record<number, any>>({});
+  const [scriptOutputs, setScriptOutputs] = useState<Record<number, ScriptOutput>>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -140,10 +154,11 @@ function ArchitectureCanvasContent() {
         setLoading(true);
         const { data, error: bpError } = await supabase.from('blueprint_generator').select('*').eq('id', blueprintId).single();
         if (bpError) throw bpError;
-        setBlueprint(data);
-      } catch (err: any) {
+        setBlueprint(data as Blueprint);
+      } catch (err: unknown) {
         console.error('Canvas Fetch Error:', err);
-        setError(err.message);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(errorMessage);
       } finally { setLoading(false); }
     };
     fetchBlueprint();
@@ -173,8 +188,9 @@ function ArchitectureCanvasContent() {
       } else {
         throw new Error(result.error);
       }
-    } catch (err: any) {
-      alert(`Drafting Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Drafting Failed';
+      alert(`Drafting Failed: ${errorMessage}`);
     } finally { setIsDrafting(false); }
   };
 
@@ -207,7 +223,7 @@ function ArchitectureCanvasContent() {
           </Box>
           <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.05)' }} />
           <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 1, display: 'block' }}>Neural Nodes</Typography>
-          {modules.map((mod: any, i: number) => (
+          {modules.map((mod: ModuleData, i: number) => (
             <Box key={i} onClick={() => setActiveNodeIdx(i)} sx={{ p: 1.5, borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease', border: `1px solid ${activeNodeIdx === i ? COLORS.primary : 'transparent'}`, bgcolor: activeNodeIdx === i ? 'rgba(124, 105, 245, 0.1)' : 'transparent', '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}><Typography variant="caption" sx={{ color: COLORS.secondary, fontSize: '10px' }}>{mod.id}</Typography><Zap size={10} color={activeNodeIdx === i ? COLORS.primary : COLORS.textSecondary} /></Box>
               <Typography variant="body2" sx={{ color: activeNodeIdx === i ? 'white' : COLORS.textSecondary, fontWeight: activeNodeIdx === i ? 600 : 400, fontSize: '0.8rem' }}>{mod.title}</Typography>
@@ -228,7 +244,7 @@ function ArchitectureCanvasContent() {
         <Box sx={{ flex: 1 }}>
           {activeScript || isDrafting ? (
             <ScriptDraftingWorkspace 
-              scriptTitle={currentModule.title}
+              scriptTitle={currentModule?.title || ""}
               content={activeScript?.script || ""}
               groundingScore={activeScript?.groundingScore || 0}
               hallucinationFlag={activeScript?.hallucinationFlag || false}
@@ -239,13 +255,13 @@ function ArchitectureCanvasContent() {
             />
           ) : (
             <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 8 }}>
+              <Grid item xs={12} md={8}>
                 <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px', mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}><Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary }}><BrainCircuit size={16} /> Instructional Strategy Layer (ISL)</Typography><Chip label={currentModule?.pedagogicalMode} size="small" sx={{ bgcolor: COLORS.primary, color: 'white', fontWeight: 700, fontSize: '10px' }} /></Box>
                   <Typography variant="body1" sx={{ color: 'white', mb: 4, lineHeight: 1.7 }}>{currentModule?.description}</Typography>
                   <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Neural Interaction Graph</Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {currentModule?.learning_activities?.map((act: any, idx: number) => (
+                    {currentModule?.learning_activities?.map((act: { type: string; duration: string; activity: string }, idx: number) => (
                       <Box key={idx} sx={{ display: 'flex', gap: 2, p: 2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(124, 105, 245, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Activity size={18} color={COLORS.primary} /></Box>
                         <Box sx={{ flex: 1 }}><Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}><Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 700 }}>{act.type}</Typography><Typography variant="caption" sx={{ color: COLORS.textSecondary }}>{act.duration}</Typography></Box><Typography variant="body2" sx={{ color: COLORS.textPrimary }}>{act.activity}</Typography></Box>
@@ -254,20 +270,20 @@ function ArchitectureCanvasContent() {
                   </Box>
                 </Box>
               </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
+              <Grid item xs={12} md={4}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px' }}>
                     <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary, mb: 3 }}><ShieldCheck size={16} /> Cognitive Guardrails (CLG)</Typography>
-                    <Box sx={{ mb: 3 }}><Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}><Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Cognitive Load Score</Typography><Typography variant="caption" sx={{ color: COLORS.primary, fontWeight: 700 }}>{currentModule?.cognitiveLoad}/10</Typography></Box><LinearProgress variant="determinate" value={currentModule?.cognitiveLoad * 10} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: COLORS.primary } }} /></Box>
+                    <Box sx={{ mb: 3 }}><Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}><Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Cognitive Load Score</Typography><Typography variant="caption" sx={{ color: COLORS.primary, fontWeight: 700 }}>{currentModule?.cognitiveLoad}/10</Typography></Box><LinearProgress variant="determinate" value={(currentModule?.cognitiveLoad || 0) * 10} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: COLORS.primary } }} /></Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      <StatBadge icon={Layers} label="SCAFFOLDING" value={currentModule?.scaffolding} />
+                      <StatBadge icon={Layers} label="SCAFFOLDING" value={currentModule?.scaffolding || "MEDIUM"} />
                       <StatBadge icon={CheckCircle2} label="ASSET GROUNDING" value="PENDING" color={COLORS.warning} />
                     </Box>
                   </Box>
                   <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px', border: `1px dashed ${COLORS.secondary}44` }}>
                     <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary, mb: 2 }}><Database size={16} /> Knowledge Harvesting</Typography>
                     <Typography variant="caption" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Ground this node in organizational truth.</Typography>
-                    <Button fullWidth variant="outlined" onClick={() => setIsVaultOpen(true)} size="small" sx={{ borderColor: COLORS.secondary, color: COLORS.secondary, textTransform: 'none' }}>Open Knowledge Vault</Button>
+                    <Button fullWidth variant="outlined" onClick={() => setIsVaultOpen(true)} size="small" sx={{ borderColor: COLORS.secondary, color: COLORS.secondary, textTransform: 'none', borderRadius: '8px' }}>Open Knowledge Vault</Button>
                   </Box>
                 </Box>
               </Grid>
@@ -294,7 +310,7 @@ function ArchitectureCanvasContent() {
                       script: activeScript?.script,
                       grounding: activeScript?.groundingScore
                     },
-                    full_sequence: modules.map((m: any) => ({ id: m.id, mode: m.pedagogicalMode }))
+                    full_sequence: modules.map((m: ModuleData) => ({ id: m.id, mode: m.pedagogicalMode }))
                   }, null, 2)}
                 </pre>
               </Box>

@@ -6,29 +6,16 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Upload, 
   FileText, 
-  Search, 
   Cpu, 
   CheckCircle2, 
   Loader2, 
-  Database, 
   Zap, 
-  ArrowRight,
-  ShieldCheck,
-  LayoutGrid,
-  Settings,
-  Layers
+  ArrowRight
 } from 'lucide-react';
-import { 
-  Box, 
-  Typography, 
-  LinearProgress, 
-  Tooltip,
-  IconButton
-} from '@mui/material';
 
 // --- Design System Constants ---
 const COLORS = {
@@ -61,7 +48,7 @@ const ConstellationNode = ({ status }: { status: 'idle' | 'processing' | 'comple
           style={{ backgroundColor: COLORS.primary, filter: 'blur(4px)' }}
         />
       )}
-      <div 
+      <div
         className={`relative z-10 w-2 h-2 rounded-full transition-colors duration-500 ${
           status === 'complete' ? 'bg-[#A7DADB]' : 'bg-[#7C69F5]'
         }`}
@@ -72,36 +59,6 @@ const ConstellationNode = ({ status }: { status: 'idle' | 'processing' | 'comple
   );
 };
 
-const Sidebar = () => (
-  <motion.div 
-    initial={{ x: -20, opacity: 0 }}
-    animate={{ x: 0, opacity: 1 }}
-    className="fixed left-0 top-0 h-full w-16 md:w-20 flex flex-col items-center py-8 gap-8 z-50"
-    style={{ ...glassStyles, borderLeft: 'none', borderTop: 'none', borderBottom: 'none' }}
-  >
-    <div className="w-8 h-8 bg-[#7C69F5] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(124,105,245,0.5)]">
-      <div className="w-2 h-2 bg-white rounded-full" />
-    </div>
-    
-    <div className="flex flex-col gap-6 mt-12">
-      {[LayoutGrid, Database, Layers, ShieldCheck, Settings].map((Icon, i) => (
-        <Tooltip key={i} title="[Navigation Label]" placement="right">
-          <IconButton sx={{ color: i === 1 ? COLORS.primary : COLORS.textSecondary }}>
-            <Icon size={20} strokeWidth={1.5} />
-          </IconButton>
-        </Tooltip>
-      ))}
-    </div>
-    
-    <div className="mt-auto relative">
-      <div className="absolute inset-0 bg-[#7C69F5] blur-xl opacity-20" />
-      <div className="w-8 h-8 rounded-full border border-[#7C69F5]/30 overflow-hidden relative z-10">
-        <div className="w-full h-full bg-slate-800" />
-      </div>
-    </div>
-  </motion.div>
-);
-
 const AnalysisTrackerItem = ({ label, status }: { label: string, status: 'pending' | 'active' | 'done' }) => (
   <div className="flex items-center gap-4 py-2 px-3 rounded-lg hover:bg-white/5 transition-colors group">
     <ConstellationNode status={status === 'active' ? 'processing' : status === 'done' ? 'complete' : 'idle'} />
@@ -110,7 +67,7 @@ const AnalysisTrackerItem = ({ label, status }: { label: string, status: 'pendin
         {label}
       </p>
       {status === 'active' && (
-        <motion.div 
+        <motion.div
           initial={{ width: 0 }}
           animate={{ width: '100%' }}
           className="h-[1px] bg-gradient-to-r from-[#7C69F5] to-transparent mt-1"
@@ -126,8 +83,8 @@ export default function AssetIngestionDashboard() {
   const [isDragging, setIsDragging] = useState(false);
 
   return (
-    <div className="min-h-screen text-slate-200 font-sans selection:bg-[#7C69F5]/30" style={{ backgroundColor: COLORS.background }}>
-      
+    <div className="min-h-screen text-slate-200 font-sans selection:bg-[#7C69F5]/30" style={{ backgroundColor: COLORS.background }}>      
+
       <main className="p-6 md:p-10 max-w-7xl mx-auto">
         {/* Header Section */}
         <header className="mb-12">
@@ -141,16 +98,16 @@ export default function AssetIngestionDashboard() {
             Asset Ingestion <span className="text-[#7C69F5]">Pipeline</span>
           </h1>
           <p className="text-sm text-[#94A3B8] max-w-2xl">
-            Initialize the Polaris data architecture by ingesting unstructured organizational assets. 
+            Initialize the Polaris data architecture by ingesting unstructured organizational assets.
             AI-driven context mapping activates upon upload.
           </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
+
           {/* Left Column: Upload & Mapping */}
           <div className="lg:col-span-8 space-y-6">
-            
+
             {/* 1. File Upload Area */}
             <motion.div
               onDragOver={() => setIsDragging(true)}
@@ -158,13 +115,13 @@ export default function AssetIngestionDashboard() {
               className="relative rounded-2xl overflow-hidden group"
               style={glassStyles}
             >
-              <div 
+              <div
                 className={`p-12 border-2 border-dashed transition-all duration-500 flex flex-col items-center justify-center text-center ${
                   isDragging ? 'border-[#7C69F5] bg-[#7C69F5]/10' : 'border-[#7C69F5]/10 group-hover:border-[#7C69F5]/30'
                 }`}
               >
                 <div className="relative mb-6">
-                  <motion.div 
+                  <motion.div
                     animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 4, repeat: Infinity }}
                     className="relative z-10 w-16 h-16 rounded-2xl bg-[#7C69F5]/10 border border-[#7C69F5]/20 flex items-center justify-center"
@@ -173,12 +130,12 @@ export default function AssetIngestionDashboard() {
                   </motion.div>
                   <div className="absolute inset-0 bg-[#7C69F5] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
                 </div>
-                
+
                 <h3 className="text-lg font-medium text-white mb-1">Drop Technical Assets</h3>
                 <p className="text-xs text-[#94A3B8] mb-8">
                   Support for PDF, DOCX, and raw datasets. Max 500MB per batch.
                 </p>
-                
+
                 <button className="relative group/btn px-6 py-2.5 rounded-full overflow-hidden transition-all active:scale-95">
                   <div className="absolute inset-0 bg-[#7C69F5]" />
                   <div className="absolute inset-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full" />
@@ -211,7 +168,7 @@ export default function AssetIngestionDashboard() {
                   <FileText size={14} className="text-[#94A3B8]" />
                   <span className="text-[11px] font-mono text-[#94A3B8]">[Processing: technical_spec_v4.pdf]</span>
                 </div>
-                
+
                 <AnalysisTrackerItem label="Analyzing Domain Context" status="done" />
                 <AnalysisTrackerItem label="Extracting Technical Specs" status="active" />
                 <AnalysisTrackerItem label="Mapping to Polaris Objective 01" status="pending" />
@@ -222,16 +179,16 @@ export default function AssetIngestionDashboard() {
 
           {/* Right Column: Summaries & Actions */}
           <div className="lg:col-span-4 space-y-6">
-            
+
             {/* 3. Content Breakdown Summary */}
             <div className="rounded-2xl p-6 relative overflow-hidden" style={glassStyles}>
               {/* Radial background deco */}
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#7C69F5] blur-[60px] opacity-20" />
-              
+
               <h4 className="text-[11px] font-bold text-[#7C69F5] uppercase tracking-[0.2em] mb-4">
                 Knowledge Extraction
               </h4>
-              
+
               <div className="space-y-5">
                 {[
                   { label: "[Domain Coverage]", value: "84%", sub: "High Confidence" },
@@ -247,7 +204,7 @@ export default function AssetIngestionDashboard() {
                       </div>
                     </div>
                     <div className="h-[2px] w-full bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
+                      <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: item.value === "84%" ? "84%" : "40%" }}
                         className="h-full bg-gradient-to-r from-[#7C69F5] to-[#A7DADB]"
@@ -275,24 +232,24 @@ export default function AssetIngestionDashboard() {
                 <p className="text-[11px] text-[#94A3B8] mb-6 leading-relaxed">
                   Once ingestion reaches 100%, initialize the cognitive handover to the architectural canvas.
                 </p>
-                
+
                 <button className="w-full relative py-3 group flex items-center justify-center gap-2 rounded-xl overflow-hidden">
                   <div className="absolute inset-0 bg-[#7C69F5] opacity-10 group-hover:opacity-20 transition-opacity" />
                   <div className="absolute inset-0 border border-[#7C69F5]/30 group-hover:border-[#7C69F5]/60 transition-colors rounded-xl" />
-                  
+
                   {/* Atmospheric ring decoration */}
                   <div className="absolute w-24 h-24 bg-[#7C69F5] blur-[40px] opacity-0 group-hover:opacity-30 transition-opacity -top-12 -left-12" />
-                  
+
                   <span className="relative z-10 text-[11px] font-bold text-[#7C69F5] uppercase tracking-widest">
                     Initialize Handover
                   </span>
-                  
+
                   {/* Scanning flare */}
-                  <motion.div 
+                  <motion.div
                     initial={{ left: '-100%' }}
                     whileHover={{ left: '100%' }}
                     transition={{ duration: 0.8, ease: "easeInOut" }}
-                    className="absolute top-0 bottom-0 w-8 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 z-20"
+                    className="absolute top-0 bottom-0 w-8 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 z-20"  
                   />
                 </button>
               </div>

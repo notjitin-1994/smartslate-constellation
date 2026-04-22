@@ -65,7 +65,7 @@ export default function SignupPage() {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -79,8 +79,9 @@ export default function SignupPage() {
       if (error) throw error;
       alert('Provisioning request received. Please check your email for activation link.');
       router.push('/login');
-    } catch (err: any) {
-      alert(err.message || 'Signup failed.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Signup failed.';
+      alert(errorMessage);
       setLoading(false);
     }
   };

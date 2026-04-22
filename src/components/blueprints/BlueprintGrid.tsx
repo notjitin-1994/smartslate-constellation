@@ -9,13 +9,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Box, 
-  Container, 
   Grid, 
   Typography, 
-  Button, 
-  Chip,
-  IconButton,
-  Tooltip
+  Button
 } from '@mui/material';
 import { 
   Layers, 
@@ -331,7 +327,7 @@ export default function BlueprintSelectionGrid({
         ) : (
           <Grid container spacing={3} key="grid">
             {blueprints.map((bp, idx) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={bp.id}>
+              <Grid item xs={12} sm={6} md={4} lg={3} key={bp.id}>
                 <BlueprintCard 
                   title={bp.title} 
                   date={bp.date} 
@@ -342,7 +338,7 @@ export default function BlueprintSelectionGrid({
             ))}
             
             {/* Strategic Marketing Space Card */}
-            <Grid size={{ xs: 12, md: 8, lg: 6 }}>
+            <Grid item xs={12} md={8} lg={6}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}

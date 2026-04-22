@@ -1,19 +1,34 @@
 "use client";
 
 import React from 'react';
-import { Icons } from './icons';
+import { User } from '@lucide-react/icons';
+import Image from 'next/image';
 
 interface UserAvatarProps {
-  user?: any;
   sizeClass?: string;
-  textClass?: string;
+  avatarUrl?: string | null;
 }
 
-export const UserAvatar = ({ user, sizeClass = "w-8 h-8", textClass = "text-xs" }: UserAvatarProps) => {
+export const UserAvatar = ({ 
+  sizeClass = "w-10 h-10",
+  avatarUrl 
+}: UserAvatarProps) => {
+  if (avatarUrl) {
+    return (
+      <div className={`${sizeClass} relative rounded-full overflow-hidden border border-[rgba(124,105,245,0.2)]`}>
+        <Image 
+          src={avatarUrl} 
+          alt="User Avatar" 
+          fill
+          className="object-cover"
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className={`relative flex-shrink-0 ${sizeClass} rounded-full bg-secondary/20 border border-secondary/30 flex items-center justify-center overflow-hidden`}>
-      <div className="absolute inset-0 bg-secondary blur-sm opacity-20" />
-      <Icons.User className={`text-secondary relative z-10`} size={sizeClass.includes('w-9') ? 18 : 16} />
+    <div className={`${sizeClass} flex items-center justify-center rounded-full bg-[#7C69F5]/20 border border-[#7C69F5]/40 text-[#7C69F5]`}>
+      <User size={sizeClass.includes('w-8') ? 16 : 20} />
     </div>
   );
 };

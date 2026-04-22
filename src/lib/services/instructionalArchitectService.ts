@@ -37,13 +37,13 @@ export class InstructionalArchitectService {
       };
     }
 
-    // PASS 2: Citation-Enforced Generation (Gemini 3.1 Pro)
+    // PASS 2: Citation-Enforced Generation (Gemini 1.5 Pro)
     const contextText = sourceChunks
-      .map((c: any, i: number) => `[SOURCE ${i + 1} - ${c.metadata.source_name}]: ${c.raw_content}`)
+      .map((c: { metadata: { source_name: string }, raw_content: string }, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Unknown'}]: ${c.raw_content}`)
       .join('\n\n');
 
     const { text: draft } = await generateText({
-      model: google('gemini-1.5-pro'), // Using Pro for deep instructional reasoning
+      model: google('gemini-1.5-pro'),
       system: `You are a Generative Learning Architect. Your goal is to draft a high-fidelity instructional script.
       STRICT GROUNDING RULES:
       1. Use ONLY information found in the provided [SOURCE_CHUNKS].
@@ -62,7 +62,7 @@ export class InstructionalArchitectService {
 
     return {
       script: draft,
-      citations: sourceChunks.map((c: any) => c.metadata.source_name),
+      citations: sourceChunks.map((c: { metadata: { source_name: string } }) => c.metadata?.source_name || 'Source'),
       groundingScore: validation.score,
       hallucinationFlag: validation.hallucinated,
       semanticDelta: validation.critique
@@ -70,16 +70,14 @@ export class InstructionalArchitectService {
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
-    // 1. Embed the node description to find relevant truth
     const { embedding } = await embed({
       model: google.textEmbeddingModel('text-embedding-004'),
       value: `${node.title}: ${node.description}`,
     });
 
-    // 2. Query the Knowledge Vault via RPC
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
-      match_threshold: 0.78, // High threshold for "Zero Hallucination"
+      match_threshold: 0.78,
       match_count: 5,
       p_blueprint_id: node.blueprintId
     });

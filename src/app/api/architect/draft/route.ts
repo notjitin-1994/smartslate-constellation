@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Architect API Error]:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred during instructional drafting.';
     return NextResponse.json(
-      { error: error.message || 'An error occurred during instructional drafting.' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
