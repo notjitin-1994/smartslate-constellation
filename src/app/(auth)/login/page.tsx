@@ -173,6 +173,10 @@ export default function LoginPage() {
             '&:focus': {
               backgroundColor: '#7C69F5',
             },
+            '&.Mui-disabled': {
+              backgroundColor: '#7C69F5',
+              color: '#FFFFFF',
+            },
           }}
         >
           {loading ? 'Synchronizing...' : 'Initialize Handover'}
