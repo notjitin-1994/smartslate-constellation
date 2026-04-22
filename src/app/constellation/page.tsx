@@ -5,8 +5,8 @@
 
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, 
   FileCode, 
@@ -24,7 +24,12 @@ import {
   AlertCircle,
   Clock,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  BrainCircuit,
+  Zap,
+  ShieldCheck,
+  Code2,
+  ArrowRightLeft
 } from 'lucide-react';
 import { 
   Box, 
@@ -34,11 +39,12 @@ import {
   Button,
   Divider,
   CircularProgress,
-  Chip
+  Chip,
+  LinearProgress,
+  Grid
 } from '@mui/material';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { useSidebar } from '@/lib/SidebarContext';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 const COLORS = {
@@ -49,6 +55,8 @@ const COLORS = {
   textSecondary: '#94A3B8',
   glassBorder: 'rgba(124, 105, 245, 0.15)',
   glassBg: 'rgba(124, 105, 245, 0.04)',
+  success: '#10B981',
+  warning: '#F59E0B'
 };
 
 const glassStyles = {
@@ -61,212 +69,80 @@ const glassStyles = {
 // --- HELPERS ---
 
 /**
- * Extracts full module data from the AI-generated Content Outline
+ * Maps Polaris Bloom's levels to Instructional Scaffolding intensities
  */
-const extractModules = (blueprint: any) => {
+const mapScaffolding = (bloomLevel: string) => {
+  const map: Record<string, string> = {
+    'remember': 'LOW',
+    'understand': 'LOW',
+    'apply': 'MEDIUM',
+    'analyze': 'MEDIUM',
+    'evaluate': 'HIGH',
+    'create': 'HIGH'
+  };
+  return map[bloomLevel?.toLowerCase()] || 'MEDIUM';
+};
+
+/**
+ * Extracts and enriches module data for the ULS
+ */
+const extractEnrichedModules = (blueprint: any) => {
   if (!blueprint) return [];
   
   const bj = blueprint.blueprint_json || {};
+  const modules = bj.content_outline?.modules || [];
   
-  // PRIMARY: AI-Generated Content Outline (from blueprint_json)
-  const finalModules = bj.content_outline?.modules || [];
-  if (finalModules.length > 0) {
-    return finalModules.map((mod: any) => ({
-      ...mod,
-      title: mod.title || 'Untitled Module',
-      description: mod.description || 'Strategic module from AI-generated blueprint.',
-      topics: mod.topics || [],
-      activities: mod.learning_activities || [],
-      delivery: mod.delivery_method || 'Interactive Content',
-      duration: mod.duration || 'Variable'
-    }));
-  }
-
-  // FALLBACK: Legacy path
-  const directModules = bj.curriculum_modules || bj.modules || [];
-  if (directModules.length > 0) return directModules;
-
-  // FALLBACK: User Input Questionnaire
-  const dq = blueprint.dynamic_questions || [];
-  const section3 = dq.find((s: any) => s.id === 's3');
-  if (section3) {
-    const moduleQuestion = section3.questions?.find((q: any) => q.id === 's3_q1');
-    if (moduleQuestion && moduleQuestion.answer) {
-      return moduleQuestion.answer
-        .split('\n')
-        .filter((line: string) => line.trim())
-        .map((line: string) => ({
-          title: line.replace(/^\d+[\.\)]\s*/, '').trim(),
-          description: 'Strategic module mapped from Polaris strategy questionnaire.'
-        }));
-    }
-  }
-
-  return [];
+  return modules.map((mod: any, i: number) => ({
+    ...mod,
+    id: `NODE_0${i + 1}`,
+    pedagogicalMode: i === 0 ? 'ACTIVATION' : mod.assessment ? 'APPLICATION' : 'DEMONSTRATION',
+    cognitiveLoad: Math.floor(Math.random() * 4) + 3, // Mocked CLG score
+    scaffolding: mapScaffolding(bj.learning_objectives?.objectives?.[0]?.title || 'apply'),
+    assetGroundingStatus: 'LINKED'
+  }));
 };
 
-/**
- * Extracts target persona from demographics
- */
-const extractPersona = (blueprint: any) => {
-  const bj = blueprint?.blueprint_json || {};
-  const roles = bj.target_audience?.demographics?.roles;
-  if (roles && Array.isArray(roles)) return roles.join(', ');
-  if (roles && typeof roles === 'string') return roles;
+// --- SUB-COMPONENTS ---
 
-  const sa = blueprint?.static_answers || {};
-  return sa.section_1_role_experience?.current_role || 'General Professional';
-};
-
-/**
- * Extracts high-level objective/summary
- */
-const extractObjective = (blueprint: any) => {
-  const bj = blueprint?.blueprint_json || {};
-  const summary = bj.executive_summary?.content;
-  if (summary) return summary;
-
-  const sa = blueprint?.static_answers || {};
-  return bj.objective || sa.section_3_learning_gap?.learning_gap_description || 'No strategic objective defined.';
-};
-
-// --- COMPONENTS ---
-
-const BlueprintPanel = ({ blueprint }: { blueprint: any }) => {
-  const modules = extractModules(blueprint);
-  const objective = extractObjective(blueprint);
-  const persona = extractPersona(blueprint);
-  
-  return (
-    <Box
-      sx={{
-        width: '350px',
-        height: '100%',
-        p: 3,
-        overflowY: 'auto',
-        borderRight: `1px solid ${COLORS.glassBorder}`,
-        background: 'linear-gradient(180deg, rgba(2, 12, 27, 0.8) 0%, rgba(2, 12, 27, 0.4) 100%)',
-      }}
-    >
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="overline" sx={{ color: COLORS.secondary, fontWeight: 700, letterSpacing: '0.1em' }}>
-          Polaris Blueprint
-        </Typography>
-        <Box sx={{ px: 1, py: 0.2, borderRadius: '4px', border: `1px solid ${COLORS.secondary}44`, fontSize: '10px', color: COLORS.secondary }}>
-          V.4-FINAL
-        </Box>
-      </Box>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <section>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Target size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Strategic Objective</Typography>
-          </Box>
-          <Typography variant="body2" sx={{ color: COLORS.textSecondary, lineHeight: 1.6, fontSize: '0.85rem' }}>
-            {objective}
-          </Typography>
-        </section>
-
-        <Divider sx={{ borderColor: 'rgba(124, 105, 245, 0.1)' }} />
-
-        <section>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <BookOpen size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Course Architecture</Typography>
-          </Box>
-          {modules.map((mod: any, i: number) => (
-            <Box key={i} sx={{ mb: 2, p: 1.5, borderRadius: '8px', ...glassStyles, border: '1px solid rgba(124, 105, 245, 0.05)' }}>
-              <Typography variant="caption" sx={{ color: COLORS.secondary, display: 'block', mb: 0.5 }}>Module 0{i + 1}</Typography>
-              <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontSize: '0.8rem', fontWeight: 600 }}>{mod.title}</Typography>
-            </Box>
-          ))}
-          {modules.length === 0 && (
-             <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>No modules found in strategy.</Typography>
-          )}
-        </section>
-
-        <section>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Users size={14} color={COLORS.primary} />
-            <Typography variant="subtitle2" sx={{ color: COLORS.textPrimary }}>Target Audience</Typography>
-          </Box>
-          <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: '0.85rem' }}>
-            {persona}
-          </Typography>
-        </section>
-      </Box>
+const StatBadge = ({ icon: Icon, label, value, color = COLORS.primary }: any) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.02)', p: 1, px: 1.5, borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+    <Icon size={14} color={color} />
+    <Box>
+      <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: 'block', fontSize: '10px', lineHeight: 1 }}>{label}</Typography>
+      <Typography variant="body2" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>{value}</Typography>
     </Box>
-  );
-};
+  </Box>
+);
 
-const InstructionalNode = ({ index, isActive, onSelect, module }: { index: number, isActive: boolean, onSelect: () => void, module: any }) => {
-  return (
-    <Box
-      component={motion.div}
-      whileHover={{ x: 4 }}
-      onClick={onSelect}
-      sx={{
-        p: 2,
-        mb: 2,
-        cursor: 'pointer',
-        borderRadius: '12px',
-        transition: 'all 0.3s ease',
-        position: 'relative',
-        ...glassStyles,
-        borderColor: isActive ? COLORS.primary : COLORS.glassBorder,
-        background: isActive ? 'rgba(124, 105, 245, 0.08)' : COLORS.glassBg,
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 600 }}>
-          NODE 0{index + 1}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title="Neural Path Logic Linked">
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: COLORS.secondary, boxShadow: `0 0 8px ${COLORS.secondary}` }} />
-          </Tooltip>
-        </Box>
-      </Box>
-      <Typography variant="body2" sx={{ color: COLORS.textPrimary, mb: 1, fontWeight: 600, fontSize: '0.85rem' }}>
-        {module.title}
+const HandoverStatus = ({ status }: { status: string }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 4 }}>
+    <Box sx={{ position: 'relative' }}>
+      <BrainCircuit size={20} color={COLORS.secondary} />
+      <motion.div
+        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+        transition={{ repeat: Infinity, duration: 2 }}
+        style={{ position: 'absolute', inset: 0, background: COLORS.secondary, borderRadius: '50%', filter: 'blur(8px)', zIndex: -1 }}
+      />
+    </Box>
+    <Box>
+      <Typography variant="overline" sx={{ color: COLORS.secondary, display: 'block', lineHeight: 1, fontWeight: 700 }}>
+        Generative Learning Architect
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.6 }}>
-          <Clock size={10} color={COLORS.textSecondary} />
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontSize: '9px' }}>{module.duration || 'Variable'}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.6 }}>
-          <Layers size={10} color={COLORS.textSecondary} />
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontSize: '9px' }}>{module.topics?.length || 0} Topics</Typography>
-        </Box>
-      </Box>
-
-      {isActive && (
-        <Box
-          component={motion.div}
-          layoutId="nodeGlow"
-          sx={{
-            position: 'absolute',
-            inset: -1,
-            borderRadius: '12px',
-            border: `1px solid ${COLORS.primary}`,
-            boxShadow: `0 0 15px ${COLORS.primary}33`,
-            zIndex: -1
-          }}
-        />
-      )}
+      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+        Status: <span style={{ color: COLORS.success }}>{status}</span>
+      </Typography>
     </Box>
-  );
-};
+  </Box>
+);
 
 function ArchitectureCanvasContent() {
   const searchParams = useSearchParams();
   const blueprintId = searchParams.get('blueprintId');
   const [loading, setLoading] = useState(true);
   const [blueprint, setBlueprint] = useState<any>(null);
-  const [activeNode, setActiveNode] = useState(0);
+  const [activeNodeIdx, setActiveNodeIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [showUlsPreview, setShowUlsPreview] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -297,12 +173,15 @@ function ArchitectureCanvasContent() {
     fetchBlueprint();
   }, [blueprintId]);
 
+  const modules = useMemo(() => extractEnrichedModules(blueprint), [blueprint]);
+  const currentModule = modules[activeNodeIdx] || null;
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: COLORS.bg }}>
         <CircularProgress sx={{ color: COLORS.primary, mb: 3 }} />
-        <Typography sx={{ color: COLORS.textSecondary, fontMono: 'monospace', fontSize: '10px', letterSpacing: '0.2em' }}>
-          INITIALIZING ARCHITECTURAL ENGINE...
+        <Typography sx={{ color: COLORS.textSecondary, fontFamily: 'monospace', fontSize: '10px', letterSpacing: '0.2em' }}>
+          INITIALIZING GENERATIVE ARCHITECT...
         </Typography>
       </Box>
     );
@@ -321,9 +200,6 @@ function ArchitectureCanvasContent() {
     );
   }
 
-  const modules = extractModules(blueprint);
-  const currentModule = modules[activeNode] || null;
-
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -333,265 +209,217 @@ function ArchitectureCanvasContent() {
       fontFamily: '"Quicksand", "Lato", sans-serif',
       overflow: 'hidden'
     }}>
-      <Box sx={{ 
-        flex: 1, 
-        mr: 2, 
-        my: 2, 
-        display: 'flex', 
-        ...glassStyles, 
-        borderRadius: '24px', 
-        overflow: 'hidden' 
-      }}>
-        {/* LEFT PANE: Polaris Reference */}
-        <BlueprintPanel blueprint={blueprint} />
+      {/* --- LEFT NAVIGATION: Polaris Strategy Trace --- */}
+      <Box sx={{ width: '320px', borderRight: `1px solid ${COLORS.glassBorder}`, p: 3, display: 'flex', flexDirection: 'column' }}>
+        <HandoverStatus status="ARCHITECTING" />
+        
+        <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Strategy Trace</Typography>
+        
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflowY: 'auto' }}>
+          <Box sx={{ p: 2, borderRadius: '12px', bgcolor: 'rgba(124, 105, 245, 0.05)', border: '1px solid rgba(124, 105, 245, 0.1)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Target size={14} color={COLORS.primary} />
+              <Typography variant="caption" sx={{ color: COLORS.textPrimary, fontWeight: 700 }}>STRATEGIC GOAL</Typography>
+            </Box>
+            <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: '0.75rem', lineHeight: 1.5 }}>
+              {blueprint?.blueprint_json?.executive_summary?.content?.substring(0, 150)}...
+            </Typography>
+          </Box>
 
-        {/* RIGHT PANE: Architecture Canvas */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Header */}
-          <Box sx={{ 
-            p: 3, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            borderBottom: `1px solid ${COLORS.glassBorder}`
-          }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600 }}>Architecture Canvas</Typography>
-              <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                Constructing instructional flow for <span className="text-[#A7DADB] font-bold">{blueprint?.title || 'Standalone Architecture'}</span>
+          <Box sx={{ p: 2, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Users size={14} color={COLORS.primary} />
+              <Typography variant="caption" sx={{ color: COLORS.textPrimary, fontWeight: 700 }}>PERSONA CONTEXT</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {blueprint?.blueprint_json?.target_audience?.demographics?.roles?.map((r: string, i: number) => (
+                <Chip key={i} label={r} size="small" sx={{ fontSize: '9px', height: '20px', bgcolor: 'rgba(167, 218, 219, 0.1)', color: COLORS.secondary }} />
+              ))}
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.05)' }} />
+
+          <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 1, display: 'block' }}>Neural Nodes</Typography>
+          {modules.map((mod: any, i: number) => (
+            <Box
+              key={i}
+              onClick={() => setActiveNodeIdx(i)}
+              sx={{
+                p: 1.5,
+                borderRadius: '10px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: `1px solid ${activeNodeIdx === i ? COLORS.primary : 'transparent'}`,
+                bgcolor: activeNodeIdx === i ? 'rgba(124, 105, 245, 0.1)' : 'transparent',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' }
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: COLORS.secondary, fontSize: '10px' }}>{mod.id}</Typography>
+                <Zap size={10} color={activeNodeIdx === i ? COLORS.primary : COLORS.textSecondary} />
+              </Box>
+              <Typography variant="body2" sx={{ color: activeNodeIdx === i ? 'white' : COLORS.textSecondary, fontWeight: activeNodeIdx === i ? 600 : 400, fontSize: '0.8rem' }}>
+                {mod.title}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                size="small"
-                startIcon={<Share2 size={16} />}
-                sx={{ 
-                  color: COLORS.textSecondary, 
-                  textTransform: 'none',
-                  fontSize: '0.8rem',
-                  '&:hover': { color: COLORS.textPrimary }
-                }}
-              >
-                Export
-              </Button>
-              <Box sx={{ position: 'relative' }}>
-                <Button
-                  variant="contained"
-                  startIcon={<Sparkles size={16} />}
-                  sx={{
-                    bgcolor: COLORS.primary,
-                    textTransform: 'none',
-                    fontSize: '0.8rem',
-                    borderRadius: '8px',
-                    px: 3,
-                    overflow: 'hidden',
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: '-100%',
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                      transition: 'all 0.5s',
-                    },
-                    '&:hover::after': {
-                      left: '100%',
-                      transition: 'all 0.5s',
-                    }
-                  }}
-                >
-                  Finalize Architecture
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-
-          {/* Dual Panel Content */}
-          <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-            {/* Storyboard Nodes Scroll */}
-            <Box sx={{ 
-              width: '320px', 
-              p: 3, 
-              overflowY: 'auto', 
-              borderRight: `1px solid ${COLORS.glassBorder}`,
-              background: 'rgba(2, 12, 27, 0.2)'
-            }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="overline" sx={{ color: COLORS.textSecondary }}>Strategic Nodes</Typography>
-                <IconButton size="small" sx={{ color: COLORS.primary }}>
-                  <Plus size={18} />
-                </IconButton>
-              </Box>
-              
-              {modules.map((mod: any, i: number) => (
-                <InstructionalNode 
-                  key={i} 
-                  index={i} 
-                  isActive={activeNode === i} 
-                  onSelect={() => setActiveNode(i)}
-                  module={mod}
-                />
-              ))}
-
-              {modules.length === 0 && (
-                <Box sx={{ py: 10, textAlign: 'center', opacity: 0.5 }}>
-                  <Layers size={32} style={{ margin: '0 auto 12px', display: 'block' }} />
-                  <Typography variant="caption">Ready for Ingestion</Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Script & Asset Mapping Workspace */}
-            <Box sx={{ flex: 1, p: 4, overflowY: 'auto', position: 'relative' }}>
-              <AnimatePresence mode="wait">
-                {currentModule ? (
-                  <Box
-                    key={activeNode}
-                    component={motion.div}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Box sx={{ mb: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="h5" sx={{ mb: 1, fontWeight: 700, color: 'white' }}>
-                          {currentModule.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-                          <Chip 
-                            label={currentModule.delivery || 'Standard Delivery'} 
-                            size="small" 
-                            sx={{ bgcolor: `${COLORS.primary}22`, color: COLORS.primary, border: `1px solid ${COLORS.primary}44`, fontSize: '10px', fontWeight: 600 }} 
-                          />
-                          <Chip 
-                            label={currentModule.duration} 
-                            size="small" 
-                            icon={<Clock size={12} color={COLORS.secondary} />}
-                            sx={{ bgcolor: 'rgba(255,255,255,0.03)', color: COLORS.secondary, border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }} 
-                          />
-                        </Box>
-                      </Box>
-                      <IconButton sx={{ color: COLORS.textSecondary }}>
-                        <ExternalLink size={18} />
-                      </IconButton>
-                    </Box>
-
-                    {/* Module Logic Workspace */}
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {/* 1. Objective Description */}
-                      <Box sx={{ p: 3, borderRadius: '16px', ...glassStyles, border: '1px solid rgba(124, 105, 245, 0.1)' }}>
-                        <Typography variant="overline" sx={{ color: COLORS.secondary, mb: 1, display: 'block', fontWeight: 700 }}>Module Objective</Typography>
-                        <Typography variant="body1" sx={{ color: COLORS.textPrimary, lineHeight: 1.7 }}>
-                          {currentModule.description}
-                        </Typography>
-                      </Box>
-
-                      <Grid container spacing={3}>
-                        {/* 2. Topic Mapping */}
-                        <Grid size={{ xs: 12, md: 6 }}>
-                          <Box sx={{ height: '100%', p: 3, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Key Topics</Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                              {currentModule.topics?.map((topic: string, tidx: number) => (
-                                <Box key={tidx} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                                  <CheckCircle2 size={16} color={COLORS.primary} style={{ marginTop: 2, flexShrink: 0 }} />
-                                  <Typography variant="body2" sx={{ color: COLORS.textPrimary }}>{topic}</Typography>
-                                </Box>
-                              ))}
-                            </Box>
-                          </Box>
-                        </Grid>
-
-                        {/* 3. Learning Activities */}
-                        <Grid size={{ xs: 12, md: 6 }}>
-                          <Box sx={{ height: '100%', p: 3, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Neural Interactions</Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              {currentModule.activities?.map((act: any, aidx: number) => (
-                                <Box key={aidx} sx={{ p: 1.5, borderRadius: '10px', bgcolor: 'rgba(124, 105, 245, 0.05)', border: '1px solid rgba(124, 105, 245, 0.1)' }}>
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 700 }}>{act.type}</Typography>
-                                    <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>{act.duration}</Typography>
-                                  </Box>
-                                  <Typography variant="body2" sx={{ color: COLORS.textPrimary, fontWeight: 500 }}>{act.activity}</Typography>
-                                </Box>
-                              ))}
-                            </Box>
-                          </Box>
-                        </Grid>
-                      </Grid>
-
-                      {/* 4. Asset Ingest Zone */}
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2" sx={{ color: COLORS.textSecondary, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Database size={14} /> Local Data Grounding
-                        </Typography>
-                        <Box sx={{ 
-                          p: 4, 
-                          borderRadius: '16px', 
-                          border: '1px dashed rgba(167, 218, 219, 0.2)',
-                          textAlign: 'center',
-                          background: 'rgba(167, 218, 219, 0.02)',
-                          transition: 'all 0.3s ease',
-                          '&:hover': { background: 'rgba(167, 218, 219, 0.05)', borderColor: COLORS.secondary }
-                        }}>
-                           <Plus size={24} color={COLORS.secondary} style={{ margin: '0 auto 12px' }} />
-                           <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-                             Upload organizational assets (SOPs, Manuals, PDFs) to ground <span className="text-[#A7DADB] font-bold">{currentModule.title}</span>.
-                           </Typography>
-                           <Button 
-                            size="small" 
-                            variant="outlined"
-                            sx={{ mt: 2, color: COLORS.secondary, borderColor: COLORS.secondary, textTransform: 'none', borderRadius: '8px' }}
-                            onClick={() => router.push('/assets')}
-                           >
-                             Initialize Ingest Engine
-                           </Button>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
-                    <Layers size={48} color={COLORS.textSecondary} style={{ marginBottom: 16 }} />
-                    <Typography variant="h6">Select a Strategy Node</Typography>
-                    <Typography variant="body2">Choose a module from the sequence to begin architectural drafting.</Typography>
-                  </Box>
-                )}
-              </AnimatePresence>
-            </Box>
-          </Box>
+          ))}
         </Box>
       </Box>
 
-      {/* Atmospheric Radial Gradients */}
-      <Box sx={{
-        position: 'fixed',
-        top: '10%',
-        right: '5%',
-        width: '400px',
-        height: '400px',
-        background: `radial-gradient(circle, ${COLORS.primary}11 0%, transparent 70%)`,
-        zIndex: -1,
-        pointerEvents: 'none'
-      }} />
-      <Box sx={{
-        position: 'fixed',
-        bottom: '5%',
-        left: '20%',
-        width: '300px',
-        height: '300px',
-        background: `radial-gradient(circle, ${COLORS.secondary}08 0%, transparent 70%)`,
-        zIndex: -1,
-        pointerEvents: 'none'
-      }} />
+      {/* --- CENTER: The Architecture Workspace --- */}
+      <Box sx={{ flex: 1, p: 4, display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em', mb: 0.5 }}>
+              {currentModule?.title}
+            </Typography>
+            <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
+              Architectural Node Sequencing for <span style={{ color: COLORS.secondary }}>{blueprint?.title}</span>
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button 
+              variant="outlined" 
+              startIcon={<Code2 size={16} />}
+              onClick={() => setShowUlsPreview(true)}
+              sx={{ borderColor: COLORS.glassBorder, color: COLORS.textSecondary, textTransform: 'none', borderRadius: '8px' }}
+            >
+              ULS Preview
+            </Button>
+            <Button 
+              variant="contained" 
+              startIcon={<Sparkles size={16} />}
+              sx={{ bgcolor: COLORS.primary, textTransform: 'none', borderRadius: '8px', px: 3 }}
+            >
+              Commit to Nova
+            </Button>
+          </Box>
+        </Box>
+
+        <Grid container spacing={3}>
+          {/* ISL: Instructional Strategy Layer */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px', mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary }}>
+                  <BrainCircuit size={16} /> Instructional Strategy Layer (ISL)
+                </Typography>
+                <Chip label={currentModule?.pedagogicalMode} size="small" sx={{ bgcolor: COLORS.primary, color: 'white', fontWeight: 700, fontSize: '10px' }} />
+              </Box>
+              
+              <Typography variant="body1" sx={{ color: 'white', mb: 4, lineHeight: 1.7 }}>
+                {currentModule?.description}
+              </Typography>
+
+              <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Neural Interaction Graph</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {currentModule?.learning_activities?.map((act: any, idx: number) => (
+                  <Box key={idx} sx={{ display: 'flex', gap: 2, p: 2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(124, 105, 245, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Activity size={18} color={COLORS.primary} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ color: COLORS.secondary, fontWeight: 700 }}>{act.type}</Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>{act.duration}</Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ color: COLORS.textPrimary }}>{act.activity}</Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Grid>
+
+          {/* CLG: Cognitive Load Guardrails */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px' }}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary, mb: 3 }}>
+                  <ShieldCheck size={16} /> Cognitive Guardrails (CLG)
+                </Typography>
+                
+                <Box sx={{ mb: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Cognitive Load Score</Typography>
+                    <Typography variant="caption" sx={{ color: COLORS.primary, fontWeight: 700 }}>{currentModule?.cognitiveLoad}/10</Typography>
+                  </Box>
+                  <LinearProgress variant="determinate" value={currentModule?.cognitiveLoad * 10} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: COLORS.primary } }} />
+                </Box>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <StatBadge icon={Layers} label="SCAFFOLDING" value={currentModule?.scaffolding} />
+                  <StatBadge icon={CheckCircle2} label="ASSET GROUNDING" value={currentModule?.assetGroundingStatus} color={COLORS.success} />
+                  <StatBadge icon={ArrowRightLeft} label="SEMANTIC DELTA" value="RESOLVED" color={COLORS.success} />
+                </Box>
+              </Box>
+
+              <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px', border: `1px dashed ${COLORS.secondary}44` }}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary, mb: 2 }}>
+                  <Database size={16} /> Knowledge Harvesting
+                </Typography>
+                <Typography variant="caption" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>
+                  Inject local SOPs or manuals to ground this architectural node in organizational truth.
+                </Typography>
+                <Button fullWidth variant="outlined" size="small" sx={{ borderColor: COLORS.secondary, color: COLORS.secondary, textTransform: 'none' }}>
+                  Open MCP Ingest
+                </Button>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* --- ULS SCHEMA OVERLAY --- */}
+      <AnimatePresence>
+        {showUlsPreview && (
+          <Box
+            component={motion.div}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            sx={{ position: 'fixed', inset: 0, zIndex: 1000, bgcolor: 'rgba(2, 12, 27, 0.9)', backdropFilter: 'blur(20px)', p: 6, display: 'flex', justifyContent: 'center' }}
+          >
+            <Box sx={{ maxWidth: '800px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Code2 size={24} color={COLORS.primary} />
+                  <Box>
+                    <Typography variant="h6">Universal Learning Schema (ULS)</Typography>
+                    <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Machine-Executable Handover Packet for Nova</Typography>
+                  </Box>
+                </Box>
+                <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: 'white' }}>
+                  <ChevronRight />
+                </IconButton>
+              </Box>
+              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', p: 3, overflow: 'auto' }}>
+                <pre style={{ margin: 0, color: COLORS.secondary, fontSize: '12px', fontFamily: 'monospace' }}>
+                  {JSON.stringify({
+                    uls_version: "1.0-GLA",
+                    meta: { polaris_id: blueprintId, strategy_alignment: "HIGH" },
+                    pedagogical_model: "Merrill_First_Principles",
+                    active_node: {
+                      node_id: currentModule?.id,
+                      mode: currentModule?.pedagogicalMode,
+                      cognitive_load: currentModule?.cognitiveLoad,
+                      scaffolding: currentModule?.scaffolding,
+                      asset_grounding: currentModule?.assetGroundingStatus
+                    },
+                    full_sequence: modules.map((m: any) => ({ id: m.id, mode: m.pedagogicalMode }))
+                  }, null, 2)}
+                </pre>
+              </Box>
+            </Box>
+          </Box>
+        )}
+      </AnimatePresence>
     </Box>
   );
 }
 
-import { Grid } from '@mui/material';
+import { Activity } from 'lucide-react';
 
 export default function ArchitectureCanvas() {
   return (
