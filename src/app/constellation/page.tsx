@@ -496,7 +496,7 @@ function ArchitectureCanvasContent() {
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                               {currentModule.topics?.map((topic: string, tidx: number) => (
                                 <Box key={tidx} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                                  <CheckCircle2 size={16} color={COLORS.primary} style={{ marginTop: 2, shrink: 0 }} />
+                                  <CheckCircle2 size={16} color={COLORS.primary} style={{ marginTop: 2, flexShrink: 0 }} />
                                   <Typography variant="body2" sx={{ color: COLORS.textPrimary }}>{topic}</Typography>
                                 </Box>
                               ))}
