@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FileText, 
@@ -25,17 +25,17 @@ export const KnowledgeVaultModal = ({
   onClose: () => void;
   blueprintId: string;
 }) => {
-  const [files, setFiles] = useState<Array<{ id: string; name: string; type: string; status: 'pending' | 'uploading' | 'complete' }>>([]);
+  const [files, setFiles] = useState<Array<{ id: string; file: File; status: 'pending' | 'uploading' | 'complete' }>>([]);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
     const newFiles = droppedFiles.map(f => ({
       id: Math.random().toString(36).substr(2, 9),
-      name: f.name,
-      type: f.type,
+      file: f,
       status: 'pending' as const
     }));
     setFiles(prev => [...prev, ...newFiles]);
@@ -46,6 +46,7 @@ export const KnowledgeVaultModal = ({
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
+        // Strip the data URL prefix (e.g., "data:application/pdf;base64,")
         const base64String = (reader.result as string).split(',')[1];
         resolve(base64String);
       };
@@ -59,15 +60,14 @@ export const KnowledgeVaultModal = ({
     setProgress(10);
     
     try {
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      const file = fileInput?.files?.[0];
-      
-      if (file) {
-        const base64 = await fileToBase64(file);
-        const contentType = file.type.includes('pdf') ? 'pdf' : 
-                          file.type.includes('word') ? 'docx' : 
-                          file.type.includes('video') ? 'video' : 
-                          file.type.includes('image') ? 'image' : 'text';
+      for (const fileItem of files) {
+        if (fileItem.status === 'complete') continue;
+        
+        const base64 = await fileToBase64(fileItem.file);
+        const contentType = fileItem.file.type.includes('pdf') ? 'pdf' : 
+                          fileItem.file.type.includes('word') ? 'docx' : 
+                          fileItem.file.type.includes('video') ? 'video' : 
+                          fileItem.file.type.includes('image') ? 'image' : 'text';
 
         const response = await fetch('/api/ingest', {
           method: 'POST',
@@ -76,30 +76,24 @@ export const KnowledgeVaultModal = ({
             blueprintId,
             contentType,
             content: base64,
-            fileName: file.name
+            fileName: fileItem.file.name
           }),
         });
 
-        if (!response.ok) throw new Error('Ingestion failed');
-        setProgress(100);
-      } else {
-        let p = 10;
-        const interval = setInterval(() => {
-          p += 5;
-          setProgress(p);
-          if (p >= 100) clearInterval(interval);
-        }, 100);
-        await new Promise(r => setTimeout(r, 2000));
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Ingestion failed');
+        }
+        
+        setFiles(prev => prev.map(f => f.id === fileItem.id ? { ...f, status: 'complete' } : f));
+        setProgress(p => Math.min(p + (100 / files.length), 100));
       }
-
-      setFiles(prev => prev.map(f => ({ ...f, status: 'complete' })));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ingestion Error:', error);
+      alert(`Failed to ingest knowledge: ${error.message}`);
     } finally {
-      setTimeout(() => {
-        setIsSynthesizing(false);
-        setProgress(0);
-      }, 1000);
+      setIsSynthesizing(false);
+      setProgress(0);
     }
   };
 
@@ -145,12 +139,12 @@ export const KnowledgeVaultModal = ({
                 <input 
                   type="file" 
                   className="hidden" 
+                  ref={fileInputRef}
                   onChange={(e) => {
                     const selected = Array.from(e.target.files || []);
                     setFiles(prev => [...prev, ...selected.map(f => ({
                       id: Math.random().toString(36).substr(2, 9),
-                      name: f.name,
-                      type: f.type,
+                      file: f,
                       status: 'pending' as const
                     }))]);
                   }}
@@ -164,14 +158,14 @@ export const KnowledgeVaultModal = ({
               </label>
 
               <div className="max-h-[240px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-                {files.map((file) => (
-                  <div key={file.id} className="group flex items-center justify-between rounded-lg border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.03] p-3 hover:bg-white/[0.05]">
+                {files.map((fileItem) => (
+                  <div key={fileItem.id} className="group flex items-center justify-between rounded-lg border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.03] p-3 hover:bg-white/[0.05]">
                     <div className="flex items-center gap-3">
-                      {getFileIcon(file.type)}
-                      <span className="text-sm font-medium text-[#E2E8F0] truncate max-w-[300px]">{file.name}</span>
+                      {getFileIcon(fileItem.file.type)}
+                      <span className="text-sm font-medium text-[#E2E8F0] truncate max-w-[300px]">{fileItem.file.name}</span>
                     </div>
-                    {file.status === 'complete' ? <CheckCircle2 size={16} className="text-[#A7DADB]" /> : (
-                      <button onClick={() => setFiles(prev => prev.filter(f => f.id !== file.id))} className="opacity-0 group-hover:opacity-100 text-[#94A3B8] hover:text-red-400">
+                    {fileItem.status === 'complete' ? <CheckCircle2 size={16} className="text-[#A7DADB]" /> : (
+                      <button onClick={() => setFiles(prev => prev.filter(f => f.id !== fileItem.id))} className="opacity-0 group-hover:opacity-100 text-[#94A3B8] hover:text-red-400">
                         <X size={16} />
                       </button>
                     )}
@@ -181,7 +175,7 @@ export const KnowledgeVaultModal = ({
 
               <div className="flex justify-end">
                 <button
-                  disabled={files.length === 0}
+                  disabled={files.length === 0 || files.every(f => f.status === 'complete')}
                   onClick={handleIngest}
                   className="group relative overflow-hidden rounded-full bg-[#7C69F5] px-8 py-3 font-semibold text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                 >
@@ -201,7 +195,7 @@ export const KnowledgeVaultModal = ({
               <h3 className="mb-2 text-xl font-bold text-[#E2E8F0]">Synthesizing Wisdom</h3>
               <p className="mb-6 text-sm text-[#94A3B8]">Aligning multi-modal assets with Polaris standards...</p>
               <div className="w-full max-w-sm">
-                <div className="mb-2 flex justify-between text-xs font-medium text-[#94A3B8]"><span>V.4-ALPHA Processing</span><span>{progress}%</span></div>
+                <div className="mb-2 flex justify-between text-xs font-medium text-[#94A3B8]"><span>V.4-ALPHA Processing</span><span>{Math.round(progress)}%</span></div>
                 <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
                   <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-gradient-to-r from-[#7C69F5] to-[#A7DADB]" />
                 </div>
