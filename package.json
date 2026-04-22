@@ -15,7 +15,7 @@
     "@mui/material": "^7.3.4",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.81.1",
-    "ai": "^5.0.92",
+    "ai": "^6.0.168",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.544.0",
     "mammoth": "^1.12.0",

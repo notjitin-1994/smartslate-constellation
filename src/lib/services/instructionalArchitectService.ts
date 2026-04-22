@@ -39,7 +39,7 @@ export class InstructionalArchitectService {
 
     // PASS 2: Citation-Enforced Generation (Gemini 3.1 Pro)
     const contextText = sourceChunks
-      .map((c, i) => `[SOURCE ${i + 1} - ${c.metadata.source_name}]: ${c.raw_content}`)
+      .map((c: any, i: number) => `[SOURCE ${i + 1} - ${c.metadata.source_name}]: ${c.raw_content}`)
       .join('\n\n');
 
     const { text: draft } = await generateText({
@@ -62,7 +62,7 @@ export class InstructionalArchitectService {
 
     return {
       script: draft,
-      citations: sourceChunks.map(c => c.metadata.source_name),
+      citations: sourceChunks.map((c: any) => c.metadata.source_name),
       groundingScore: validation.score,
       hallucinationFlag: validation.hallucinated,
       semanticDelta: validation.critique

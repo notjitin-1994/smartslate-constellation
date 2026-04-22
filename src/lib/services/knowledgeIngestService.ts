@@ -107,7 +107,7 @@ export class KnowledgeIngestService {
               type: 'file',
               data: asset.content,
               mimeType: this.getMimeType(asset.contentType, asset.fileName),
-            },
+            } as any,
           ],
         },
       ],
