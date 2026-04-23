@@ -21,7 +21,9 @@ import {
   FileText, 
   MessageSquare, 
   Monitor,
-  ArrowLeft
+  ArrowLeft,
+  ArrowRight,
+  Brain
 } from 'lucide-react';
 
 const quickAccessItems = [
@@ -149,6 +151,15 @@ export default function Sidebar() {
              <ArrowLeft size={12} className="group-hover:-translate-x-1 transition-transform" /> BACK
            </button>
         )}
+
+        {!isConstellationMode && !collapsed && pathname === '/constellation' && (
+           <button 
+             onClick={() => setIsConstellationMode(true)}
+             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 hover:text-indigo-200 hover:bg-indigo-500/20 transition-all group animate-in fade-in slide-in-from-left-2"
+           >
+             NEURAL TRACE <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+           </button>
+        )}
       </div>
 
       {/* Navigation Body */}
@@ -187,6 +198,27 @@ export default function Sidebar() {
                   })}
                 </div>
               </div>
+
+              {/* Neural Portal Trigger (Visible only on Architecture route) */}
+              {!collapsed && pathname === '/constellation' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="px-3"
+                >
+                   <button 
+                     onClick={() => setIsConstellationMode(true)}
+                     className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 to-transparent border border-indigo-500/20 hover:border-indigo-500/40 transition-all group relative overflow-hidden"
+                   >
+                     <div className="absolute inset-0 bg-indigo-500/5 group-hover:bg-indigo-500/10 transition-colors" />
+                     <Brain size={18} className="text-indigo-400 group-hover:scale-110 transition-transform relative z-10" />
+                     <div className="flex flex-col text-left relative z-10">
+                        <span className="text-[10px] font-black text-indigo-400/70 uppercase tracking-widest">Active Canvas</span>
+                        <span className="text-xs font-bold text-white uppercase tracking-tighter">Return to Neural Trace</span>
+                     </div>
+                     <ArrowRight size={14} className="ml-auto text-indigo-400 group-hover:translate-x-1 transition-transform relative z-10" />
+                   </button>
+                </motion.div>
+              )}
 
               {/* Solara Suite */}
               <div className="space-y-3">
