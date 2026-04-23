@@ -27,7 +27,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Dna
+  Dna,
+  Cloud
 } from 'lucide-react';
 import { 
   Box, 
@@ -45,7 +46,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
 import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
-import { ScriptOutput } from '@/lib/services/instructionalArchitectService';
+import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
 
 // --- CONSTELLATION ZEN DESIGN SYSTEM ---
 const COLORS = {
@@ -99,6 +100,7 @@ const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
 
   return modules.map((mod: Record<string, unknown>, i: number) => {
     const deliveryMethod = String(mod.delivery_method || '').toLowerCase();
+    
     const matchedModality = globalModalities.find((m: { type: string }) => {
       const typeWords = m.type.toLowerCase().split(/[\s()/-]+/);
       const deliveryWords = deliveryMethod.split(/[\s()/-]+/);
@@ -126,14 +128,14 @@ function ArchitectureCanvasContent() {
   const blueprintId = searchParams.get('blueprintId');
   const [loading, setLoading] = useState(true);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-  const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isStrategyOpen, setIsStrategyOpen] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [showUlsPreview, setShowUlsPreview] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
-  const [scriptOutputs, setScriptOutputs] = useState<Record<number, ScriptOutput>>({});
   const router = useRouter();
+
+  // --- PERSISTENCE HOOK ---
+  const { state, updateState, isSyncing, constellationId } = useConstellationPersistence(blueprintId);
 
   useEffect(() => {
     const fetchBlueprint = async () => {
@@ -154,7 +156,7 @@ function ArchitectureCanvasContent() {
   const modules = useMemo(() => {
     const base = extractEnrichedModules(blueprint);
     return base.map((mod, idx) => {
-      const output = scriptOutputs[idx];
+      const output = state.scriptOutputs[idx];
       if (!output) return mod;
       return {
         ...mod,
@@ -163,9 +165,9 @@ function ArchitectureCanvasContent() {
         groundingTypes: output.groundingTypes
       };
     });
-  }, [blueprint, scriptOutputs]);
+  }, [blueprint, state.scriptOutputs]);
 
-  const currentModule = modules[activeNodeIdx] || null;
+  const currentModule = modules[state.activeNodeIdx] || null;
 
   const handleDraftScript = async () => {
     if (!currentModule || !blueprintId) return;
@@ -186,7 +188,9 @@ function ArchitectureCanvasContent() {
       });
       const result = await response.json();
       if (result.success) {
-        setScriptOutputs(prev => ({ ...prev, [activeNodeIdx]: result.data }));
+        updateState({ 
+          scriptOutputs: { ...state.scriptOutputs, [state.activeNodeIdx]: result.data } 
+        });
       } else {
         throw new Error(result.error);
       }
@@ -202,7 +206,7 @@ function ArchitectureCanvasContent() {
   );
 
   const bj = blueprint?.blueprint_json || {};
-  const activeScript = scriptOutputs[activeNodeIdx];
+  const activeScript = state.scriptOutputs[state.activeNodeIdx];
 
   return (
     <div className="flex h-screen bg-[#020617] text-slate-200 overflow-hidden relative selection:bg-indigo-500/30 font-sans">
@@ -216,11 +220,11 @@ function ArchitectureCanvasContent() {
       {/* --- COLLAPSIBLE NAVIGATION (LEFT) --- */}
       <motion.aside 
         initial={false}
-        animate={{ width: isSidebarCollapsed ? 80 : 320 }}
+        animate={{ width: state.isSidebarCollapsed ? 80 : 320 }}
         className="h-full border-r border-white/5 bg-[#0F172A]/40 backdrop-blur-2xl z-20 flex flex-col relative shadow-2xl"
       >
         <div className="p-6 flex items-center justify-between overflow-hidden whitespace-nowrap">
-          {!isSidebarCollapsed && (
+          {!state.isSidebarCollapsed && (
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
                 <BrainCircuit size={18} className="text-indigo-400" />
@@ -228,34 +232,34 @@ function ArchitectureCanvasContent() {
               <span className="text-sm font-bold tracking-tight text-white">Constellation</span>
             </div>
           )}
-          {isSidebarCollapsed && <BrainCircuit size={20} className="text-indigo-400 mx-auto" />}
+          {state.isSidebarCollapsed && <BrainCircuit size={20} className="text-indigo-400 mx-auto" />}
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 custom-scrollbar">
           <div className="space-y-2">
-            {!isSidebarCollapsed && (
+            {!state.isSidebarCollapsed && (
               <h4 className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold px-2 mb-4">Neural Nodes</h4>
             )}
             {modules.map((mod, i) => (
               <button 
                 key={mod.id} 
-                onClick={() => setActiveNodeIdx(i)}
+                onClick={() => updateState({ activeNodeIdx: i })}
                 className={`w-full group relative flex items-center gap-4 p-3 rounded-xl transition-all duration-300
-                  ${activeNodeIdx === i ? 'bg-indigo-500/10 text-white' : 'text-slate-500 hover:bg-white/5'}
+                  ${state.activeNodeIdx === i ? 'bg-indigo-500/10 text-white' : 'text-slate-500 hover:bg-white/5'}
                 `}
               >
                 <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border transition-colors
-                  ${activeNodeIdx === i ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-slate-900 border-white/5 group-hover:border-white/10'}
+                  ${state.activeNodeIdx === i ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-slate-900 border-white/5 group-hover:border-white/10'}
                 `}>
                   {getModalityIcon(mod.targetModality)}
                 </div>
-                {!isSidebarCollapsed && (
+                {!state.isSidebarCollapsed && (
                   <div className="flex flex-col text-left overflow-hidden">
                     <span className="text-[10px] font-mono opacity-50">{mod.id}</span>
                     <span className="text-xs font-semibold truncate">{mod.title}</span>
                   </div>
                 )}
-                {activeNodeIdx === i && <motion.div layoutId="navActive" className="absolute left-[-4px] top-2 bottom-2 w-1 bg-indigo-500 rounded-full" />}
+                {state.activeNodeIdx === i && <motion.div layoutId="navActive" className="absolute left-[-4px] top-2 bottom-2 w-1 bg-indigo-500 rounded-full" />}
               </button>
             ))}
           </div>
@@ -263,10 +267,10 @@ function ArchitectureCanvasContent() {
 
         <div className="p-4 border-t border-white/5">
           <button 
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onClick={() => updateState({ isSidebarCollapsed: !state.isSidebarCollapsed })}
             className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-white/5 text-slate-500 transition-colors"
           >
-            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {state.isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
         </div>
       </motion.aside>
@@ -294,7 +298,13 @@ function ArchitectureCanvasContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+             {isSyncing && (
+               <div className="flex items-center gap-2 text-indigo-400/50">
+                 <Cloud size={14} className="animate-pulse" />
+                 <span className="text-[9px] font-bold uppercase tracking-tighter">Syncing...</span>
+               </div>
+             )}
              <Tooltip title="View ULS Schema">
                 <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: 'slate.500', bgcolor: 'white/5', '&:hover': { bgcolor: 'white/10' } }}><Code2 size={16} /></IconButton>
              </Tooltip>
@@ -345,7 +355,7 @@ function ArchitectureCanvasContent() {
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-slate-200 uppercase mb-1">Triple-Pass Integrity Shield</h4>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">Your output will be rigorously grounded in Knowledge Vault assets, audited for cognitive load, and verified against hallucinations.</p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">Your work is automatically persisted locally and synchronized to the cloud ID: <span className="font-mono text-indigo-400">{constellationId?.substring(0, 8)}</span>.</p>
                       </div>
                    </div>
                 </div>
@@ -394,9 +404,9 @@ function ArchitectureCanvasContent() {
                        <div>
                          <span className="text-[10px] text-slate-600 uppercase font-bold block mb-2">Key Roles</span>
                          <div className="flex flex-wrap gap-2">
-                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                          {bj.target_audience?.demographics?.roles?.map((r: any, i: number) => <Chip key={i} label={r} size="small" sx={{ color: 'white', bgcolor: 'white/5', border: '1px solid rgba(255,255,255,0.05)' }} />)}
-                        </div>
+                           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                           {bj.target_audience?.demographics?.roles?.map((r: any, i: number) => <Chip key={i} label={r} size="small" sx={{ color: 'white', bgcolor: 'white/5', border: '1px solid rgba(255,255,255,0.05)' }} />)}
+                         </div>
                        </div>
                        <div>
                          <span className="text-[10px] text-slate-600 uppercase font-bold block mb-2">Learning Preferences</span>
