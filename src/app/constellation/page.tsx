@@ -131,10 +131,13 @@ const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
     const deliveryMethod = String(mod.delivery_method || '').toLowerCase();
     
     // Intelligent Modality Matcher: Find best fit from global modalities
-    const matchedModality = globalModalities.find((m: { type: string; rationale: string; allocation_percent: number }) => 
-      deliveryMethod.includes(m.type.toLowerCase()) || 
-      m.type.toLowerCase().includes(deliveryMethod)
-    ) || globalModalities[0] || { type: 'Standard eLearning', rationale: 'Default delivery method.' };
+    // Improved matching: split into words and check for overlaps
+    const matchedModality = globalModalities.find((m: { type: string; rationale: string; allocation_percent: number }) => {
+      const typeWords = m.type.toLowerCase().split(/[\s()/-]+/);
+      const deliveryWords = deliveryMethod.split(/[\s()/-]+/);
+      return deliveryWords.some(dw => dw.length > 2 && typeWords.includes(dw)) ||
+             typeWords.some(tw => tw.length > 2 && deliveryWords.includes(tw));
+    }) || globalModalities[0] || { type: 'Standard eLearning', rationale: 'Default delivery method.' };
 
     return {
       title: String(mod.title || ''),

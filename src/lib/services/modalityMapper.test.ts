@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest';
 
 // Simulating the extraction logic for testing
@@ -18,12 +19,14 @@ const extractEnrichedModules = (blueprint: any) => {
   const modules = bj.content_outline?.modules || [];
   const globalModalities = bj.instructional_strategy?.modalities || [];
 
-  return modules.map((mod: any, i: number) => {
+  return modules.map((mod: any) => {
     const deliveryMethod = String(mod.delivery_method || '').toLowerCase();
-    const matchedModality = globalModalities.find((m: any) => 
-      deliveryMethod.includes(m.type.toLowerCase()) || 
-      m.type.toLowerCase().includes(deliveryMethod)
-    ) || globalModalities[0] || { type: 'Standard eLearning', rationale: 'Default delivery method.' };
+    const matchedModality = globalModalities.find((m: any) => {
+      const typeWords = m.type.toLowerCase().split(/[\s()/-]+/);
+      const deliveryWords = deliveryMethod.split(/[\s()/-]+/);
+      return deliveryWords.some((dw: string) => dw.length > 2 && typeWords.includes(dw)) ||
+             typeWords.some((tw: string) => tw.length > 2 && deliveryWords.includes(tw));
+    }) || globalModalities[0] || { type: 'Standard eLearning', rationale: 'Default delivery method.' };
 
     return {
       title: mod.title,
@@ -36,6 +39,7 @@ const extractEnrichedModules = (blueprint: any) => {
 describe('Modality Mapper Logic', () => {
   const mockBlueprint = {
     blueprint_json: {
+      learning_objectives: { objectives: [{ title: 'apply' }] },
       content_outline: {
         modules: [
           { title: 'Intro', delivery_method: 'Video Lectures' },
