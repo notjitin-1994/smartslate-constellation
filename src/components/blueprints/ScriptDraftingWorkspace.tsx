@@ -26,6 +26,7 @@ import { Tooltip, IconButton } from '@mui/material';
 interface ScriptDraftingWorkspaceProps {
   content: string;
   groundingScore: number;
+  cognitiveLoadScore: number;
   hallucinationFlag: boolean;
   semanticDelta?: string;
   citations: string[];
@@ -36,6 +37,7 @@ interface ScriptDraftingWorkspaceProps {
 const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   content,
   groundingScore,
+  cognitiveLoadScore,
   hallucinationFlag,
   semanticDelta,
   citations,
@@ -54,9 +56,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         <div className="h-14 border-b border-white/5 bg-white/[0.02] flex items-center justify-between px-6 shrink-0">
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-2">
-               <div className={`w-2 h-2 rounded-full ${hallucinationFlag ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
+               <div className={`w-2 h-2 rounded-full ${hallucinationFlag ? (groundingScore > 6 ? 'bg-amber-500' : 'bg-red-500') : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                 {hallucinationFlag ? 'Grounding Error' : 'Verified Grounded'}
+                 {hallucinationFlag ? (groundingScore > 6 ? 'Partial Grounding' : 'Grounding Error') : 'Verified Grounded'}
                </span>
              </div>
              
@@ -66,11 +68,24 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Grounding Score</span>
                <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
                   <div 
-                    className="h-full bg-indigo-500 transition-all duration-1000" 
+                    className={`h-full transition-all duration-1000 ${groundingScore > 7 ? 'bg-emerald-500' : 'bg-amber-500'}`}
                     style={{ width: `${groundingScore * 10}%` }} 
                   />
                </div>
                <span className="text-[10px] font-mono font-bold text-slate-300">{groundingScore}/10</span>
+             </div>
+
+             <div className="h-4 w-px bg-white/5" />
+
+             <div className="flex items-center gap-3">
+               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Cognitive Load</span>
+               <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${cognitiveLoadScore < 5 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                    style={{ width: `${cognitiveLoadScore * 10}%` }} 
+                  />
+               </div>
+               <span className="text-[10px] font-mono font-bold text-slate-300">{cognitiveLoadScore}/10</span>
              </div>
           </div>
 
@@ -213,6 +228,28 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
             <div className="flex-1 overflow-y-auto p-6 space-y-10 custom-scrollbar">
               
+              {/* Cognitive Load Metric */}
+              <section className="space-y-4">
+                <h4 className="text-[10px] text-slate-500 uppercase tracking-widest font-black flex items-center gap-2">
+                  <Activity size={12} className="text-indigo-400" /> Cognitive Load
+                </h4>
+                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
+                   <div className="flex justify-between items-center mb-3">
+                     <span className="text-xs text-slate-300 font-medium">Complexity Index</span>
+                     <span className="text-xs font-mono font-bold text-indigo-400">{cognitiveLoadScore}/10</span>
+                   </div>
+                   <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 ${cognitiveLoadScore < 5 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                        style={{ width: `${cognitiveLoadScore * 10}%` }} 
+                      />
+                   </div>
+                   <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
+                     Calculated based on terminology density, sentence complexity, and instructional step count.
+                   </p>
+                </div>
+              </section>
+
               {/* Semantic Delta */}
               <section className="space-y-4">
                 <h4 className="text-[10px] text-slate-500 uppercase tracking-widest font-black flex items-center gap-2">

@@ -282,6 +282,7 @@ function ArchitectureCanvasContent() {
                 <ScriptDraftingWorkspace 
                   content={activeScript?.script || ""}
                   groundingScore={activeScript?.groundingScore || 0}
+                  cognitiveLoadScore={activeScript?.cognitiveLoadScore || 0}
                   hallucinationFlag={activeScript?.hallucinationFlag || false}
                   semanticDelta={activeScript?.semanticDelta}
                   citations={activeScript?.citations || []}

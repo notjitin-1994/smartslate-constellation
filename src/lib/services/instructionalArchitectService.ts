@@ -159,9 +159,9 @@ export class InstructionalArchitectService {
       prompt: `DRAFT: ${draft}\n\nSOURCES: ${sources}`,
     });
 
-    const groundingScore = parseInt(text.match(/SCORE: (\d+)/)?.[1] || '0');
-    const cognitiveLoad = parseInt(text.match(/COGNITIVE_LOAD: (\d+)/)?.[1] || '5');
-    const hallucinated = text.includes('HALLUCINATED: YES');
+    const groundingScore = parseInt(text.match(/SCORE:\s*(\d+)/i)?.[1] || '0');
+    const cognitiveLoad = parseInt(text.match(/COGNITIVE_LOAD:\s*(\d+)/i)?.[1] || '5');
+    const hallucinated = /HALLUCINATED:\s*YES/i.test(text);
     const critique = text.split('CRITIQUE:')[1]?.trim();
 
     return { groundingScore, cognitiveLoad, hallucinated, critique };
