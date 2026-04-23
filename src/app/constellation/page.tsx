@@ -287,7 +287,6 @@ function ArchitectureCanvasContent() {
                   semanticDelta={activeScript?.semanticDelta}
                   citations={activeScript?.citations || []}
                   isLoading={isDrafting}
-                  onCommit={() => alert('Exporting to Nova...')}
                 />
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12">

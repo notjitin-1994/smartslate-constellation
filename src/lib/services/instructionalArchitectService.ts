@@ -105,12 +105,15 @@ export class InstructionalArchitectService {
       // PASS 3: The NLI Judge (Audit)
       const audit = await this.performInstructionalAudit(draft, contextText);
 
+      // Force hallucination flag if data is sparse but AI wrote a lot
+      const isHallucinated = audit.hallucinated || (isDataSparse && draft.length > 500);
+
       return {
         script: draft,
         citations: sourceChunks.map((c: { metadata: { source_name: string } }) => c.metadata?.source_name || 'Source'),
         groundingScore: audit.groundingScore,
         cognitiveLoadScore: audit.cognitiveLoad,
-        hallucinationFlag: audit.hallucinated || (isDataSparse && draft.length > 500),
+        hallucinationFlag: isHallucinated,
         semanticDelta: audit.critique,
         groundingTypes: Array.from(new Set(sourceChunks.map((c: { content_type: string }) => c.content_type)))
       };
