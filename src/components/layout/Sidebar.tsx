@@ -12,6 +12,17 @@ import {
 import { useSidebar } from '@/lib/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { 
+  ChevronLeft, 
+  ChevronRight,
+  Workflow, 
+  Video, 
+  MousePointer2, 
+  FileText, 
+  MessageSquare, 
+  Monitor,
+  ArrowLeft
+} from 'lucide-react';
 
 const quickAccessItems = [
   { title: 'Dashboard', icon: Icons.Dashboard, path: '/dashboard' },
@@ -26,15 +37,28 @@ const solaraSuiteLinks = [
   { name: 'Spectrum', path: '#', badge: 'Coming Soon', badgeType: 'soon' as const },
 ];
 
+// --- HELPER FOR CONSTELLATION ICONS ---
+const getModalityIcon = (type: string) => {
+  const t = type?.toLowerCase() || '';
+  if (t.includes('video')) return <Video size={16} />;
+  if (t.includes('interactive') || t.includes('scorm') || t.includes('simulation')) return <MousePointer2 size={16} />;
+  if (t.includes('case') || t.includes('text') || t.includes('checklist') || t.includes('pdf')) return <FileText size={16} />;
+  if (t.includes('audio') || t.includes('podcast')) return <MessageSquare size={16} />;
+  return <Monitor size={16} />;
+};
+
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const { collapsed, setCollapsed } = useSidebar();
+  const { collapsed, setCollapsed, isConstellationMode, setIsConstellationMode } = useSidebar();
   const [isMounted, setIsMounted] = useState(false);
-  const [quickAccessOpen, setQuickAccessOpen] = useState(true);
-  const [solaraSuiteOpen, setSolaraSuiteOpen] = useState(false);
   const [dbName, setDbName] = useState<string | null>(null);
+
+  // For Constellation Mode Data (Sync from storage/window)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [modules, setModules] = useState<any[]>([]);
+  const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
 
   useEffect(() => {
     setIsMounted(true);
@@ -52,225 +76,218 @@ export default function Sidebar() {
       }
     };
     fetchProfile();
+
+    // Listener for Constellation Data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleConstellationData = (e: any) => {
+      if (e.detail?.modules) setModules(e.detail.modules);
+      if (typeof e.detail?.activeIdx === 'number') setActiveNodeIdx(e.detail.activeIdx);
+    };
+    window.addEventListener('constellation-sidebar-sync', handleConstellationData);
+    return () => window.removeEventListener('constellation-sidebar-sync', handleConstellationData);
   }, [user?.id]);
 
   if (!isMounted) return null;
 
-  const getFullName = (): string => {
-    if (dbName) return dbName;
-    const rawName =
-      (user?.user_metadata?.full_name as string) ||
-      (user?.user_metadata?.name as string) ||
-      (user?.user_metadata?.first_name ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}` : null) ||
-      user?.email?.split('@')[0] ||
-      'User';
-    return rawName.trim();
+  const handleNodeClick = (idx: number) => {
+    window.dispatchEvent(new CustomEvent('constellation-node-select', { detail: { idx } }));
   };
 
   const getCapitalizedFullName = (): string => {
-    const name = getFullName();
+    const rawName = dbName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+    const name = rawName.trim();
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
 
-  const handleNavigation = (path: string, isExternal: boolean = false) => {
-    if (isExternal) {
-      window.open(path, '_blank', 'noopener,noreferrer');
-    } else {
-      router.push(path);
-    }
+  const variants = {
+    initial: (direction: number) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
+    animate: { x: 0, opacity: 1 },
+    exit: (direction: number) => ({ x: direction > 0 ? -300 : 300, opacity: 0 })
   };
 
   return (
     <aside
-      className={`hidden h-screen flex-col md:flex fixed left-0 top-0 z-50 transition-all duration-300 ease-out glass-sidebar ${
-        collapsed ? 'w-16' : 'w-72'
+      className={`hidden h-screen flex-col md:flex fixed left-0 top-0 z-50 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) glass-sidebar ${
+        collapsed ? 'w-20' : 'w-[320px]'
       }`}
     >
-      {/* Header with Brand & Toggle */}
-      <div className={`flex items-center ${collapsed ? 'justify-center px-2 py-3' : 'justify-between px-6 py-5'} sticky top-0 z-20`}>
-        {!collapsed && (
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-            <Brand />
-          </motion.div>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className={`text-text-secondary hover:text-foreground hover:bg-foreground/5 p-2 rounded-lg transition-all ${
-            collapsed ? 'h-8 w-8' : 'h-9 w-9'
-          }`}
-        >
-          <IconSidebarToggle className={`h-5 w-5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-
-      {/* Navigation Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
-        {!collapsed ? (
-          <nav className="px-4 py-4 space-y-6">
-            {/* Quick Access Section */}
-            <div className="space-y-1.5">
-              <button
-                onClick={() => setQuickAccessOpen(!quickAccessOpen)}
-                className="w-full flex items-center justify-between px-3 py-1 text-primary hover:text-foreground transition-colors group"
-              >
-                <h2 className="font-heading text-xs font-bold tracking-wider uppercase">
-                  Quick Access
-                </h2>
-                <Icons.ChevronRight 
-                  size={12} 
-                  className={`transition-transform duration-300 ${quickAccessOpen ? 'rotate-90' : ''}`} 
-                />
-              </button>
-              <AnimatePresence initial={false}>
-                {quickAccessOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    className="overflow-hidden space-y-1"
-                  >
-                    {quickAccessItems.map((item) => {
-                      const isActive = pathname === item.path;
-                      return (
-                        <button
-                          key={item.title}
-                          onClick={() => router.push(item.path)}
-                          className={`group focus-visible:ring-secondary/50 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-all duration-200 relative ${
-                            isActive ? 'bg-primary/10 text-primary shadow-sm font-bold' : 'text-text-secondary hover:bg-white/5 hover:text-foreground active:scale-[0.98]'
-                          }`}
-                        >
-                          <item.icon size={20} className="shrink-0" />
-                          <span className="flex-1 truncate text-left">{item.title}</span>
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Solara Suite Section */}
-            <div className="space-y-1.5">
-              <button
-                onClick={() => setSolaraSuiteOpen(!solaraSuiteOpen)}
-                className="w-full flex items-center justify-between px-3 py-1 text-primary hover:text-foreground transition-colors group"
-              >
-                <h2 className="font-heading text-xs font-bold tracking-wider uppercase">
-                  Solara Suite
-                </h2>
-                <Icons.ChevronRight 
-                  size={12} 
-                  className={`transition-transform duration-300 ${solaraSuiteOpen ? 'rotate-90' : ''}`} 
-                />
-              </button>
-              <AnimatePresence initial={false}>
-                {solaraSuiteOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    className="overflow-hidden space-y-1"
-                  >
-                    {solaraSuiteLinks.map((item) => (
-                      <button
-                        key={item.name}
-                        onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
-                        disabled={item.badgeType === 'soon'}
-                        className="group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-all duration-200 text-text-secondary hover:bg-white/5 hover:text-foreground disabled:text-text-disabled disabled:cursor-not-allowed active:scale-[0.98]"
-                      >
-                        <span className="truncate flex-1 text-left">{item.name}</span>
-                        <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase transition-all duration-200 ${
-                          item.badgeType === 'active' ? 'border-primary/40 bg-primary/10 text-primary shadow-primary/20 shadow' : 'text-text-disabled border-neutral-700 bg-neutral-800'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </nav>
-        ) : (
-          <nav className="flex flex-col items-center space-y-4 py-6">
-            {quickAccessItems.map((item) => {
-              const isActive = pathname === item.path;
-              return (
-                <motion.div key={item.title} whileHover={{ x: 3 }}>
-                  <button
-                    onClick={() => handleNavigation(item.path)}
-                    title={item.title}
-                    className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
-                      isActive 
-                        ? 'bg-primary/20 text-primary shadow-[0_0_15px_rgba(167,218,219,0.15)]' 
-                        : 'text-text-secondary hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <item.icon size={20} />
-                  </button>
-                </motion.div>
-              );
-            })}
-          </nav>
-        )}
-      </div>
-
-      {/* Footer Section */}
-      <div className="mt-auto w-full p-4 relative z-10 border-t border-white/10 bg-surface/50 backdrop-blur-sm">
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-4 px-2 py-4">
-            <button 
-              onClick={() => window.open('https://polaris.smartslate.io/pricing', '_blank')}
-              className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center text-white shadow-sm hover:bg-secondary/90 transition-all active:scale-95"
+      {/* Header */}
+      <div className={`flex items-center h-20 ${collapsed ? 'justify-center' : 'justify-between px-6'} relative z-20`}>
+        <AnimatePresence mode="wait">
+          {!collapsed && (
+            <motion.div 
+              key={isConstellationMode ? 'constellation-head' : 'global-head'}
+              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              className="flex items-center gap-3"
             >
-              <Icons.Pro size={16} />
-            </button>
-            <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-8 h-8" />
-          </div>
-        ) : (
+              {isConstellationMode ? (
+                <>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                    <Workflow size={16} className="text-indigo-400" />
+                  </div>
+                  <span className="text-sm font-bold tracking-tight text-white uppercase tracking-widest">Neural Trace</span>
+                </>
+              ) : <Brand />}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {!isConstellationMode && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="text-text-secondary hover:text-white p-2 rounded-lg transition-all"
+          >
+            <IconSidebarToggle className={`h-5 w-5 transition-transform duration-500 ${collapsed ? 'rotate-180' : ''}`} />
+          </button>
+        )}
+
+        {isConstellationMode && !collapsed && (
+           <button 
+             onClick={() => setIsConstellationMode(false)}
+             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-all group"
+           >
+             <ArrowLeft size={12} className="group-hover:-translate-x-1 transition-transform" /> BACK
+           </button>
+        )}
+      </div>
+
+      {/* Navigation Body */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
+        <AnimatePresence mode="wait" custom={isConstellationMode ? 1 : -1}>
+          {!isConstellationMode ? (
+            <motion.nav 
+              key="global-nav"
+              custom={-1}
+              variants={variants}
+              initial="initial" animate="animate" exit="exit"
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`px-4 py-4 space-y-8 ${collapsed ? 'flex flex-col items-center' : ''}`}
+            >
+              {/* Quick Access */}
+              <div className="space-y-3">
+                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Platform</h2>}
+                <div className="space-y-1">
+                  {quickAccessItems.map((item) => {
+                    const isActive = pathname === item.path;
+                    return (
+                      <button
+                        key={item.title}
+                        onClick={() => router.push(item.path)}
+                        title={collapsed ? item.title : ''}
+                        className={`group flex items-center gap-4 w-full rounded-xl transition-all duration-300 ${
+                          collapsed ? 'justify-center h-12 w-12' : 'px-4 py-3'
+                        } ${
+                          isActive ? 'bg-indigo-500/10 text-indigo-400 font-bold' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                      >
+                        <item.icon size={collapsed ? 22 : 20} className="shrink-0" />
+                        {!collapsed && <span className="text-sm">{item.title}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Solara Suite */}
+              <div className="space-y-3">
+                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Solara Suite</h2>}
+                <div className="space-y-1">
+                  {solaraSuiteLinks.map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
+                      disabled={item.badgeType === 'soon'}
+                      className={`group flex items-center justify-between w-full rounded-xl transition-all duration-300 ${
+                        collapsed ? 'hidden' : 'px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
+                        item.badgeType === 'active' ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400' : 'border-slate-800 bg-slate-900 text-slate-600'
+                      }`}>{item.badge}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.nav>
+          ) : (
+            <motion.nav 
+              key="constellation-nav"
+              custom={1}
+              variants={variants}
+              initial="initial" animate="animate" exit="exit"
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="px-4 py-4 space-y-2"
+            >
+              {modules.map((mod, i) => {
+                const isActive = activeNodeIdx === i;
+                return (
+                  <button 
+                    key={mod.id} 
+                    onClick={() => handleNodeClick(i)}
+                    className={`w-full group relative flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-500
+                      ${isActive ? 'bg-indigo-500/10 border border-indigo-500/20' : 'hover:bg-white/5 border border-transparent'}
+                    `}
+                  >
+                    <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-500
+                      ${isActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-slate-900/50 border-white/5 text-slate-500 group-hover:border-white/10'}
+                    `}>
+                      {getModalityIcon(mod.targetModality)}
+                    </div>
+                    {!collapsed && (
+                      <div className="flex flex-col text-left overflow-hidden">
+                        <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-indigo-400' : 'text-slate-600'}`}>{mod.id}</span>
+                        <span className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{mod.title}</span>
+                      </div>
+                    )}
+                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-500 rounded-full" />}
+                  </button>
+                );
+              })}
+            </motion.nav>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-auto p-4 border-t border-white/5 bg-slate-950/20 backdrop-blur-md">
+        {!collapsed ? (
           <div className="space-y-4">
             <button
-              onClick={() => window.open('https://polaris.smartslate.io/pricing', '_blank')}
-              className="group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 text-secondary hover:bg-secondary/10 active:scale-[0.98]"
-            >
-              <span className="truncate">Subscribe to Constellation</span>
-              <Icons.Pro size={16} className="shrink-0" />
-            </button>
-            
-            <button
               onClick={() => router.push('/profile')}
-              className="group hover:bg-white/5 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 active:scale-[0.98]"
+              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all group"
             >
               <div className="relative">
-                <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
-                <div className="bg-success absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-surface" />
+                <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-10 h-10" />
+                <div className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-4 border-[#0F172A]" />
               </div>
-              <div className="min-w-0 flex-1 text-left">
-                <p className="text-foreground truncate text-sm font-semibold leading-tight">
-                  {getCapitalizedFullName()}
-                </p>
-                <p className="text-text-secondary truncate text-xs leading-tight mt-0.5">{user?.email}</p>
+              <div className="flex-1 text-left overflow-hidden">
+                <p className="text-sm font-bold text-white truncate">{getCapitalizedFullName()}</p>
+                <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
               </div>
             </button>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => router.push('/settings')}
-                className="group flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-foreground hover:bg-white/5 rounded-lg transition-all active:scale-[0.98]"
-              >
-                <Icons.Settings size={18} className="shrink-0" />
-                <span className="truncate">Settings</span>
-              </button>
-              <button 
-                onClick={signOut}
-                className="group flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-error hover:bg-error/5 rounded-lg transition-all active:scale-[0.98]"
-              >
-                <Icons.Logout size={18} className="shrink-0" />
-                <span className="truncate">Sign Out</span>
-              </button>
+            
+            <div className="flex items-center gap-2">
+               <button onClick={signOut} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all">
+                 <Icons.Logout size={14} /> Log Out
+               </button>
+               {isConstellationMode ? (
+                  <button onClick={() => setIsConstellationMode(false)} className="w-12 h-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all">
+                    <ArrowLeft size={16} />
+                  </button>
+               ) : (
+                  <button onClick={() => setCollapsed(true)} className="w-12 h-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all">
+                    <ChevronLeft size={16} />
+                  </button>
+               )}
             </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-6 py-4">
+             <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
+             <button onClick={() => setCollapsed(false)} className="text-slate-500 hover:text-white transition-colors">
+               <ChevronRight size={20} />
+             </button>
           </div>
         )}
       </div>

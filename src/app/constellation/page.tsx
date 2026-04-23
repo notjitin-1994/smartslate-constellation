@@ -11,22 +11,14 @@ import {
   Sparkles, 
   Target, 
   Database,
-  BrainCircuit,
   ShieldCheck,
   Code2,
-  FileText,
-  Video,
-  Monitor,
-  MousePointer2,
-  MessageSquare,
   Users,
   Trophy,
   ClipboardCheck,
   Lightbulb,
   Workflow,
   X,
-  ChevronLeft,
-  ChevronRight,
   Dna,
   Cloud
 } from 'lucide-react';
@@ -47,6 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
 import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
+import { useSidebar } from '@/lib/SidebarContext';
 
 // --- CONSTELLATION ZEN DESIGN SYSTEM ---
 const COLORS = {
@@ -82,16 +75,6 @@ interface Blueprint {
   blueprint_json?: any;
 }
 
-// --- HELPERS ---
-const getModalityIcon = (type: string) => {
-  const t = type.toLowerCase();
-  if (t.includes('video')) return <Video size={16} />;
-  if (t.includes('interactive') || t.includes('scorm') || t.includes('simulation')) return <MousePointer2 size={16} />;
-  if (t.includes('case') || t.includes('text') || t.includes('checklist') || t.includes('pdf')) return <FileText size={16} />;
-  if (t.includes('audio') || t.includes('podcast')) return <MessageSquare size={16} />;
-  return <Monitor size={16} />;
-};
-
 const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
   if (!blueprint) return [];
   const bj = blueprint.blueprint_json || {};
@@ -100,7 +83,6 @@ const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
 
   return modules.map((mod: Record<string, unknown>, i: number) => {
     const deliveryMethod = String(mod.delivery_method || '').toLowerCase();
-    
     const matchedModality = globalModalities.find((m: { type: string }) => {
       const typeWords = m.type.toLowerCase().split(/[\s()/-]+/);
       const deliveryWords = deliveryMethod.split(/[\s()/-]+/);
@@ -134,6 +116,9 @@ function ArchitectureCanvasContent() {
   const [isDrafting, setIsDrafting] = useState(false);
   const router = useRouter();
 
+  // --- SIDEBAR INTEGRATION ---
+  const { setIsConstellationMode } = useSidebar();
+
   // --- PERSISTENCE HOOK ---
   const { state, updateState, isSyncing, constellationId } = useConstellationPersistence(blueprintId);
 
@@ -166,6 +151,28 @@ function ArchitectureCanvasContent() {
       };
     });
   }, [blueprint, state.scriptOutputs]);
+
+  // Sync state to Global Sidebar
+  useEffect(() => {
+    setIsConstellationMode(true);
+    const event = new CustomEvent('constellation-sidebar-sync', { 
+      detail: { modules, activeIdx: state.activeNodeIdx } 
+    });
+    window.dispatchEvent(event);
+    return () => setIsConstellationMode(false);
+  }, [modules, state.activeNodeIdx, setIsConstellationMode]);
+
+  // Listen for Sidebar selections
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleSelect = (e: any) => {
+      if (typeof e.detail?.idx === 'number') {
+        updateState({ activeNodeIdx: e.detail.idx });
+      }
+    };
+    window.addEventListener('constellation-node-select', handleSelect);
+    return () => window.removeEventListener('constellation-node-select', handleSelect);
+  }, [updateState]);
 
   const currentModule = modules[state.activeNodeIdx] || null;
 
@@ -217,66 +224,8 @@ function ArchitectureCanvasContent() {
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 blur-[120px] rounded-full" />
       </div>
 
-      {/* --- COLLAPSIBLE NAVIGATION (LEFT) --- */}
-      <motion.aside 
-        initial={false}
-        animate={{ width: state.isSidebarCollapsed ? 80 : 320 }}
-        className="h-full border-r border-white/5 bg-[#0F172A]/40 backdrop-blur-2xl z-20 flex flex-col relative shadow-2xl"
-      >
-        <div className="p-6 flex items-center justify-between overflow-hidden whitespace-nowrap">
-          {!state.isSidebarCollapsed && (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-                <BrainCircuit size={18} className="text-indigo-400" />
-              </div>
-              <span className="text-sm font-bold tracking-tight text-white">Constellation</span>
-            </div>
-          )}
-          {state.isSidebarCollapsed && <BrainCircuit size={20} className="text-indigo-400 mx-auto" />}
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 custom-scrollbar">
-          <div className="space-y-2">
-            {!state.isSidebarCollapsed && (
-              <h4 className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold px-2 mb-4">Neural Nodes</h4>
-            )}
-            {modules.map((mod, i) => (
-              <button 
-                key={mod.id} 
-                onClick={() => updateState({ activeNodeIdx: i })}
-                className={`w-full group relative flex items-center gap-4 p-3 rounded-xl transition-all duration-300
-                  ${state.activeNodeIdx === i ? 'bg-indigo-500/10 text-white' : 'text-slate-500 hover:bg-white/5'}
-                `}
-              >
-                <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border transition-colors
-                  ${state.activeNodeIdx === i ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-slate-900 border-white/5 group-hover:border-white/10'}
-                `}>
-                  {getModalityIcon(mod.targetModality)}
-                </div>
-                {!state.isSidebarCollapsed && (
-                  <div className="flex flex-col text-left overflow-hidden">
-                    <span className="text-[10px] font-mono opacity-50">{mod.id}</span>
-                    <span className="text-xs font-semibold truncate">{mod.title}</span>
-                  </div>
-                )}
-                {state.activeNodeIdx === i && <motion.div layoutId="navActive" className="absolute left-[-4px] top-2 bottom-2 w-1 bg-indigo-500 rounded-full" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-white/5">
-          <button 
-            onClick={() => updateState({ isSidebarCollapsed: !state.isSidebarCollapsed })}
-            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-white/5 text-slate-500 transition-colors"
-          >
-            {state.isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
-        </div>
-      </motion.aside>
-
-      {/* --- MAIN WORKSPACE (CENTER) --- */}
-      <main className="flex-1 flex flex-col z-10 overflow-hidden">
+      {/* --- MAIN WORKSPACE --- */}
+      <main className="flex-1 flex flex-col z-10 overflow-hidden ml-0"> {/* Margin-left handled by ClientLayout's main Sidebar */}
         {/* Global HUD Header */}
         <header className="h-20 flex items-center justify-between px-12 z-20">
           <div className="flex items-center gap-6">
@@ -347,7 +296,7 @@ function ArchitectureCanvasContent() {
                    </div>
                    <h3 className="text-2xl font-bold text-white mb-4 tracking-tight">Immersive Architecture Workspace</h3>
                    <p className="text-slate-400 text-sm max-w-md leading-relaxed mb-8">
-                     Ready to translate your strategic objectives into instructional reality. Select a node from the sidebar and click <b>Draft Script</b> to begin.
+                     Your instructional design canvas is online. Use the <b>Neural Trace</b> sidebar to navigate through strategic nodes.
                    </p>
                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-left max-w-lg">
                       <div className="p-3 rounded-xl bg-cyan-500/10">
@@ -408,18 +357,6 @@ function ArchitectureCanvasContent() {
                            {bj.target_audience?.demographics?.roles?.map((r: any, i: number) => <Chip key={i} label={r} size="small" sx={{ color: 'white', bgcolor: 'white/5', border: '1px solid rgba(255,255,255,0.05)' }} />)}
                          </div>
                        </div>
-                       <div>
-                         <span className="text-[10px] text-slate-600 uppercase font-bold block mb-2">Learning Preferences</span>
-                         <div className="space-y-3">
-                           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                           {bj.target_audience?.learning_preferences?.modalities?.map((m: any, i: number) => (
-                             <div key={i} className="flex items-center justify-between text-xs p-2 rounded-lg bg-black/20">
-                               <span className="text-slate-300 font-medium">{m.type}</span>
-                               <span className="text-indigo-400 font-bold">{m.percentage}%</span>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
                     </div>
                   </section>
 
@@ -442,7 +379,6 @@ function ArchitectureCanvasContent() {
                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {bj.instructional_strategy?.modalities?.map((m: any, i: number) => (
                         <div key={i} className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 flex gap-4">
-                           <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center shrink-0 text-cyan-400 shadow-inner">{getModalityIcon(m.type)}</div>
                            <div>
                              <h4 className="text-sm font-bold text-white mb-1">{m.type}</h4>
                              <p className="text-[11px] text-slate-500 leading-relaxed">{m.rationale}</p>
