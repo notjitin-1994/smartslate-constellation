@@ -41,13 +41,13 @@ export class InstructionalArchitectService {
       };
     }
 
-    // PASS 2: Citation-Enforced Generation (Gemini 1.5 Pro)
+    // PASS 2: Citation-Enforced Generation (Gemini 3.1 Pro)
     const contextText = sourceChunks
       .map((c: { metadata: { source_name: string }, raw_content: string }, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Unknown'}]: ${c.raw_content}`)
       .join('\n\n');
 
     const { text: draft } = await generateText({
-      model: google('gemini-2.5-pro'),
+      model: google('gemini-3.1-pro'),
       system: `You are a Generative Learning Architect. Your goal is to draft a high-fidelity instructional script.
       STRICT GROUNDING RULES:
       1. Use ONLY information found in the provided [SOURCE_CHUNKS].
@@ -61,7 +61,7 @@ export class InstructionalArchitectService {
       ${contextText}`,
     });
 
-    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 1.5 Flash)
+    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3.1 Flash)
     const audit = await this.performInstructionalAudit(draft, contextText);
 
     return {
@@ -77,7 +77,7 @@ export class InstructionalArchitectService {
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
     const { embedding } = await embed({
-      model: google.textEmbeddingModel('text-embedding-004'),
+      model: google.textEmbeddingModel('gemini-embedding-001'),
       value: `${node.title}: ${node.description}`,
       providerOptions: {
         google: {
@@ -102,7 +102,7 @@ export class InstructionalArchitectService {
 
   private async performInstructionalAudit(draft: string, sources: string) {
     const { text } = await generateText({
-      model: google('gemini-2.5-flash'),
+      model: google('gemini-3.1-flash'),
       system: `You are an Instructional Design Auditor. Analyze the DRAFT against the SOURCES.
       You must evaluate:
       1. GROUNDING: Is every claim supported by the SOURCES?
