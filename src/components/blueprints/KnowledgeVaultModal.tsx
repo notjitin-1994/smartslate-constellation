@@ -24,6 +24,7 @@ interface VaultFile {
   type: string;
   status: 'pending' | 'uploading' | 'complete';
   isExisting?: boolean;
+  file?: File;
 }
 
 export const KnowledgeVaultModal = ({ 
@@ -53,10 +54,11 @@ export const KnowledgeVaultModal = ({
       return;
     }
 
-    // Deduplicate by source_name in metadata
     const uniqueFiles = new Map<string, VaultFile>();
-    data?.forEach(row => {
-      const name = row.metadata?.source_name || 'Unknown File';
+    data?.forEach((row: { metadata: Record<string, unknown> | null, content_type: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const metadata = row.metadata as any;
+      const name = metadata?.source_name || 'Unknown File';
       if (!uniqueFiles.has(name)) {
         uniqueFiles.set(name, {
           id: name,
@@ -80,17 +82,16 @@ export const KnowledgeVaultModal = ({
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const newFiles = droppedFiles.map(f => ({
+    const newFiles: VaultFile[] = droppedFiles.map(f => ({
       id: Math.random().toString(36).substr(2, 9),
       name: f.name,
       file: f,
       type: f.type,
-      status: 'pending' as const
+      status: 'pending'
     }));
-    // Filter out duplicates if already in list
     setFiles(prev => {
       const existingNames = new Set(prev.map(f => f.name));
-      const filtered = newFiles.filter(f => !existingNames.has(f.name)) as any;
+      const filtered = newFiles.filter(f => !existingNames.has(f.name));
       return [...prev, ...filtered];
     });
   }, []);
@@ -108,16 +109,15 @@ export const KnowledgeVaultModal = ({
   };
 
   const handleIngest = async () => {
-    const pendingFiles = files.filter(f => f.status === 'pending');
+    const pendingFiles = files.filter(f => f.status === 'pending' && f.file);
     if (pendingFiles.length === 0) return;
     
     setIsSynthesizing(true);
     setProgress(10);
     
     try {
-      let completedCount = 0;
       for (const fileItem of pendingFiles) {
-        const file = (fileItem as any).file as File;
+        const file = fileItem.file!;
         const base64 = await fileToBase64(file);
         const contentType = file.type.includes('pdf') ? 'pdf' : 
                           file.type.includes('word') ? 'docx' : 
@@ -140,7 +140,6 @@ export const KnowledgeVaultModal = ({
           throw new Error(errorData.error || 'Ingestion failed');
         }
         
-        completedCount++;
         setProgress(p => Math.min(p + (100 / pendingFiles.length), 100));
       }
       await fetchExistingFiles();
@@ -219,13 +218,13 @@ export const KnowledgeVaultModal = ({
                     const selected = Array.from(e.target.files || []);
                     setFiles(prev => {
                        const existingNames = new Set(prev.map(f => f.name));
-                       const filtered = selected.filter(f => !existingNames.has(f.name)).map(f => ({
+                       const filtered: VaultFile[] = selected.filter(f => !existingNames.has(f.name)).map(f => ({
                         id: Math.random().toString(36).substr(2, 9),
                         name: f.name,
                         file: f,
                         type: f.type,
-                        status: 'pending' as const
-                      })) as any;
+                        status: 'pending'
+                      }));
                       return [...prev, ...filtered];
                     });
                   }}
