@@ -47,7 +47,7 @@ export class InstructionalArchitectService {
       .join('\n\n');
 
     const { text: draft } = await generateText({
-      model: google('gemini-3.1-pro'),
+      model: google('gemini-3.1-pro-preview'),
       system: `You are a Generative Learning Architect. Your goal is to draft a high-fidelity instructional script.
       STRICT GROUNDING RULES:
       1. Use ONLY information found in the provided [SOURCE_CHUNKS].
@@ -61,7 +61,7 @@ export class InstructionalArchitectService {
       ${contextText}`,
     });
 
-    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3.1 Flash)
+    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3 Flash)
     const audit = await this.performInstructionalAudit(draft, contextText);
 
     return {
@@ -77,7 +77,7 @@ export class InstructionalArchitectService {
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
     const { embedding } = await embed({
-      model: google.textEmbeddingModel('gemini-embedding-001'),
+      model: google.textEmbeddingModel('gemini-embedding-2-preview'),
       value: `${node.title}: ${node.description}`,
       providerOptions: {
         google: {
@@ -102,7 +102,7 @@ export class InstructionalArchitectService {
 
   private async performInstructionalAudit(draft: string, sources: string) {
     const { text } = await generateText({
-      model: google('gemini-3.1-flash'),
+      model: google('gemini-3-flash-preview'),
       system: `You are an Instructional Design Auditor. Analyze the DRAFT against the SOURCES.
       You must evaluate:
       1. GROUNDING: Is every claim supported by the SOURCES?

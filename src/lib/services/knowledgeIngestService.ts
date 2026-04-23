@@ -51,7 +51,7 @@ export class KnowledgeIngestService {
       console.log(`[Ingest] Extraction success. Length: ${fullText.length}. Generating context...`);
 
       const { text: contextHeader } = await generateText({
-        model: google('gemini-3.1-flash'),
+        model: google('gemini-3-flash-preview'),
         prompt: `Identify the institutional context of this document. Who is it for and what is the primary procedure/knowledge it conveys? Document: ${fullText.substring(0, 8000)}`,
       });
 
@@ -60,10 +60,10 @@ export class KnowledgeIngestService {
       const chunks = this.chunkText(fullText, 1000);
       const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${contextHeader}] \n\n DATA: ${chunk}`);
       
-      console.log(`[Ingest] Embedding ${chunks.length} chunks with 3072 dims...`);
+      console.log(`[Ingest] Embedding ${chunks.length} chunks with Gemini Embedding 2 (3072 dims)...`);
 
       const { embeddings } = await embedMany({
-        model: google.textEmbeddingModel('gemini-embedding-001'),
+        model: google.textEmbeddingModel('gemini-embedding-2-preview'),
         values: valuesToEmbed,
         providerOptions: {
           google: {
@@ -108,7 +108,7 @@ export class KnowledgeIngestService {
     console.log(`[Ingest] Processing multi-modal: ${asset.fileName}`);
     try {
       const { text: description } = await generateText({
-        model: google('gemini-3.1-flash'),
+        model: google('gemini-3-flash-preview'),
         messages: [
           {
             role: 'user',
@@ -131,7 +131,7 @@ export class KnowledgeIngestService {
       console.log(`[Ingest] Media analysis complete. Embedding description...`);
 
       const { embedding } = await embed({
-        model: google.textEmbeddingModel('gemini-embedding-001'),
+        model: google.textEmbeddingModel('gemini-embedding-2-preview'),
         value: description,
         providerOptions: {
           google: {
