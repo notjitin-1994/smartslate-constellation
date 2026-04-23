@@ -119,10 +119,21 @@ export const KnowledgeVaultModal = ({
       for (const fileItem of pendingFiles) {
         const file = fileItem.file!;
         const base64 = await fileToBase64(file);
-        const contentType = file.type.includes('pdf') ? 'pdf' : 
-                          file.type.includes('word') ? 'docx' : 
-                          file.type.includes('video') ? 'video' : 
-                          file.type.includes('image') ? 'image' : 'text';
+        
+        // Detect Content Type reliably
+        const fileType = file.type.toLowerCase();
+        const fileName = file.name.toLowerCase();
+        
+        let contentType = 'text';
+        if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
+          contentType = 'pdf';
+        } else if (fileType.includes('officedocument.wordprocessingml.document') || fileName.endsWith('.docx')) {
+          contentType = 'docx';
+        } else if (fileType.includes('video') || fileName.endsWith('.mp4') || fileName.endsWith('.mov')) {
+          contentType = 'video';
+        } else if (fileType.includes('image') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+          contentType = 'image';
+        }
 
         const response = await fetch('/api/ingest', {
           method: 'POST',

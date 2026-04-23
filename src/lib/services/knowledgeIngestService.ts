@@ -16,6 +16,7 @@ export interface IngestAsset {
 
 export class KnowledgeIngestService {
   async ingest(asset: IngestAsset) {
+    console.log(`[Ingest] Incoming asset: ${asset.fileName} (${asset.contentType})`);
     if (['pdf', 'text', 'docx'].includes(asset.contentType)) {
       return this.ingestDocument(asset);
     } else {
@@ -25,100 +26,131 @@ export class KnowledgeIngestService {
 
   private async ingestDocument(asset: IngestAsset) {
     let fullText = '';
+    console.log(`[Ingest] Processing document: ${asset.fileName}`);
 
-    if (asset.contentType === 'pdf') {
-      const buffer = Buffer.from(asset.content, 'base64');
-      const pdf = await getDocumentProxy(new Uint8Array(buffer));
-      const result = await extractText(pdf, { mergePages: true });
-      fullText = result.text;
-    } else if (asset.contentType === 'docx') {
-      const buffer = Buffer.from(asset.content, 'base64');
-      const result = await mammoth.extractRawText({ buffer });
-      fullText = result.value;
-    } else {
-      fullText = asset.content;
-    }
+    try {
+      if (asset.contentType === 'pdf') {
+        console.log('[Ingest] Extracting PDF content...');
+        const buffer = Buffer.from(asset.content, 'base64');
+        const pdf = await getDocumentProxy(new Uint8Array(buffer));
+        const result = await extractText(pdf, { mergePages: true });
+        fullText = result.text;
+      } else if (asset.contentType === 'docx') {
+        console.log('[Ingest] Extracting DOCX content...');
+        const buffer = Buffer.from(asset.content, 'base64');
+        const result = await mammoth.extractRawText({ buffer });
+        fullText = result.value;
+      } else {
+        fullText = asset.content;
+      }
 
-    const { text: contextHeader } = await generateText({
-      model: google('gemini-2.5-flash'),
-      prompt: `Identify the institutional context of this document. Who is it for and what is the primary procedure/knowledge it conveys? Document: ${fullText.substring(0, 8000)}`,
-    });
+      if (!fullText || fullText.trim().length === 0) {
+        throw new Error('Document extraction returned empty text.');
+      }
 
-    const chunks = this.chunkText(fullText, 1000);
-    const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${contextHeader}] \n\n DATA: ${chunk}`);
-    
-    const { embeddings } = await embedMany({
-      model: google.textEmbeddingModel('gemini-embedding-001'),
-      values: valuesToEmbed,
-    });
+      console.log(`[Ingest] Extraction success. Length: ${fullText.length}. Generating context...`);
 
-    const rows = chunks.map((chunk: string, i: number) => ({
-      blueprint_id: asset.blueprintId,
-      content_type: asset.contentType,
-      raw_content: chunk,
-      contextual_header: contextHeader,
-      embedding: embeddings[i],
-      metadata: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(asset.metadata as any || {}),
-        source_name: asset.fileName,
-        chunk_index: i,
-        total_chunks: chunks.length,
-        processed_at: new Date().toISOString(),
-      },
-    }));
+      const { text: contextHeader } = await generateText({
+        model: google('gemini-2.5-flash'),
+        prompt: `Identify the institutional context of this document. Who is it for and what is the primary procedure/knowledge it conveys? Document: ${fullText.substring(0, 8000)}`,
+      });
 
-    const { data, error } = await supabase.from('knowledge_vault').insert(rows).select();
-    if (error) throw error;
-    return { count: data ? data.length : 0, contextHeader };
-  }
+      console.log(`[Ingest] Context generated: ${contextHeader.substring(0, 50)}...`);
 
-  private async ingestMultimodalAsset(asset: IngestAsset) {
-    const { text: description } = await generateText({
-      model: google('gemini-2.5-flash'),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Analyze this ${asset.contentType}. Generate a high-fidelity transcript and visual summary for instructional design grounding.`,
-            },
-            {
-              type: 'file',
-              data: asset.content,
-              mediaType: this.getMimeType(asset.contentType, asset.fileName),
-            },
-          ],
-        },
-      ],
-    });
+      const chunks = this.chunkText(fullText, 1000);
+      const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${contextHeader}] \n\n DATA: ${chunk}`);
+      
+      console.log(`[Ingest] Embedding ${chunks.length} chunks...`);
 
-    const { embedding } = await embed({
-      model: google.textEmbeddingModel('gemini-embedding-001'),
-      value: description,
-    });
+      const { embeddings } = await embedMany({
+        model: google.textEmbeddingModel('gemini-embedding-001'),
+        values: valuesToEmbed,
+      });
 
-    const { data, error } = await supabase
-      .from('knowledge_vault')
-      .insert({
+      const rows = chunks.map((chunk: string, i: number) => ({
         blueprint_id: asset.blueprintId,
         content_type: asset.contentType,
-        raw_content: description,
-        embedding,
+        raw_content: chunk,
+        contextual_header: contextHeader,
+        embedding: embeddings[i],
         metadata: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ...(asset.metadata as any || {}),
           source_name: asset.fileName,
-          is_multimodal: true,
+          chunk_index: i,
+          total_chunks: chunks.length,
           processed_at: new Date().toISOString(),
         },
-      })
-      .select()
-      .single();
+      }));
 
-    if (error) throw error;
-    return data;
+      console.log(`[Ingest] Storing ${rows.length} rows in Supabase...`);
+      const { data, error } = await supabase.from('knowledge_vault').insert(rows).select();
+      if (error) throw error;
+      
+      console.log('[Ingest] Transaction Complete.');
+      return { count: data ? data.length : 0, contextHeader };
+    } catch (err) {
+      console.error(`[Ingest Error] ${asset.fileName}:`, err);
+      throw err;
+    }
+  }
+
+  private async ingestMultimodalAsset(asset: IngestAsset) {
+    console.log(`[Ingest] Processing multi-modal: ${asset.fileName}`);
+    try {
+      const { text: description } = await generateText({
+        model: google('gemini-2.5-flash'),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analyze this ${asset.contentType}. Generate a high-fidelity transcript and visual summary for instructional design grounding.`,
+              },
+              {
+                type: 'file',
+                data: asset.content,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                mediaType: this.getMimeType(asset.contentType, asset.fileName) as any,
+              },
+            ],
+          },
+        ],
+      });
+
+      console.log(`[Ingest] Media analysis complete. Embedding description...`);
+
+      const { embedding } = await embed({
+        model: google.textEmbeddingModel('gemini-embedding-001'),
+        value: description,
+      });
+
+      const { data, error } = await supabase
+        .from('knowledge_vault')
+        .insert({
+          blueprint_id: asset.blueprintId,
+          content_type: asset.contentType,
+          raw_content: description,
+          embedding,
+          metadata: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ...(asset.metadata as any || {}),
+            source_name: asset.fileName,
+            is_multimodal: true,
+            processed_at: new Date().toISOString(),
+          },
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      console.log('[Ingest] Media Stored successfully.');
+      return data;
+    } catch (err) {
+      console.error(`[Ingest Error] Media ${asset.fileName}:`, err);
+      throw err;
+    }
   }
 
   private chunkText(text: string, size: number): string[] {
