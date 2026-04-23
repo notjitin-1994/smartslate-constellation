@@ -175,14 +175,30 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
         {/* Audit Sidebar */}
         <div className="w-80 flex flex-col gap-4">
-          <div className="p-5 rounded-2xl border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.02]">
+          <div className="p-5 rounded-2xl border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.02] flex flex-col">
             <div className="flex items-center gap-2 mb-4 text-[#A7DADB]">
               <BookOpen size={16} />
               <span className="text-xs font-bold uppercase tracking-widest">Semantic Delta</span>
             </div>
-            <p className="text-sm text-[#94A3B8] leading-relaxed italic">
-              {semanticDelta || "Analyzing instructional alignment..."}
-            </p>
+            <div className="text-sm text-[#94A3B8] leading-relaxed italic prose prose-invert prose-sm max-w-none">
+              {semanticDelta ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={{
+                    p: ({children}) => <div className="mb-3 last:mb-0">{children}</div>,
+                    strong: ({children}) => <span className="font-bold text-white">{children}</span>,
+                    ul: ({children}) => <ul className="list-disc pl-4 space-y-1 mb-3">{children}</ul>,
+                    li: ({children}) => <li className="pl-1">{children}</li>,
+                    blockquote: ({children}) => <div className="border-l-2 border-[#7C69F5] pl-3 py-1 my-2 bg-white/5 rounded-r">{children}</div>
+                  }}
+                >
+                  {semanticDelta}
+                </ReactMarkdown>
+              ) : (
+                "Analyzing instructional alignment..."
+              )}
+            </div>
           </div>
 
           <div className="flex-1 p-5 rounded-2xl border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.02] overflow-y-auto custom-scrollbar">
