@@ -51,7 +51,7 @@ export class KnowledgeIngestService {
       console.log(`[Ingest] Extraction success. Length: ${fullText.length}. Generating context...`);
 
       const { text: contextHeader } = await generateText({
-        model: google('gemini-1.5-flash'),
+        model: google('gemini-2.5-flash'),
         prompt: `Identify the institutional context of this document. Who is it for and what is the primary procedure/knowledge it conveys? Document: ${fullText.substring(0, 8000)}`,
       });
 
@@ -108,7 +108,7 @@ export class KnowledgeIngestService {
     console.log(`[Ingest] Processing multi-modal: ${asset.fileName}`);
     try {
       const { text: description } = await generateText({
-        model: google('gemini-1.5-flash'),
+        model: google('gemini-2.5-flash'),
         messages: [
           {
             role: 'user',
