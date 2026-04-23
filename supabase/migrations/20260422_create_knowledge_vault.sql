@@ -7,8 +7,9 @@ create table if not exists public.knowledge_vault (
   blueprint_id uuid references public.blueprint_generator(id) on delete cascade,
   content_type text not null check (content_type in ('text', 'image', 'video', 'pdf')),
   raw_content text, -- Text or AI-generated description of the media
+  contextual_header text, -- Anthropic Contextual Retrieval pattern
   media_url text, -- Link to Supabase Storage
-  embedding vector(768), -- Unified vector for all modalities
+  embedding vector(3072), -- Unified vector for all modalities (optimized for gemini-embedding-001)
   metadata jsonb default '{}'::jsonb, -- {source, timestamp_start, timestamp_end, page_number}
   created_at timestamptz default now()
 );
@@ -39,13 +40,13 @@ with check (
   )
 );
 
--- HNSW Index for High-Speed Multi-modal Retrieval
-create index on public.knowledge_vault 
-using hnsw (embedding vector_cosine_ops);
+-- Semantic Retrieval Index
+-- Note: HNSW currently limited to 2000 dimensions in some PG versions
+-- We use standard similarity for now.
 
--- Function for High-Speed Semantic Search
+-- Function for Semantic Search
 create or replace function match_knowledge (
-  query_embedding vector(768),
+  query_embedding vector(3072),
   match_threshold float,
   match_count int,
   p_blueprint_id uuid

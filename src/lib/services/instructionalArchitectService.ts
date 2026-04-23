@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { generateText, embed } from 'ai';
-import { google } from '@ai-sdk/google';
+import { google } from '@/lib/google';
 
 export interface ArchitecturalNode {
   id: string;
@@ -14,8 +14,10 @@ export interface ScriptOutput {
   script: string;
   citations: string[];
   groundingScore: number;
+  cognitiveLoadScore: number; // Functional score
   hallucinationFlag: boolean;
   semanticDelta?: string;
+  groundingTypes: string[]; // ['text', 'video', etc]
 }
 
 export class InstructionalArchitectService {
@@ -32,8 +34,10 @@ export class InstructionalArchitectService {
         script: `[GROUNDING_ERROR] No organizational data found for "${node.title}". Please upload relevant SOPs or manuals.`,
         citations: [],
         groundingScore: 0,
+        cognitiveLoadScore: 0,
         hallucinationFlag: true,
-        semanticDelta: "No supporting documentation found in the Knowledge Vault."
+        semanticDelta: "No supporting documentation found in the Knowledge Vault.",
+        groundingTypes: []
       };
     }
 
@@ -43,7 +47,7 @@ export class InstructionalArchitectService {
       .join('\n\n');
 
     const { text: draft } = await generateText({
-      model: google('gemini-1.5-pro'),
+      model: google('gemini-2.5-pro'),
       system: `You are a Generative Learning Architect. Your goal is to draft a high-fidelity instructional script.
       STRICT GROUNDING RULES:
       1. Use ONLY information found in the provided [SOURCE_CHUNKS].
@@ -57,21 +61,23 @@ export class InstructionalArchitectService {
       ${contextText}`,
     });
 
-    // PASS 3: The NLI Judge (Validation Pass with Gemini 2.0 Flash)
-    const validation = await this.verifyGrounding(draft, contextText);
+    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 1.5 Flash)
+    const audit = await this.performInstructionalAudit(draft, contextText);
 
     return {
       script: draft,
       citations: sourceChunks.map((c: { metadata: { source_name: string } }) => c.metadata?.source_name || 'Source'),
-      groundingScore: validation.score,
-      hallucinationFlag: validation.hallucinated,
-      semanticDelta: validation.critique
+      groundingScore: audit.groundingScore,
+      cognitiveLoadScore: audit.cognitiveLoad,
+      hallucinationFlag: audit.hallucinated,
+      semanticDelta: audit.critique,
+      groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
     };
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
     const { embedding } = await embed({
-      model: google.textEmbeddingModel('text-embedding-004'),
+      model: google.textEmbeddingModel('gemini-embedding-001'),
       value: `${node.title}: ${node.description}`,
     });
 
@@ -86,23 +92,28 @@ export class InstructionalArchitectService {
     return data || [];
   }
 
-  private async verifyGrounding(draft: string, sources: string) {
+  private async performInstructionalAudit(draft: string, sources: string) {
     const { text } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
-      system: `You are a Fact-Checking Judge. Compare the DRAFT against the SOURCES. 
-      Identify any claims in the DRAFT that are NOT supported by the SOURCES.
+      model: google('gemini-2.5-flash'),
+      system: `You are an Instructional Design Auditor. Analyze the DRAFT against the SOURCES.
+      You must evaluate:
+      1. GROUNDING: Is every claim supported by the SOURCES?
+      2. COGNITIVE LOAD: Evaluate mental effort (0-10) based on terminology density, sentence complexity, and step-count.
+      
       Output format: 
       SCORE: [0-10]
+      COGNITIVE_LOAD: [0-10]
       HALLUCINATED: [YES/NO]
-      CRITIQUE: [Brief explanation of discrepancies]`,
+      CRITIQUE: [Analysis of grounding and complexity]`,
       prompt: `DRAFT: ${draft}\n\nSOURCES: ${sources}`,
     });
 
-    const score = parseInt(text.match(/SCORE: (\d+)/)?.[1] || '0');
+    const groundingScore = parseInt(text.match(/SCORE: (\d+)/)?.[1] || '0');
+    const cognitiveLoad = parseInt(text.match(/COGNITIVE_LOAD: (\d+)/)?.[1] || '5');
     const hallucinated = text.includes('HALLUCINATED: YES');
     const critique = text.split('CRITIQUE:')[1]?.trim();
 
-    return { score, hallucinated, critique };
+    return { groundingScore, cognitiveLoad, hallucinated, critique };
   }
 }
 

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { generateText, embed, embedMany } from 'ai';
-import { google } from '@ai-sdk/google';
+import { google } from '@/lib/google';
 import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 
@@ -40,7 +40,7 @@ export class KnowledgeIngestService {
     }
 
     const { text: contextHeader } = await generateText({
-      model: google('gemini-1.5-flash-exp'),
+      model: google('gemini-2.5-flash'),
       prompt: `Identify the institutional context of this document. Who is it for and what is the primary procedure/knowledge it conveys? Document: ${fullText.substring(0, 8000)}`,
     });
 
@@ -48,7 +48,7 @@ export class KnowledgeIngestService {
     const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${contextHeader}] \n\n DATA: ${chunk}`);
     
     const { embeddings } = await embedMany({
-      model: google.textEmbeddingModel('text-embedding-004'),
+      model: google.textEmbeddingModel('gemini-embedding-001'),
       values: valuesToEmbed,
     });
 
@@ -75,7 +75,7 @@ export class KnowledgeIngestService {
 
   private async ingestMultimodalAsset(asset: IngestAsset) {
     const { text: description } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
+      model: google('gemini-2.5-flash'),
       messages: [
         {
           role: 'user',
@@ -95,7 +95,7 @@ export class KnowledgeIngestService {
     });
 
     const { embedding } = await embed({
-      model: google.textEmbeddingModel('text-embedding-004'),
+      model: google.textEmbeddingModel('gemini-embedding-001'),
       value: description,
     });
 

@@ -19,7 +19,10 @@ import {
   Zap,
   ShieldCheck,
   Code2,
-  Activity
+  Activity,
+  FileText,
+  Video,
+  Image as ImageIcon
 } from 'lucide-react';
 import { 
   Box, 
@@ -105,9 +108,9 @@ const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
     learning_activities: Array.isArray(mod.learning_activities) ? (mod.learning_activities as Array<{ type: string; activity: string; duration: string }>) : [],
     id: `NODE_0${i + 1}`,
     pedagogicalMode: i === 0 ? 'ACTIVATION' : mod.assessment ? 'APPLICATION' : 'DEMONSTRATION',
-    cognitiveLoad: Math.floor(Math.random() * 4) + 3,
+    cognitiveLoad: 0, // Initial state
     scaffolding: mapScaffolding(bj.learning_objectives?.objectives?.[0]?.title || 'apply'),
-    assetGroundingStatus: 'LINKED'
+    assetGroundingStatus: 'PENDING'
   }));
 };
 
@@ -164,7 +167,22 @@ function ArchitectureCanvasContent() {
     fetchBlueprint();
   }, [blueprintId]);
 
-  const modules = useMemo(() => extractEnrichedModules(blueprint), [blueprint]);
+  const baseModules = useMemo(() => extractEnrichedModules(blueprint), [blueprint]);
+  
+  // Merge AI output with base modules
+  const modules = useMemo(() => {
+    return baseModules.map((mod, idx) => {
+      const output = scriptOutputs[idx];
+      if (!output) return mod;
+      return {
+        ...mod,
+        cognitiveLoad: output.cognitiveLoadScore,
+        assetGroundingStatus: output.hallucinationFlag ? 'WARNING' : 'RESOLVED',
+        groundingTypes: output.groundingTypes
+      };
+    });
+  }, [baseModules, scriptOutputs]);
+
   const currentModule = modules[activeNodeIdx] || null;
 
   const handleDraftScript = async () => {
@@ -223,9 +241,16 @@ function ArchitectureCanvasContent() {
           </Box>
           <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.05)' }} />
           <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 1, display: 'block' }}>Neural Nodes</Typography>
-          {modules.map((mod: ModuleData, i: number) => (
+          {modules.map((mod, i: number) => (
             <Box key={i} onClick={() => setActiveNodeIdx(i)} sx={{ p: 1.5, borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease', border: `1px solid ${activeNodeIdx === i ? COLORS.primary : 'transparent'}`, bgcolor: activeNodeIdx === i ? 'rgba(124, 105, 245, 0.1)' : 'transparent', '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}><Typography variant="caption" sx={{ color: COLORS.secondary, fontSize: '10px' }}>{mod.id}</Typography><Zap size={10} color={activeNodeIdx === i ? COLORS.primary : COLORS.textSecondary} /></Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: COLORS.secondary, fontSize: '10px' }}>{mod.id}</Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  {(mod as any).groundingTypes?.includes('pdf') && <FileText size={10} color={COLORS.secondary} />}
+                  {(mod as any).groundingTypes?.includes('video') && <Video size={10} color={COLORS.primary} />}
+                  <Zap size={10} color={activeNodeIdx === i ? COLORS.primary : COLORS.textSecondary} />
+                </Box>
+              </Box>
               <Typography variant="body2" sx={{ color: activeNodeIdx === i ? 'white' : COLORS.textSecondary, fontWeight: activeNodeIdx === i ? 600 : 400, fontSize: '0.8rem' }}>{mod.title}</Typography>
             </Box>
           ))}
@@ -274,10 +299,10 @@ function ArchitectureCanvasContent() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px' }}>
                     <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.secondary, mb: 3 }}><ShieldCheck size={16} /> Cognitive Guardrails (CLG)</Typography>
-                    <Box sx={{ mb: 3 }}><Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}><Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Cognitive Load Score</Typography><Typography variant="caption" sx={{ color: COLORS.primary, fontWeight: 700 }}>{currentModule?.cognitiveLoad}/10</Typography></Box><LinearProgress variant="determinate" value={(currentModule?.cognitiveLoad || 0) * 10} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: COLORS.primary } }} /></Box>
+                    <Box sx={{ mb: 3 }}><Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}><Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Cognitive Load Score</Typography><Typography variant="caption" sx={{ color: COLORS.primary, fontWeight: 700 }}>{currentModule?.cognitiveLoad || 0}/10</Typography></Box><LinearProgress variant="determinate" value={(currentModule?.cognitiveLoad || 0) * 10} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: COLORS.primary } }} /></Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                       <StatBadge icon={Layers} label="SCAFFOLDING" value={currentModule?.scaffolding || "MEDIUM"} />
-                      <StatBadge icon={CheckCircle2} label="ASSET GROUNDING" value="PENDING" color={COLORS.warning} />
+                      <StatBadge icon={CheckCircle2} label="ASSET GROUNDING" value={currentModule?.assetGroundingStatus || "PENDING"} color={currentModule?.assetGroundingStatus === 'RESOLVED' ? COLORS.success : COLORS.warning} />
                     </Box>
                   </Box>
                   <Box sx={{ ...glassStyles, p: 3, borderRadius: '20px', border: `1px dashed ${COLORS.secondary}44` }}>
@@ -308,7 +333,8 @@ function ArchitectureCanvasContent() {
                       node_id: currentModule?.id,
                       mode: currentModule?.pedagogicalMode,
                       script: activeScript?.script,
-                      grounding: activeScript?.groundingScore
+                      grounding: activeScript?.groundingScore,
+                      cognitive_load: currentModule?.cognitiveLoad
                     },
                     full_sequence: modules.map((m: ModuleData) => ({ id: m.id, mode: m.pedagogicalMode }))
                   }, null, 2)}
