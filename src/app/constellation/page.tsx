@@ -238,7 +238,8 @@ function ArchitectureCanvasContent() {
           description: currentModule.description,
           pedagogicalMode: currentModule.pedagogicalMode,
           targetModality: currentModule.targetModality, // Added modality context
-          blueprintId
+          blueprintId,
+          blueprintContext: blueprint?.blueprint_json // Added full context
         }),
       });
       const result = await response.json();
@@ -271,10 +272,65 @@ function ArchitectureCanvasContent() {
   const activeScript = scriptOutputs[activeNodeIdx];
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', bgcolor: COLORS.bg, color: COLORS.textPrimary, fontFamily: '"Quicksand", "Lato", sans-serif', overflow: 'hidden' }}>
-      <Box sx={{ width: '288px', borderRight: `1px solid ${COLORS.glassBorder}`, p: 3, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      height: '100vh', 
+      bgcolor: '#020C1B', 
+      color: '#E2E8F0', 
+      fontFamily: '"Quicksand", "Lato", sans-serif', 
+      overflow: 'hidden',
+      position: 'relative',
+      // Cinematic Noise Texture
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        inset: 0,
+        opacity: 0.04,
+        pointerEvents: 'none',
+        zIndex: 1,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+      },
+      // Asymmetrical Deep Space Orb
+      '&::after': {
+        content: '""',
+        position: 'absolute',
+        top: '-15%',
+        right: '-10%',
+        width: '800px',
+        height: '800px',
+        background: 'radial-gradient(circle, rgba(124, 105, 245, 0.08) 0%, rgba(124, 105, 245, 0) 70%)',
+        filter: 'blur(100px)',
+        borderRadius: '50%',
+        zIndex: 0,
+        pointerEvents: 'none',
+      }
+    }}>
+      <Box sx={{ 
+        width: '288px', 
+        borderRight: '1px solid rgba(124, 105, 245, 0.15)', 
+        p: 3, 
+        display: 'flex', 
+        flexDirection: 'column',
+        background: 'rgba(124, 105, 245, 0.02)',
+        backdropFilter: 'blur(12px)',
+        zIndex: 2,
+        position: 'relative'
+      }}>
         <HandoverStatus status="ARCHITECTING" />
-        <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 2, display: 'block' }}>Strategy Trace</Typography>
+        <Typography 
+          variant="overline" 
+          sx={{ 
+            color: '#94A3B8', 
+            mb: 2, 
+            display: 'block',
+            fontWeight: 800,
+            letterSpacing: '0.2em',
+            fontSize: '0.65rem',
+            textTransform: 'uppercase'
+          }}
+        >
+          Strategy Trace
+        </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflowY: 'auto' }}>
           <Box sx={{ p: 2, borderRadius: '12px', bgcolor: 'rgba(124, 105, 245, 0.05)', border: '1px solid rgba(124, 105, 245, 0.1)' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><Target size={14} color={COLORS.primary} /><Typography variant="caption" sx={{ color: COLORS.textPrimary, fontWeight: 700 }}>STRATEGIC GOAL</Typography></Box>
@@ -368,7 +424,7 @@ function ArchitectureCanvasContent() {
         </Box>
       </Box>
 
-      <KnowledgeVaultModal isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} blueprintId={blueprintId || ""} />
+      <KnowledgeVaultModal isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} blueprintId={blueprintId || ""} blueprintContext={blueprint?.blueprint_json} />
 
       <AnimatePresence>
         {showUlsPreview && (

@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase';
-import { generateText, embed, embedMany } from 'ai';
+import { generateText, embed, embedMany, generateObject } from 'ai';
 import { google } from '@/lib/google';
 import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
+import { z } from 'zod';
 
 export type ContentType = 'text' | 'image' | 'video' | 'pdf' | 'docx';
 
@@ -12,6 +13,7 @@ export interface IngestAsset {
   content: string; // Base64 for media/docs or raw text
   fileName: string;
   metadata?: Record<string, unknown>;
+  blueprintContext?: Record<string, unknown> | null;
 }
 
 export class KnowledgeIngestService {
@@ -48,45 +50,90 @@ export class KnowledgeIngestService {
         throw new Error('Document extraction returned empty text.');
       }
 
-      console.log(`[Ingest] Extraction success. Length: ${fullText.length}. Generating context...`);
+      console.log(`[Ingest] Extraction success. Length: ${fullText.length}. Generating context and segregating...`);
 
-      const { text: contextHeader } = await generateText({
+      let modulesListStr = 'No modules available. Fallback to generic ingestion.';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bpContext: any = asset.blueprintContext;
+      if (bpContext?.content_outline?.modules) {
+        modulesListStr = bpContext.content_outline.modules.map((m: { title: string; description: string }, i: number) => `ID: NODE_0${i+1} | Title: ${m.title} | Desc: ${m.description}`).join('\n');
+      }
+
+      const { object } = await generateObject({
         model: google('gemini-3-flash-preview'),
-        prompt: `Identify the institutional context of this document. Who is it for and what is the primary procedure/knowledge it conveys? Document: ${fullText.substring(0, 8000)}`,
+        schema: z.object({
+          contextHeader: z.string().describe('Overall institutional context of the document. Who is it for and what procedure/knowledge it conveys?'),
+          moduleContents: z.array(z.object({
+            moduleId: z.string().describe('The ID of the module, e.g. NODE_01'),
+            relevantContent: z.string().describe('All extracted text from the document relevant to this module. Leave empty if none.')
+          }))
+        }),
+        prompt: `You are an expert instructional design data parser. Read the document and segregate its content based on the provided modules. A document may contain content for multiple modules. Extract and assign the relevant sections to each matching module.\n\nModules:\n${modulesListStr}\n\nDocument:\n${fullText.substring(0, 50000)}`
       });
 
-      console.log(`[Ingest] Context generated: ${contextHeader.substring(0, 50)}...`);
+      console.log(`[Ingest] Context generated: ${object.contextHeader.substring(0, 50)}...`);
 
-      const chunks = this.chunkText(fullText, 1000);
-      const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${contextHeader}] \n\n DATA: ${chunk}`);
+      const rows: Record<string, unknown>[] = [];
+      for (const mc of object.moduleContents) {
+        if (!mc.relevantContent || mc.relevantContent.trim() === '') continue;
+        
+        const chunks = this.chunkText(mc.relevantContent, 1000);
+        if (chunks.length === 0) continue;
+        
+        console.log(`[Ingest] Embedding ${chunks.length} chunks for module ${mc.moduleId}...`);
+        const valuesToEmbed = chunks.map((chunk: string) => `[MODULE: ${mc.moduleId}] [CONTEXT: ${object.contextHeader}] \n\n DATA: ${chunk}`);
+        
+        const { embeddings } = await embedMany({
+          model: google.textEmbeddingModel('gemini-embedding-2-preview'),
+          values: valuesToEmbed,
+          providerOptions: { google: { outputDimensionality: 3072 } }
+        });
+
+        const chunkRows = chunks.map((chunk: string, i: number) => ({
+          blueprint_id: asset.blueprintId,
+          content_type: asset.contentType,
+          raw_content: chunk,
+          contextual_header: object.contextHeader,
+          embedding: embeddings[i],
+          metadata: {
+            ...(asset.metadata || {}),
+            source_name: asset.fileName,
+            module_id: mc.moduleId,
+            chunk_index: i,
+            total_chunks: chunks.length,
+            processed_at: new Date().toISOString(),
+          },
+        }));
+        rows.push(...chunkRows);
+      }
       
-      console.log(`[Ingest] Embedding ${chunks.length} chunks with Gemini Embedding 2 (3072 dims)...`);
-
-      const { embeddings } = await embedMany({
-        model: google.textEmbeddingModel('gemini-embedding-2-preview'),
-        values: valuesToEmbed,
-        providerOptions: {
-          google: {
-            outputDimensionality: 3072,
-          }
-        }
-      });
-
-      const rows = chunks.map((chunk: string, i: number) => ({
-        blueprint_id: asset.blueprintId,
-        content_type: asset.contentType,
-        raw_content: chunk,
-        contextual_header: contextHeader,
-        embedding: embeddings[i],
-        metadata: {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ...(asset.metadata as any || {}),
-          source_name: asset.fileName,
-          chunk_index: i,
-          total_chunks: chunks.length,
-          processed_at: new Date().toISOString(),
-        },
-      }));
+      if (rows.length === 0) {
+        console.warn(`[Ingest] No specific module content extracted. Falling back to generic ingestion.`);
+        const chunks = this.chunkText(fullText, 1000);
+        const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${object.contextHeader}] \n\n DATA: ${chunk}`);
+        
+        const { embeddings } = await embedMany({
+          model: google.textEmbeddingModel('gemini-embedding-2-preview'),
+          values: valuesToEmbed,
+          providerOptions: { google: { outputDimensionality: 3072 } }
+        });
+        
+        const chunkRows = chunks.map((chunk: string, i: number) => ({
+          blueprint_id: asset.blueprintId,
+          content_type: asset.contentType,
+          raw_content: chunk,
+          contextual_header: object.contextHeader,
+          embedding: embeddings[i],
+          metadata: {
+            ...(asset.metadata || {}),
+            source_name: asset.fileName,
+            chunk_index: i,
+            total_chunks: chunks.length,
+            processed_at: new Date().toISOString(),
+          },
+        }));
+        rows.push(...chunkRows);
+      }
 
       console.log(`[Ingest] Storing ${rows.length} rows in Supabase...`);
       const { data, error } = await supabase.from('knowledge_vault').insert(rows).select();
@@ -97,7 +144,7 @@ export class KnowledgeIngestService {
       }
       
       console.log('[Ingest] Transaction Complete.');
-      return { count: data ? data.length : 0, contextHeader };
+      return { count: data ? data.length : 0, contextHeader: object.contextHeader };
     } catch (err) {
       console.error(`[Ingest Error] ${asset.fileName}:`, err);
       throw err;
@@ -120,8 +167,7 @@ export class KnowledgeIngestService {
               {
                 type: 'file',
                 data: asset.content,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                mediaType: this.getMimeType(asset.contentType, asset.fileName) as any,
+                mediaType: this.getMimeType(asset.contentType, asset.fileName) as "image/png" | "image/jpeg" | "video/mp4",
               },
             ],
           },
@@ -148,8 +194,7 @@ export class KnowledgeIngestService {
           raw_content: description,
           embedding,
           metadata: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ...(asset.metadata as any || {}),
+            ...(asset.metadata || {}),
             source_name: asset.fileName,
             is_multimodal: true,
             processed_at: new Date().toISOString(),

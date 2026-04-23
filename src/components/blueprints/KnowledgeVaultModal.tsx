@@ -30,11 +30,13 @@ interface VaultFile {
 export const KnowledgeVaultModal = ({ 
   isOpen, 
   onClose, 
-  blueprintId 
+  blueprintId,
+  blueprintContext
 }: { 
   isOpen: boolean; 
   onClose: () => void;
   blueprintId: string;
+  blueprintContext?: Record<string, unknown> | null;
 }) => {
   const [files, setFiles] = useState<VaultFile[]>([]);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
@@ -142,7 +144,8 @@ export const KnowledgeVaultModal = ({
             blueprintId,
             contentType,
             content: base64,
-            fileName: file.name
+            fileName: file.name,
+            blueprintContext
           }),
         });
 

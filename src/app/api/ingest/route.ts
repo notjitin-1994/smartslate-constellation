@@ -4,7 +4,7 @@ import { knowledgeIngestService } from '@/lib/services/knowledgeIngestService';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { blueprintId, contentType, content, fileName, metadata } = body;
+    const { blueprintId, contentType, content, fileName, metadata, blueprintContext } = body;
 
     if (!blueprintId || !contentType || !content) {
       return NextResponse.json(
@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
       content,
       fileName,
       metadata,
+      blueprintContext,
     });
 
     return NextResponse.json({

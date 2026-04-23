@@ -7,8 +7,9 @@ export interface ArchitecturalNode {
   title: string;
   description: string;
   pedagogicalMode: string;
-  targetModality?: string; // New field
+  targetModality?: string; 
   blueprintId: string;
+  blueprintContext?: Record<string, unknown> | null;
 }
 
 export interface ScriptOutput {
@@ -48,6 +49,20 @@ export class InstructionalArchitectService {
 
       console.log(`[Architect] Found ${sourceChunks.length} chunks. Proceeding to Generation...`);
 
+      // Context Extractor from Polaris Blueprint
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bp = node.blueprintContext as any;
+      let strategicContext = 'N/A';
+      if (bp) {
+        strategicContext = `
+        - Target Audience: ${bp.target_audience?.demographics?.roles?.join(', ')} (${bp.target_audience?.demographics?.experience_levels?.join(', ')})
+        - Learning Preferences: ${bp.target_audience?.learning_preferences?.modalities?.map((m: { type: string; percentage: number }) => `${m.type} (${m.percentage}%)`).join(', ')}
+        - Executive Summary: ${bp.executive_summary?.content}
+        - Assessment Strategy: ${bp.assessment_strategy?.overview}
+        - Success Metrics: ${bp.success_metrics?.metrics?.map((m: { metric: string }) => m.metric).join(', ')}
+        `;
+      }
+
       // PASS 2: Citation-Enforced Generation (Gemini 3.1 Pro)
       const contextText = sourceChunks
         .map((c: { metadata: { source_name: string }, raw_content: string }, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Unknown'}]: ${c.raw_content}`)
@@ -56,6 +71,10 @@ export class InstructionalArchitectService {
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
         system: `You are a World-Class Generative Learning Architect. Your goal is to draft a high-fidelity instructional script in a professional Production Script Format.
+
+        --- POLARIS STRATEGIC CONTEXT ---
+        This script is part of a larger curriculum. Align the tone, examples, and complexity with the following parameters:
+        ${strategicContext}
 
         --- TARGET MODALITY ---
         This script is being developed for: ${node.targetModality || 'Standard eLearning'}.
