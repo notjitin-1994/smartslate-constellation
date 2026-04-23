@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FileText, 
@@ -13,8 +13,18 @@ import {
   CheckCircle2, 
   Loader2,
   Sparkles,
-  FileCode
+  FileCode,
+  Trash2
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+interface VaultFile {
+  id: string;
+  name: string;
+  type: string;
+  status: 'pending' | 'uploading' | 'complete';
+  isExisting?: boolean;
+}
 
 export const KnowledgeVaultModal = ({ 
   isOpen, 
@@ -25,20 +35,64 @@ export const KnowledgeVaultModal = ({
   onClose: () => void;
   blueprintId: string;
 }) => {
-  const [files, setFiles] = useState<Array<{ id: string; file: File; status: 'pending' | 'uploading' | 'complete' }>>([]);
+  const [files, setFiles] = useState<VaultFile[]>([]);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchExistingFiles = useCallback(async () => {
+    if (!blueprintId) return;
+    
+    const { data, error } = await supabase
+      .from('knowledge_vault')
+      .select('metadata, content_type')
+      .eq('blueprint_id', blueprintId);
+
+    if (error) {
+      console.error('Error fetching vault files:', error);
+      return;
+    }
+
+    // Deduplicate by source_name in metadata
+    const uniqueFiles = new Map<string, VaultFile>();
+    data?.forEach(row => {
+      const name = row.metadata?.source_name || 'Unknown File';
+      if (!uniqueFiles.has(name)) {
+        uniqueFiles.set(name, {
+          id: name,
+          name: name,
+          type: row.content_type,
+          status: 'complete',
+          isExisting: true
+        });
+      }
+    });
+
+    setFiles(Array.from(uniqueFiles.values()));
+  }, [blueprintId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchExistingFiles();
+    }
+  }, [isOpen, fetchExistingFiles]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
     const newFiles = droppedFiles.map(f => ({
       id: Math.random().toString(36).substr(2, 9),
+      name: f.name,
       file: f,
+      type: f.type,
       status: 'pending' as const
     }));
-    setFiles(prev => [...prev, ...newFiles]);
+    // Filter out duplicates if already in list
+    setFiles(prev => {
+      const existingNames = new Set(prev.map(f => f.name));
+      const filtered = newFiles.filter(f => !existingNames.has(f.name)) as any;
+      return [...prev, ...filtered];
+    });
   }, []);
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -46,7 +100,6 @@ export const KnowledgeVaultModal = ({
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
-        // Strip the data URL prefix (e.g., "data:application/pdf;base64,")
         const base64String = (reader.result as string).split(',')[1];
         resolve(base64String);
       };
@@ -55,19 +108,21 @@ export const KnowledgeVaultModal = ({
   };
 
   const handleIngest = async () => {
-    if (files.length === 0) return;
+    const pendingFiles = files.filter(f => f.status === 'pending');
+    if (pendingFiles.length === 0) return;
+    
     setIsSynthesizing(true);
     setProgress(10);
     
     try {
-      for (const fileItem of files) {
-        if (fileItem.status === 'complete') continue;
-        
-        const base64 = await fileToBase64(fileItem.file);
-        const contentType = fileItem.file.type.includes('pdf') ? 'pdf' : 
-                          fileItem.file.type.includes('word') ? 'docx' : 
-                          fileItem.file.type.includes('video') ? 'video' : 
-                          fileItem.file.type.includes('image') ? 'image' : 'text';
+      let completedCount = 0;
+      for (const fileItem of pendingFiles) {
+        const file = (fileItem as any).file as File;
+        const base64 = await fileToBase64(file);
+        const contentType = file.type.includes('pdf') ? 'pdf' : 
+                          file.type.includes('word') ? 'docx' : 
+                          file.type.includes('video') ? 'video' : 
+                          file.type.includes('image') ? 'image' : 'text';
 
         const response = await fetch('/api/ingest', {
           method: 'POST',
@@ -76,7 +131,7 @@ export const KnowledgeVaultModal = ({
             blueprintId,
             contentType,
             content: base64,
-            fileName: fileItem.file.name
+            fileName: file.name
           }),
         });
 
@@ -85,9 +140,10 @@ export const KnowledgeVaultModal = ({
           throw new Error(errorData.error || 'Ingestion failed');
         }
         
-        setFiles(prev => prev.map(f => f.id === fileItem.id ? { ...f, status: 'complete' } : f));
-        setProgress(p => Math.min(p + (100 / files.length), 100));
+        completedCount++;
+        setProgress(p => Math.min(p + (100 / pendingFiles.length), 100));
       }
+      await fetchExistingFiles();
     } catch (error: unknown) {
       console.error('Ingestion Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -98,10 +154,27 @@ export const KnowledgeVaultModal = ({
     }
   };
 
+  const handleDelete = async (fileName: string) => {
+    if (!confirm(`Are you sure you want to remove ${fileName} from the Knowledge Vault?`)) return;
+    
+    try {
+      const response = await fetch(`/api/ingest/delete?blueprintId=${blueprintId}&fileName=${encodeURIComponent(fileName)}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Delete failed');
+      
+      setFiles(prev => prev.filter(f => f.name !== fileName));
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Delete failed: ${errorMessage}`);
+    }
+  };
+
   const getFileIcon = (type: string) => {
-    if (type.includes('pdf') || type.includes('word') || type.includes('text')) return <FileText size={18} className="text-[#A7DADB]" />;
-    if (type.includes('video')) return <Video size={18} className="text-[#7C69F5]" />;
-    if (type.includes('image')) return <ImageIcon size={18} className="text-pink-400" />;
+    if (type.includes('pdf') || type.includes('word') || type.includes('text') || type === 'pdf' || type === 'docx' || type === 'text') return <FileText size={18} className="text-[#A7DADB]" />;
+    if (type.includes('video') || type === 'video') return <Video size={18} className="text-[#7C69F5]" />;
+    if (type.includes('image') || type === 'image') return <ImageIcon size={18} className="text-pink-400" />;
     return <FileCode size={18} className="text-[#94A3B8]" />;
   };
 
@@ -122,7 +195,7 @@ export const KnowledgeVaultModal = ({
         <div className="flex items-center justify-between border-b border-[rgba(124, 105, 245, 0.1)] p-6">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-[#E2E8F0]">Knowledge Vault</h2>
-            <p className="text-sm text-[#94A3B8]">Ground your architecture with multi-modal assets</p>
+            <p className="text-sm text-[#94A3B8]">Manage your multi-modal instructional assets</p>
           </div>
           <button onClick={onClose} className="rounded-full p-2 text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-[#E2E8F0]">
             <X size={20} />
@@ -141,13 +214,20 @@ export const KnowledgeVaultModal = ({
                   type="file" 
                   className="hidden" 
                   ref={fileInputRef}
+                  multiple
                   onChange={(e) => {
                     const selected = Array.from(e.target.files || []);
-                    setFiles(prev => [...prev, ...selected.map(f => ({
-                      id: Math.random().toString(36).substr(2, 9),
-                      file: f,
-                      status: 'pending' as const
-                    }))]);
+                    setFiles(prev => {
+                       const existingNames = new Set(prev.map(f => f.name));
+                       const filtered = selected.filter(f => !existingNames.has(f.name)).map(f => ({
+                        id: Math.random().toString(36).substr(2, 9),
+                        name: f.name,
+                        file: f,
+                        type: f.type,
+                        status: 'pending' as const
+                      })) as any;
+                      return [...prev, ...filtered];
+                    });
                   }}
                 />
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #7C69F5 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
@@ -162,21 +242,33 @@ export const KnowledgeVaultModal = ({
                 {files.map((fileItem) => (
                   <div key={fileItem.id} className="group flex items-center justify-between rounded-lg border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.03] p-3 hover:bg-white/[0.05]">
                     <div className="flex items-center gap-3">
-                      {getFileIcon(fileItem.file.type)}
-                      <span className="text-sm font-medium text-[#E2E8F0] truncate max-w-[300px]">{fileItem.file.name}</span>
+                      {getFileIcon(fileItem.type)}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-[#E2E8F0] truncate max-w-[300px]">{fileItem.name}</span>
+                        {fileItem.isExisting && <span className="text-[10px] text-[#A7DADB] font-bold uppercase tracking-tighter">Processed</span>}
+                      </div>
                     </div>
-                    {fileItem.status === 'complete' ? <CheckCircle2 size={16} className="text-[#A7DADB]" /> : (
-                      <button onClick={() => setFiles(prev => prev.filter(f => f.id !== fileItem.id))} className="opacity-0 group-hover:opacity-100 text-[#94A3B8] hover:text-red-400">
-                        <X size={16} />
+                    <div className="flex items-center gap-2">
+                      {fileItem.status === 'complete' && <CheckCircle2 size={16} className="text-[#A7DADB]" />}
+                      <button 
+                        onClick={() => fileItem.isExisting ? handleDelete(fileItem.name) : setFiles(prev => prev.filter(f => f.id !== fileItem.id))} 
+                        className="text-[#94A3B8] hover:text-red-400 transition-colors p-1"
+                      >
+                        <Trash2 size={16} />
                       </button>
-                    )}
+                    </div>
                   </div>
                 ))}
+                {files.length === 0 && (
+                  <div className="text-center py-8 border border-dashed border-white/5 rounded-xl">
+                    <p className="text-xs text-[#94A3B8] italic">No assets in vault. Initialize ingestion to begin.</p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end">
                 <button
-                  disabled={files.length === 0 || files.every(f => f.status === 'complete')}
+                  disabled={files.filter(f => f.status === 'pending').length === 0}
                   onClick={handleIngest}
                   className="group relative overflow-hidden rounded-full bg-[#7C69F5] px-8 py-3 font-semibold text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                 >

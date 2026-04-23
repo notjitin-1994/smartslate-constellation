@@ -40,6 +40,17 @@ with check (
   )
 );
 
+create policy "Users can delete knowledge for their own blueprints"
+on public.knowledge_vault for delete
+to authenticated
+using (
+  exists (
+    select 1 from public.blueprint_generator
+    where public.blueprint_generator.id = public.knowledge_vault.blueprint_id
+    and public.blueprint_generator.user_id = auth.uid()
+  )
+);
+
 -- Semantic Retrieval Index
 -- Note: HNSW currently limited to 2000 dimensions in some PG versions
 -- We use standard similarity for now.
