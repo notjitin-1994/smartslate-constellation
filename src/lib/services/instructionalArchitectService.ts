@@ -14,10 +14,10 @@ export interface ScriptOutput {
   script: string;
   citations: string[];
   groundingScore: number;
-  cognitiveLoadScore: number; // Functional score
+  cognitiveLoadScore: number; 
   hallucinationFlag: boolean;
   semanticDelta?: string;
-  groundingTypes: string[]; // ['text', 'video', etc]
+  groundingTypes: string[]; 
 }
 
 export class InstructionalArchitectService {
@@ -26,71 +26,86 @@ export class InstructionalArchitectService {
    * using the Triple-Pass Integrity Shield with World-Class Formatting.
    */
   async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
-    // PASS 1: Strict Semantic Retrieval
-    const sourceChunks = await this.retrieveGroundingContext(node);
-    
-    if (sourceChunks.length === 0) {
-      return {
-        script: `[GROUNDING_ERROR] No organizational data found for "${node.title}". Please upload relevant SOPs or manuals.`,
-        citations: [],
-        groundingScore: 0,
-        cognitiveLoadScore: 0,
-        hallucinationFlag: true,
-        semanticDelta: "No supporting documentation found in the Knowledge Vault.",
-        groundingTypes: []
-      };
-    }
+    console.log(`[Architect] Drafting script for: ${node.title} (${node.id})`);
 
-    // PASS 2: Citation-Enforced Generation (Gemini 3.1 Pro)
-    const contextText = sourceChunks
-      .map((c: { metadata: { source_name: string }, raw_content: string }, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Unknown'}]: ${c.raw_content}`)
-      .join('\n\n');
-
-    const { text: draft } = await generateText({
-      model: google('gemini-3.1-pro-preview'),
-      system: `You are a World-Class Generative Learning Architect. Your goal is to draft a high-fidelity instructional script in a professional Production Script Format.
-
-      --- FORMATTING STANDARDS ---
-      1. Use H1 for the Module Title.
-      2. Use H2 for Section Headers (e.g., ## Introduction, ## Pillar 1).
-      3. Use a DUAL-COLUMN Narrative Structure:
-         - Use [VISUAL] tags to describe what appears on screen.
-         - Use **Instructor:** for the spoken dialogue.
-      4. Use CALLOUT BLOCKS (using > quotes) for Key Formulas or Rules.
-      5. Bold key terms for emphasis.
-      6. Use clean Markdown tables for comparisons if applicable.
-
-      --- STRICT GROUNDING RULES ---
-      1. Use ONLY information found in the provided [SOURCE_CHUNKS].
-      2. If a fact is not present, do not invent it. Use "[MISSING_DATA]" instead.
-      3. Assigned Pedagogical Mode: ${node.pedagogicalMode}.
-      4. End every claim with a citation (e.g., [Source 1]).`,
-      prompt: `Strategic Node: ${node.title}
-      Description: ${node.description}
+    try {
+      // PASS 1: Strict Semantic Retrieval
+      const sourceChunks = await this.retrieveGroundingContext(node);
       
-      [SOURCE_CHUNKS]:
-      ${contextText}`,
-    });
+      if (sourceChunks.length === 0) {
+        console.warn(`[Architect] No grounding context found for node: ${node.title}`);
+        return {
+          script: `[GROUNDING_ERROR] No organizational data found for "${node.title}". Please upload relevant SOPs or manuals.`,
+          citations: [],
+          groundingScore: 0,
+          cognitiveLoadScore: 0,
+          hallucinationFlag: true,
+          semanticDelta: "No supporting documentation found in the Knowledge Vault.",
+          groundingTypes: []
+        };
+      }
 
-    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3.1 Flash)
-    const audit = await this.performInstructionalAudit(draft, contextText);
+      console.log(`[Architect] Found ${sourceChunks.length} chunks. Proceeding to Generation...`);
 
-    return {
-      script: draft,
-      citations: sourceChunks.map((c: { metadata: { source_name: string } }) => c.metadata?.source_name || 'Source'),
-      groundingScore: audit.groundingScore,
-      cognitiveLoadScore: audit.cognitiveLoad,
-      hallucinationFlag: audit.hallucinated,
-      semanticDelta: audit.critique,
-      groundingTypes: Array.from(new Set(sourceChunks.map((c: { content_type: string }) => c.content_type)))
-    };
+      // PASS 2: Citation-Enforced Generation (Gemini 3.1 Pro)
+      const contextText = sourceChunks
+        .map((c: { metadata: { source_name: string }, raw_content: string }, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Unknown'}]: ${c.raw_content}`)
+        .join('\n\n');
+
+      const { text: draft } = await generateText({
+        model: google('gemini-3.1-pro-preview'),
+        system: `You are a World-Class Generative Learning Architect. Your goal is to draft a high-fidelity instructional script in a professional Production Script Format.
+
+        --- FORMATTING STANDARDS ---
+        1. Use H1 for the Module Title.
+        2. Use H2 for Section Headers (e.g., ## Introduction, ## Pillar 1).
+        3. Use a DUAL-COLUMN Narrative Structure:
+           - Use [VISUAL] tags to describe what appears on screen.
+           - Use **Instructor:** for the spoken dialogue.
+        4. Use CALLOUT BLOCKS (using > quotes) for Key Formulas or Rules.
+        5. Bold key terms for emphasis.
+        6. Use clean Markdown tables for comparisons if applicable.
+
+        --- STRICT GROUNDING RULES ---
+        1. Use ONLY information found in the provided [SOURCE_CHUNKS].
+        2. If a fact is not present, do not invent it. Use "[MISSING_DATA]" instead.
+        3. Assigned Pedagogical Mode: ${node.pedagogicalMode}.
+        4. End every claim with a citation (e.g., [Source 1]).`,
+        prompt: `Strategic Node: ${node.title}
+        Description: ${node.description}
+        
+        [SOURCE_CHUNKS]:
+        ${contextText}`,
+      });
+
+      console.log('[Architect] Script draft generated. Initiating Audit...');
+
+      // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3 Flash)
+      const audit = await this.performInstructionalAudit(draft, contextText);
+
+      console.log(`[Architect] Audit Complete. Grounding: ${audit.groundingScore}, Load: ${audit.cognitiveLoad}`);
+
+      return {
+        script: draft,
+        citations: sourceChunks.map((c: { metadata: { source_name: string } }) => c.metadata?.source_name || 'Source'),
+        groundingScore: audit.groundingScore,
+        cognitiveLoadScore: audit.cognitiveLoad,
+        hallucinationFlag: audit.hallucinated,
+        semanticDelta: audit.critique,
+        groundingTypes: Array.from(new Set(sourceChunks.map((c: { content_type: string }) => c.content_type)))
+      };
+    } catch (err) {
+      console.error(`[Architect Error] Drafting failed for ${node.title}:`, err);
+      throw err;
+    }
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
+    console.log(`[Architect] Generating query embedding for: ${node.title}`);
     const queryText = `Instructional design grounding and procedural knowledge for: ${node.title}. ${node.description}`;
 
     const { embedding } = await embed({
-      model: google.textEmbeddingModel('gemini-embedding-2-preview'),
+      model: google.textEmbeddingModel('gemini-embedding-2'),
       value: queryText,
       providerOptions: {
         google: {
@@ -99,6 +114,7 @@ export class InstructionalArchitectService {
       }
     });
 
+    console.log('[Architect] Searching Knowledge Vault...');
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
       match_threshold: 0.5, 
@@ -107,7 +123,7 @@ export class InstructionalArchitectService {
     });
 
     if (error) {
-      console.error('[Architect Retrieval Error]:', error);
+      console.error('[Architect DB Error]:', error);
       throw error;
     }
     return data || [];
@@ -115,7 +131,7 @@ export class InstructionalArchitectService {
 
   private async performInstructionalAudit(draft: string, sources: string) {
     const { text } = await generateText({
-      model: google('gemini-3.1-flash-preview'),
+      model: google('gemini-3-flash-preview'),
       system: `You are an Instructional Design Auditor. Analyze the DRAFT against the SOURCES.
       You must evaluate:
       1. GROUNDING: Is every claim supported by the SOURCES?
