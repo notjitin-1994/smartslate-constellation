@@ -7,14 +7,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import { 
-  Compass, 
   PlusCircle, 
   Sparkles, 
   Orbit, 
   Layers, 
   ArrowUpRight,
-  Zap
+  Zap,
+  Compass
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -56,7 +57,7 @@ const itemVariants: Variants = {
   }
 };
 
-// --- Sub-Components ---
+// --- SUB-COMPONENTS ---
 
 const BackgroundConstellation = () => (
   <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
@@ -80,35 +81,25 @@ const BackgroundConstellation = () => (
   </div>
 );
 
-const LoadingOverlay = () => (
+// --- DYNAMIC SUB-COMPONENTS ---
+const LoadingOverlay = dynamic(() => Promise.resolve(() => (
   <motion.div 
     initial={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#020C1B]"
+    className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#020617]"
   >
     <div className="relative">
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-        className="w-24 h-24 border-t-2 border-r-2 border-[#A7DADB] rounded-full"
+        className="w-16 h-16 border-t-2 border-r-2 border-indigo-400/30 rounded-full"
       />
-      <motion.div
-        animate={{ scale: [1, 1.1, 1] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className="absolute inset-0 flex items-center justify-center"
-      >
-        <div className="w-2 h-2 bg-[#A7DADB] rounded-full shadow-[0_0_15px_#A7DADB]" />
-      </motion.div>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full shadow-[0_0_15px_#818CF8]" />
+      </div>
     </div>
-    <motion.p
-      animate={{ opacity: [0.4, 1, 0.4] }}
-      transition={{ duration: 2, repeat: Infinity }}
-      className="mt-8 text-[10px] tracking-[0.4em] uppercase font-bold text-[#A7DADB]"
-    >
-      SYNCHRONIZING CONSTELLATION...
-    </motion.p>
   </motion.div>
-);
+)), { ssr: false });
 
 const RecommendationBanner = () => (
   <motion.div

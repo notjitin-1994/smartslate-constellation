@@ -35,11 +35,26 @@ import {
   Fade
 } from '@mui/material';
 import { useSearchParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
-import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
 import { useSidebar } from '@/lib/SidebarContext';
+
+// --- DYNAMIC IMPORTS FOR PERFORMANCE ---
+const KnowledgeVaultModal = dynamic(() => import('@/components/blueprints/KnowledgeVaultModal').then(mod => mod.KnowledgeVaultModal), {
+  ssr: false,
+  loading: () => <CircularProgress size={20} />
+});
+
+const ScriptDraftingWorkspace = dynamic(() => import('@/components/blueprints/ScriptDraftingWorkspace'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 animate-pulse">
+      <div className="h-4 w-48 bg-white/5 rounded-full" />
+      <div className="h-2 w-32 bg-white/5 rounded-full" />
+    </div>
+  )
+});
 
 // --- CONSTELLATION ZEN DESIGN SYSTEM ---
 const COLORS = {

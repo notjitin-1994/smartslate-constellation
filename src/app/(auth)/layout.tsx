@@ -63,12 +63,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="relative min-h-screen w-full bg-[#020C1B] flex flex-col md:flex-row overflow-hidden font-sans text-[#E2E8F0]">
       
       {/* Cinematic Background Video - Shared/Static */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 bg-[#020C1B]">
         <video
           autoPlay
           loop
           muted
           playsInline
+          poster="/marketing-bg.jpg"
           className="w-full h-full object-cover opacity-60 blur-[4px] scale-105"
         >
           <source src="/login-bg-new.mp4" type="video/mp4" />
