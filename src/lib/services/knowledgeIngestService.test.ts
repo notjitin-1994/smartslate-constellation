@@ -27,10 +27,11 @@ describe('KnowledgeIngestService', () => {
 
   it('should handle PDF documents by extracting text', async () => {
     // Mock unpdf response for this test
-    vi.spyOn(unpdf, 'extractText').mockResolvedValue({ 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (vi.spyOn(unpdf, 'extractText') as any).mockResolvedValue({ 
       text: 'Extracted PDF content for testing purposes.',
       pages: [] 
-    } as any);
+    });
 
     const pdfAsset = {
       ...mockAsset,

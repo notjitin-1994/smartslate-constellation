@@ -1,7 +1,8 @@
 import { vi } from 'vitest';
 
 // Helper to create a chainable mock
-const createMockChain = (responseData: any = { id: 'mock-id' }) => {
+const createMockChain = (responseData: Record<string, unknown> | Record<string, unknown>[] = { id: 'mock-id' }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: any = {
     select: vi.fn(() => chain),
     single: vi.fn(() => Promise.resolve({ data: responseData, error: null })),
@@ -9,7 +10,8 @@ const createMockChain = (responseData: any = { id: 'mock-id' }) => {
     order: vi.fn(() => chain),
     insert: vi.fn(() => chain),
     // Make the chain itself thenable to act like a promise
-    then: (resolve: any) => Promise.resolve({ data: Array.isArray(responseData) ? responseData : [responseData], error: null }).then(resolve),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    then: (resolve: (value: any) => void) => Promise.resolve({ data: Array.isArray(responseData) ? responseData : [responseData], error: null }).then(resolve),
   };
   return chain;
 };
@@ -17,7 +19,8 @@ const createMockChain = (responseData: any = { id: 'mock-id' }) => {
 // Mock Supabase
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => createMockChain()),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    from: vi.fn(() => createMockChain() as any),
     rpc: vi.fn(() => Promise.resolve({ data: [], error: null })),
   },
 }));

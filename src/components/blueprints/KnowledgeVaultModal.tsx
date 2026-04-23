@@ -88,9 +88,10 @@ export const KnowledgeVaultModal = ({
         setFiles(prev => prev.map(f => f.id === fileItem.id ? { ...f, status: 'complete' } : f));
         setProgress(p => Math.min(p + (100 / files.length), 100));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Ingestion Error:', error);
-      alert(`Failed to ingest knowledge: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to ingest knowledge: ${errorMessage}`);
     } finally {
       setIsSynthesizing(false);
       setProgress(0);

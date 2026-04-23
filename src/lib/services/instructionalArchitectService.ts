@@ -71,7 +71,7 @@ export class InstructionalArchitectService {
       cognitiveLoadScore: audit.cognitiveLoad,
       hallucinationFlag: audit.hallucinated,
       semanticDelta: audit.critique,
-      groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
+      groundingTypes: Array.from(new Set(sourceChunks.map((c: { content_type: string }) => c.content_type)))
     };
   }
 

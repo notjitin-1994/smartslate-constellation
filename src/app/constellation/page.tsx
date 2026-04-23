@@ -21,8 +21,7 @@ import {
   Code2,
   Activity,
   FileText,
-  Video,
-  Image as ImageIcon
+  Video
 } from 'lucide-react';
 import { 
   Box, 
@@ -70,6 +69,7 @@ interface ModuleData {
   cognitiveLoad: number;
   scaffolding: string;
   assetGroundingStatus: string;
+  groundingTypes?: string[];
   learning_activities?: Array<{ type: string; activity: string; duration: string }>;
 }
 
@@ -241,13 +241,13 @@ function ArchitectureCanvasContent() {
           </Box>
           <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.05)' }} />
           <Typography variant="overline" sx={{ color: COLORS.textSecondary, mb: 1, display: 'block' }}>Neural Nodes</Typography>
-          {modules.map((mod, i: number) => (
+          {modules.map((mod: ModuleData, i: number) => (
             <Box key={i} onClick={() => setActiveNodeIdx(i)} sx={{ p: 1.5, borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease', border: `1px solid ${activeNodeIdx === i ? COLORS.primary : 'transparent'}`, bgcolor: activeNodeIdx === i ? 'rgba(124, 105, 245, 0.1)' : 'transparent', '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="caption" sx={{ color: COLORS.secondary, fontSize: '10px' }}>{mod.id}</Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  {(mod as any).groundingTypes?.includes('pdf') && <FileText size={10} color={COLORS.secondary} />}
-                  {(mod as any).groundingTypes?.includes('video') && <Video size={10} color={COLORS.primary} />}
+                  {mod.groundingTypes?.includes('pdf') && <FileText size={10} color={COLORS.secondary} />}
+                  {mod.groundingTypes?.includes('video') && <Video size={10} color={COLORS.primary} />}
                   <Zap size={10} color={activeNodeIdx === i ? COLORS.primary : COLORS.textSecondary} />
                 </Box>
               </Box>

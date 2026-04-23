@@ -44,7 +44,7 @@ describe('Ingestion Pipeline Integration', () => {
 
     expect(data?.embedding).toBeDefined();
     expect(Array.isArray(data?.embedding)).toBe(true);
-    // 768 is the dimension for text-embedding-004
-    expect((data?.embedding as any).length).toBe(768);
+    // 768 is the dimension for gemini-embedding-001 with outputDimensionality 768
+    expect((data?.embedding as number[]).length).toBe(768);
   });
 });
