@@ -76,9 +76,13 @@ export class InstructionalArchitectService {
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
+    console.log(`[Architect] Retrieving context for: ${node.title}`);
+    
+    const queryText = `Instructional design grounding and procedural knowledge for: ${node.title}. ${node.description}`;
+
     const { embedding } = await embed({
       model: google.textEmbeddingModel('gemini-embedding-2-preview'),
-      value: `${node.title}: ${node.description}`,
+      value: queryText,
       providerOptions: {
         google: {
           outputDimensionality: 3072,
@@ -86,9 +90,11 @@ export class InstructionalArchitectService {
       }
     });
 
+    // Try with a more relaxed threshold first, then fallback.
+    // 0.5 is a safe floor for 3072-dim cosine similarity
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
-      match_threshold: 0.78,
+      match_threshold: 0.5, 
       match_count: 5,
       p_blueprint_id: node.blueprintId
     });
@@ -97,6 +103,8 @@ export class InstructionalArchitectService {
       console.error('[Architect Retrieval Error]:', error);
       throw error;
     }
+
+    console.log(`[Architect] Found ${data?.length || 0} matching chunks.`);
     return data || [];
   }
 
