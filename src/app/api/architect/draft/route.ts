@@ -4,7 +4,7 @@ import { instructionalArchitectService } from '@/lib/services/instructionalArchi
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, title, description, pedagogicalMode, blueprintId } = body;
+    const { id, title, description, pedagogicalMode, targetModality, blueprintId } = body;
 
     if (!id || !blueprintId) {
       return NextResponse.json(
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       pedagogicalMode,
+      targetModality,
       blueprintId
     });
 

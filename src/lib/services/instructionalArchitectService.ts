@@ -7,6 +7,7 @@ export interface ArchitecturalNode {
   title: string;
   description: string;
   pedagogicalMode: string;
+  targetModality?: string; // New field
   blueprintId: string;
 }
 
@@ -55,6 +56,12 @@ export class InstructionalArchitectService {
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
         system: `You are a World-Class Generative Learning Architect. Your goal is to draft a high-fidelity instructional script in a professional Production Script Format.
+
+        --- TARGET MODALITY ---
+        This script is being developed for: ${node.targetModality || 'Standard eLearning'}.
+        - If VIDEO: Focus on narrative flow, visual storytelling, and high-impact verbal cues.
+        - If INTERACTIVE/SCORM: Focus on decision-points, branching logic, and learner agency.
+        - If CASE STUDY/TEXT: Focus on depth, reference frameworks, and scannable technical precision.
 
         --- FORMATTING STANDARDS ---
         1. Use H1 for the Module Title.

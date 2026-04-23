@@ -21,7 +21,11 @@ import {
   Code2,
   Activity,
   FileText,
-  Video
+  Video,
+  Monitor,
+  MousePointer2,
+  MessageSquare,
+  Info
 } from 'lucide-react';
 import { 
   Box, 
@@ -32,7 +36,8 @@ import {
   Chip, 
   LinearProgress, 
   Grid,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -70,6 +75,8 @@ interface ModuleData {
   scaffolding: string;
   assetGroundingStatus: string;
   groundingTypes?: string[];
+  targetModality: string;
+  modalityRationale?: string;
   learning_activities?: Array<{ type: string; activity: string; duration: string }>;
 }
 
@@ -81,6 +88,9 @@ interface Blueprint {
     target_audience?: { demographics?: { roles: string[] } };
     learning_objectives?: { objectives?: Array<{ title: string }> };
     content_outline?: { modules: Record<string, unknown>[] };
+    instructional_strategy?: {
+      modalities?: Array<{ type: string; rationale: string; allocation_percent: number }>;
+    };
   };
 }
 
@@ -98,20 +108,47 @@ const mapScaffolding = (bloomLevel: string) => {
   return map[bloomLevel?.toLowerCase()] || 'MEDIUM';
 };
 
+const getModalityIcon = (type: string) => {
+  const t = type.toLowerCase();
+  if (t.includes('video')) return <Video size={16} />;
+  if (t.includes('interactive') || t.includes('scorm') || t.includes('simulation')) return <MousePointer2 size={16} />;
+  if (t.includes('case') || t.includes('text') || t.includes('checklist') || t.includes('pdf')) return <FileText size={16} />;
+  if (t.includes('audio') || t.includes('podcast')) return <MessageSquare size={16} />;
+  return <Monitor size={16} />;
+};
+
 const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
   if (!blueprint) return [];
-  const bj = blueprint.blueprint_json || { content_outline: { modules: [] }, learning_objectives: { objectives: [] } };
+  const bj = blueprint.blueprint_json || { 
+    content_outline: { modules: [] }, 
+    learning_objectives: { objectives: [] },
+    instructional_strategy: { modalities: [] }
+  };
   const modules = bj.content_outline?.modules || [];
-  return modules.map((mod: Record<string, unknown>, i: number) => ({
-    title: String(mod.title || ''),
-    description: String(mod.description || ''),
-    learning_activities: Array.isArray(mod.learning_activities) ? (mod.learning_activities as Array<{ type: string; activity: string; duration: string }>) : [],
-    id: `NODE_0${i + 1}`,
-    pedagogicalMode: i === 0 ? 'ACTIVATION' : mod.assessment ? 'APPLICATION' : 'DEMONSTRATION',
-    cognitiveLoad: 0, // Initial state
-    scaffolding: mapScaffolding(bj.learning_objectives?.objectives?.[0]?.title || 'apply'),
-    assetGroundingStatus: 'PENDING'
-  }));
+  const globalModalities = bj.instructional_strategy?.modalities || [];
+
+  return modules.map((mod: Record<string, unknown>, i: number) => {
+    const deliveryMethod = String(mod.delivery_method || '').toLowerCase();
+    
+    // Intelligent Modality Matcher: Find best fit from global modalities
+    const matchedModality = globalModalities.find((m: { type: string; rationale: string; allocation_percent: number }) => 
+      deliveryMethod.includes(m.type.toLowerCase()) || 
+      m.type.toLowerCase().includes(deliveryMethod)
+    ) || globalModalities[0] || { type: 'Standard eLearning', rationale: 'Default delivery method.' };
+
+    return {
+      title: String(mod.title || ''),
+      description: String(mod.description || ''),
+      learning_activities: Array.isArray(mod.learning_activities) ? (mod.learning_activities as Array<{ type: string; activity: string; duration: string }>) : [],
+      id: `NODE_0${i + 1}`,
+      pedagogicalMode: i === 0 ? 'ACTIVATION' : mod.assessment ? 'APPLICATION' : 'DEMONSTRATION',
+      cognitiveLoad: 0,
+      scaffolding: mapScaffolding(bj.learning_objectives?.objectives?.[0]?.title || 'apply'),
+      assetGroundingStatus: 'PENDING',
+      targetModality: matchedModality.type,
+      modalityRationale: matchedModality.rationale
+    };
+  });
 };
 
 const StatBadge = ({ icon: Icon, label, value, color = COLORS.primary }: { icon: React.ElementType, label: string, value: string, color?: string }) => (
@@ -197,6 +234,7 @@ function ArchitectureCanvasContent() {
           title: currentModule.title,
           description: currentModule.description,
           pedagogicalMode: currentModule.pedagogicalMode,
+          targetModality: currentModule.targetModality, // Added modality context
           blueprintId
         }),
       });
@@ -245,7 +283,9 @@ function ArchitectureCanvasContent() {
             <Box key={i} onClick={() => setActiveNodeIdx(i)} sx={{ p: 1.5, borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease', border: `1px solid ${activeNodeIdx === i ? COLORS.primary : 'transparent'}`, bgcolor: activeNodeIdx === i ? 'rgba(124, 105, 245, 0.1)' : 'transparent', '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="caption" sx={{ color: COLORS.secondary, fontSize: '10px' }}>{mod.id}</Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                  {getModalityIcon(mod.targetModality)}
+                  <div className="w-1 h-1 rounded-full bg-white/20 mx-1" />
                   {mod.groundingTypes?.includes('pdf') && <FileText size={10} color={COLORS.secondary} />}
                   {mod.groundingTypes?.includes('video') && <Video size={10} color={COLORS.primary} />}
                   <Zap size={10} color={activeNodeIdx === i ? COLORS.primary : COLORS.textSecondary} />
@@ -259,7 +299,15 @@ function ArchitectureCanvasContent() {
 
       <Box sx={{ flex: 1, p: 4, display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box><Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em', mb: 0.5 }}>{currentModule?.title}</Typography><Typography variant="body2" sx={{ color: COLORS.textSecondary }}>Architectural Node Sequencing for <span style={{ color: COLORS.secondary }}>{blueprint?.title}</span></Typography></Box>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em', mb: 0.5 }}>{currentModule?.title}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+               <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>Modality: <span style={{ color: COLORS.secondary, fontWeight: 700 }}>{currentModule?.targetModality}</span></Typography>
+               <Tooltip title={currentModule?.modalityRationale}>
+                 <IconButton size="small" sx={{ color: COLORS.textSecondary }}><Info size={14} /></IconButton>
+               </Tooltip>
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<Code2 size={16} />} onClick={() => setShowUlsPreview(true)} sx={{ borderColor: COLORS.glassBorder, color: COLORS.textSecondary, textTransform: 'none', borderRadius: '8px' }}>ULS Preview</Button>
             <Button variant="contained" onClick={handleDraftScript} disabled={isDrafting} startIcon={isDrafting ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />} sx={{ bgcolor: COLORS.primary, textTransform: 'none', borderRadius: '8px', px: 3 }}>{activeScript ? 'Re-Draft Script' : 'Draft Script'}</Button>
@@ -332,11 +380,12 @@ function ArchitectureCanvasContent() {
                     active_node: {
                       node_id: currentModule?.id,
                       mode: currentModule?.pedagogicalMode,
+                      modality: currentModule?.targetModality,
                       script: activeScript?.script,
                       grounding: activeScript?.groundingScore,
                       cognitive_load: currentModule?.cognitiveLoad
                     },
-                    full_sequence: modules.map((m: ModuleData) => ({ id: m.id, mode: m.pedagogicalMode }))
+                    full_sequence: modules.map((m: ModuleData) => ({ id: m.id, mode: m.pedagogicalMode, modality: m.targetModality }))
                   }, null, 2)}
                 </pre>
               </Box>
