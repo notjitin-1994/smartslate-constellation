@@ -23,7 +23,7 @@ export interface ScriptOutput {
 export class InstructionalArchitectService {
   /**
    * Generates a grounded instructional script for a specific node
-   * using the Triple-Pass Integrity Shield.
+   * using the Triple-Pass Integrity Shield with World-Class Formatting.
    */
   async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
     // PASS 1: Strict Semantic Retrieval
@@ -48,11 +48,22 @@ export class InstructionalArchitectService {
 
     const { text: draft } = await generateText({
       model: google('gemini-3.1-pro-preview'),
-      system: `You are a Generative Learning Architect. Your goal is to draft a high-fidelity instructional script.
-      STRICT GROUNDING RULES:
+      system: `You are a World-Class Generative Learning Architect. Your goal is to draft a high-fidelity instructional script in a professional Production Script Format.
+
+      --- FORMATTING STANDARDS ---
+      1. Use H1 for the Module Title.
+      2. Use H2 for Section Headers (e.g., ## Introduction, ## Pillar 1).
+      3. Use a DUAL-COLUMN Narrative Structure:
+         - Use [VISUAL] tags to describe what appears on screen.
+         - Use **Instructor:** for the spoken dialogue.
+      4. Use CALLOUT BLOCKS (using > quotes) for Key Formulas or Rules.
+      5. Bold key terms for emphasis.
+      6. Use clean Markdown tables for comparisons if applicable.
+
+      --- STRICT GROUNDING RULES ---
       1. Use ONLY information found in the provided [SOURCE_CHUNKS].
       2. If a fact is not present, do not invent it. Use "[MISSING_DATA]" instead.
-      3. Assign a pedagogical mode: ${node.pedagogicalMode}.
+      3. Assigned Pedagogical Mode: ${node.pedagogicalMode}.
       4. End every claim with a citation (e.g., [Source 1]).`,
       prompt: `Strategic Node: ${node.title}
       Description: ${node.description}
@@ -61,7 +72,7 @@ export class InstructionalArchitectService {
       ${contextText}`,
     });
 
-    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3 Flash)
+    // PASS 3: The NLI Judge (Validation & Cognitive Audit with Gemini 3.1 Flash)
     const audit = await this.performInstructionalAudit(draft, contextText);
 
     return {
@@ -76,8 +87,6 @@ export class InstructionalArchitectService {
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode) {
-    console.log(`[Architect] Retrieving context for: ${node.title}`);
-    
     const queryText = `Instructional design grounding and procedural knowledge for: ${node.title}. ${node.description}`;
 
     const { embedding } = await embed({
@@ -90,8 +99,6 @@ export class InstructionalArchitectService {
       }
     });
 
-    // Try with a more relaxed threshold first, then fallback.
-    // 0.5 is a safe floor for 3072-dim cosine similarity
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
       match_threshold: 0.5, 
@@ -103,14 +110,12 @@ export class InstructionalArchitectService {
       console.error('[Architect Retrieval Error]:', error);
       throw error;
     }
-
-    console.log(`[Architect] Found ${data?.length || 0} matching chunks.`);
     return data || [];
   }
 
   private async performInstructionalAudit(draft: string, sources: string) {
     const { text } = await generateText({
-      model: google('gemini-3-flash-preview'),
+      model: google('gemini-3.1-flash-preview'),
       system: `You are an Instructional Design Auditor. Analyze the DRAFT against the SOURCES.
       You must evaluate:
       1. GROUNDING: Is every claim supported by the SOURCES?
