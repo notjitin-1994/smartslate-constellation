@@ -14,7 +14,8 @@ import {
   History,
   Info,
   ChevronLeft,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -118,7 +119,27 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     <div className="w-8 h-px bg-indigo-500/30" /> {children}
                   </h2>,
                   h3: ({children}) => <h3 className="text-lg font-bold mt-8 mb-4 text-slate-200 tracking-tight">{children}</h3>,
-                  p: ({children}) => <p className="mb-6 leading-relaxed text-slate-300 font-light text-lg">{children}</p>,
+                  p: ({children}) => {
+                    if (typeof children === 'string' && children.includes('[MISSING_DATA:')) {
+                      const parts = children.split(/(\[MISSING_DATA:.*?\])/g);
+                      return (
+                        <p className="mb-6 leading-relaxed text-slate-300 font-light text-lg">
+                          {parts.map((part, i) => {
+                            if (part.startsWith('[MISSING_DATA:')) {
+                              const label = part.replace('[MISSING_DATA: ', '').replace('[MISSING_DATA:', '').replace(']', '');
+                              return (
+                                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mx-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider animate-pulse">
+                                  <Search size={10} /> {label}
+                                </span>
+                              );
+                            }
+                            return part;
+                          })}
+                        </p>
+                      );
+                    }
+                    return <p className="mb-6 leading-relaxed text-slate-300 font-light text-lg">{children}</p>;
+                  },
                   blockquote: ({children}) => (
                     <div className="my-10 p-8 rounded-3xl bg-indigo-500/[0.03] border border-indigo-500/10 italic flex gap-6 relative overflow-hidden group/quote">
                       <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/50" />

@@ -80,7 +80,7 @@ export class InstructionalArchitectService {
         --- CRITICAL GROUNDING RULES (ZERO LEAKAGE) ---
         1. Use ONLY information found in the provided [SOURCE_CHUNKS].
         2. DO NOT use your own training data, general knowledge, or internet research.
-        3. If a fact, step, or rule is not present in the sources, you MUST use the tag "[MISSING_ORGANIZATIONAL_DATA]".
+        3. If a specific fact, step, or rule is not present in the sources, you MUST use a descriptive placeholder tag in this format: "[MISSING_DATA: Describe the specific missing information, e.g., 'Internal Referral Link' or 'Global Policy Page Number']". Be as specific as possible about WHAT is missing based on the instructional requirement.
         4. If the [SOURCE_CHUNKS] contain barely any relevant information for the module "${node.title}", start the script with a prominent warning: "> ⚠️ **INSUFFICIENT DOCUMENTATION DETECTED**: This script is limited by a lack of specific grounding assets for this module. Please upload more relevant SOPs or manuals."
         
         --- POLARIS STRATEGIC CONTEXT ---
