@@ -7,17 +7,17 @@ import {
   Activity, 
   History, 
   X, 
-  AlertOctagon,
-  Fingerprint,
-  Mic2,
-  ChevronRight,
-  Workflow,
-  Eye,
-  MousePointer2,
-  GitBranch,
-  StickyNote,
-  Maximize2,
-  Sparkles,
+  AlertOctagon, 
+  Fingerprint, 
+  Mic2, 
+  ChevronRight, 
+  Workflow, 
+  Eye, 
+  MousePointer2, 
+  GitBranch, 
+  StickyNote, 
+  Maximize2, 
+  Sparkles, 
   Layers
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -139,7 +139,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     });
     if (currentArtifact) tempResults.push(currentArtifact as Artifact);
 
-    // --- CONSOLIDATION LOGIC: Merge all headers into one single top card ---
     const headers = tempResults.filter(a => a.type === '[HEADER]');
     const others = tempResults.filter(a => a.type !== '[HEADER]');
     
@@ -179,15 +178,22 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     }
   };
 
+  // --- FLUID BENTO STYLE ENGINE ---
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
-      case '[HEADER]': return "md:col-span-3 border-[#A7DADB]/10 bg-white/[0.005] py-12 px-14";
-      case '[VISUAL]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/20";
-      case '[NARRATION]': return "md:col-span-2 md:row-span-1 border-white/10 bg-white/[0.01]";
-      case '[ACTIVITY]': return "md:col-span-1 md:row-span-1 border-indigo-500/30 bg-indigo-500/[0.02]";
-      case '[BRANCHING]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/40 font-mono";
-      case '[SPEAKER_NOTES]': return "md:col-span-1 md:row-span-1 border-white/5 bg-white/[0.005]";
-      default: return "md:col-span-1 border-white/10";
+      case '[HEADER]': 
+        return "w-full border-[#A7DADB]/10 bg-white/[0.005] py-12 px-14 mb-4";
+      case '[VISUAL]': 
+      case '[NARRATION]':
+      case '[BRANCHING]':
+        // Flex-grow: 2 means these prefer more space. min-width ensures they wrap eventually.
+        return "flex-[2] min-w-[min(100%,600px)] border-white/10 bg-white/[0.01]";
+      case '[ACTIVITY]':
+      case '[SPEAKER_NOTES]':
+        // Flex-grow: 1 means these share space with others, but fill row if alone.
+        return "flex-1 min-w-[min(100%,400px)] border-white/10 bg-white/[0.005]";
+      default: 
+        return "flex-1 min-w-[300px] border-white/10";
     }
   };
 
@@ -246,19 +252,19 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* --- BENTO GRID ARTIFACTS --- */}
+      {/* --- FLUID BENTO ARTIFACTS --- */}
       <div className="w-full max-w-[98%] mx-auto px-6">
         <AnimatePresence mode="wait">
           {isLoading ? (
-            <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-3 grid-flow-dense gap-8 py-12">
-               {[1,2,3,4,5,6].map(i => (
-                 <div key={i} className={`h-64 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] animate-pulse ${i === 1 ? 'md:col-span-3' : ''}`} />
+            <div className="flex flex-wrap gap-8 py-12">
+               {[1,2,3,4].map(i => (
+                 <div key={i} className={`h-64 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] animate-pulse ${i === 1 ? 'w-full' : 'flex-1 min-w-[400px]'}`} />
                ))}
-            </motion.div>
+            </div>
           ) : (
             <motion.div 
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-1 md:grid-cols-3 grid-flow-dense gap-8 pb-40"
+              className="flex flex-wrap gap-8 pb-40"
             >
               {artifacts.map((art, idx) => (
                 <motion.div
@@ -269,7 +275,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   whileHover={{ y: -8, transition: { duration: 0.3 } }}
                   className={`
                     relative overflow-hidden group rounded-[3rem] p-10
-                    bg-white/[0.015] backdrop-blur-3xl border
+                    backdrop-blur-3xl border
                     ${getCardStyle(art.type)}
                     transition-all duration-700 hover:bg-white/[0.02]
                     shadow-[0_20px_60px_rgba(0,0,0,0.4)]
