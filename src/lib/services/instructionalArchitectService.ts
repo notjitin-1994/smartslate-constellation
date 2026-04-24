@@ -25,25 +25,24 @@ export interface ScriptOutput {
 
 export class InstructionalArchitectService {
   /**
-   * Generates a strictly grounded instructional script.
-   * Implementation: Zero-Leakage "Atomic Fact" Architecture (arXiv:2512.14731)
+   * Generates a "Grounded Conversationalist" instructional script.
+   * Logic: Fluent instructional voice + Deterministic Factual Anchoring.
    */
   async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
-    console.log(`[Architect] [INTEGRITY_INIT] Drafting strictly grounded script: ${node.title}`);
+    console.log(`[Architect] [HYBRID_INIT] Drafting grounded conversational script: ${node.title}`);
 
     try {
       // --- PASS 1: TIERED RETRIEVAL (Physical Lock) ---
       let sourceChunks = await this.retrieveGroundingContext(node, true);
       let isDataSparse = false;
 
-      // Only broad fallback if strict match found NOTHING
       if (sourceChunks.length === 0) {
-        console.log('[Architect] [LOCK] No specific module data. Broad fallback (0.9)...');
+        console.log('[Architect] [LOCK] No specific module data. FallbackBroad (0.85)...');
         sourceChunks = await this.retrieveGroundingContext(node, false);
         if (sourceChunks.length === 0) isDataSparse = true;
       }
 
-      // --- PASS 2: ATOMIC FACT EXTRACTION (Noise Filter) ---
+      // --- PASS 2: ATOMIC FACT EXTRACTION (The Truth Ledger) ---
       const contextText = sourceChunks
         .map((c: any, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Doc'}]: ${c.raw_content}`)
         .join('\n\n');
@@ -57,32 +56,34 @@ export class InstructionalArchitectService {
         strategicContext = `
         - Target Audience: ${bp.target_audience?.demographics?.roles?.join(', ')}
         - Tone/Level: ${bp.target_audience?.demographics?.experience_levels?.join(', ')}
-        - Assessment Strategy: ${bp.assessment_strategy?.overview}
+        - Strategy: ${bp.assessment_strategy?.overview}
         `;
       }
 
-      // --- PASS 3: REFUSAL-CENTRIC SYNTHESIS (Zero Leakage) ---
+      // --- PASS 3: GROUNDED CONVERSATIONAL SYNTHESIS ---
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
-        temperature: 0.1, 
-        system: `You are a Deterministic Instructional Guard. Your sole objective is to convert the provided [FACT_LEDGER] into a production script.
+        temperature: 0.2, // Slight increase for conversational fluency
+        system: `You are a World-Class Instructional Designer. Your goal is to draft a high-fidelity production script.
         
-        --- ABSOLUTE ZERO-LEAKAGE RULES ---
-        1. FORBIDDEN: You must NEVER use your own training data or outside knowledge.
-        2. MANDATORY: If a specific fact or detail is missing, use: "[MISSING_DATA: category]".
-        3. MANDATORY: If the [FACT_LEDGER] is empty, start the response with exactly this string: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!" and then provide a concise list of missing instructional requirements.
+        --- THE GROUNDED CONVERSATIONALIST PROTOCOL ---
+        1. VOICE: You MUST use a professional, engaging, and clear instructional voice. You are encouraged to use conversational transitions (e.g., "Now that we've covered X, let's move to Y" or "It's crucial to understand that...").
+        2. KNOWLEDGE: You are FORBIDDEN from introducing any specific facts, rules, procedures, numbers, or data points NOT found in the [FACT_LEDGER].
+        3. GAPS: If an instructional step is required by the strategy but not found in the [FACT_LEDGER], you MUST use: "[MISSING_DATA: category]".
+        4. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
         
         --- FORMATTING ---
         - H1 for Title.
         - [VISUAL] tags for screen cues.
-        - **Instructor:** for dialogue.`,
+        - **Instructor:** for dialogue.
+        - Every factual claim MUST conclude with a Fact ID from the ledger (e.g., [Fact 4]).`,
         prompt: `Strategic Node: ${node.title}
         Description: ${node.description}
         [STRATEGIC_CONTEXT]: ${strategicContext}
         [FACT_LEDGER]: ${factLedger || 'EMPTY: NO DATA FOUND.'}`,
       });
 
-      // --- PASS 4: ADVERSARIAL SENTINEL AUDIT (Judge) ---
+      // --- PASS 4: ADVERSARIAL INTEGRITY SENTINEL ---
       const audit = await this.performAdversarialAudit(draft, factLedger);
 
       return {
@@ -90,7 +91,7 @@ export class InstructionalArchitectService {
         citations: sourceChunks.map((c: any) => c.metadata?.source_name || 'Source'),
         groundingScore: audit.groundingScore,
         cognitiveLoadScore: audit.cognitiveLoad,
-        hallucinationFlag: audit.hallucinated || (isDataSparse && draft.length > 200),
+        hallucinationFlag: audit.hallucinated || (isDataSparse && draft.length > 300),
         semanticDelta: audit.critique,
         groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
       };
@@ -102,20 +103,16 @@ export class InstructionalArchitectService {
 
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
     if (!rawContext.trim()) return '';
-    
     const { text } = await generateText({
       model: google('gemini-3-flash-preview'),
-      system: `You are an Atomic Fact Distiller. 
-      Analyze the raw document chunks and extract every unique, verifiable fact or procedure related to "${nodeTitle}".
-      Output only a numbered list of atomic facts. Strip away all fluff.`,
+      system: `Extract every unique, verifiable fact or procedure related to "${nodeTitle}" from the provided chunks. Output as a numbered list of Atomic Facts. Strip all fluff.`,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
     return text;
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
-    const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
-
+    const queryText = `Instructional design grounding and procedural knowledge for: ${node.title}. ${node.description}`;
     const { embedding } = await embed({
       model: google.textEmbeddingModel('gemini-embedding-2'),
       value: queryText,
@@ -124,8 +121,8 @@ export class InstructionalArchitectService {
 
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
-      match_threshold: strictModule ? 0.3 : 0.85, 
-      match_count: 5,
+      match_threshold: strictModule ? 0.35 : 0.85, 
+      match_count: 8,
       p_blueprint_id: node.blueprintId,
       p_module_id: strictModule ? node.id : null
     });
@@ -148,14 +145,14 @@ export class InstructionalArchitectService {
   private async performAdversarialAudit(draft: string, factLedger: string) {
     const { text } = await generateText({
       model: google('gemini-3-flash-preview'),
-      system: `You are an Adversarial Integrity Sentinel. 
-      Compare the DRAFT script against the [FACT_LEDGER].
-      Identify any claim, fact, or detail in the DRAFT that is not explicitly in the [FACT_LEDGER].
+      system: `You are an Integrity Sentinel. Compare the DRAFT script against the [FACT_LEDGER].
+      Identify "Factual Hallucinations"—any specific claim or procedure in the DRAFT not found in the [FACT_LEDGER].
+      NOTE: Do not flag conversational transitions or framing sentences unless they contain a new factual claim.
       Output format: 
       SCORE: [0-10]
       COGNITIVE_LOAD: [0-10]
       HALLUCINATED: [YES/NO]
-      CRITIQUE: [List every single "Foreign Intelligence" claim detected.]`,
+      CRITIQUE: [List any sentences that introduce unsupported factual knowledge.]`,
       prompt: `DRAFT:\n${draft}\n\n[FACT_LEDGER]:\n${factLedger}`,
     });
 
