@@ -16,7 +16,8 @@ import {
   Code2,
   X,
   Lightbulb,
-  ShieldCheck
+  ShieldCheck,
+  Workflow
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
@@ -139,7 +140,7 @@ function ArchitectureCanvasContent() {
       }
     } catch (err: unknown) {
       console.error('[Drafting Error]:', err);
-      alert(`Drafting Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
+      alert(`Map Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
     } finally { setIsDrafting(false); }
   };
 
@@ -167,10 +168,10 @@ function ArchitectureCanvasContent() {
         {/* Global HUD Header */}
         <header className="h-20 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03]">
           <div className="flex items-center gap-8">
-            <div className="flex flex-col">
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex flex-col">
               <h2 className="text-lg font-bold text-white tracking-tight leading-none mb-1">{formatText(currentModule?.title || 'Instructional Node')}</h2>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] text-slate-500 font-mono font-bold tracking-widest">{formatText(currentModule?.id || 'NO_ID')}</span>
+                <span className="text-[10px] text-slate-500 font-mono font-bold tracking-widest">{formatText(currentModule?.id || 'NO ID')}</span>
                 <div className="w-1 h-1 rounded-full bg-slate-800" />
                 <span className="text-[10px] text-[#A7DADB] font-black uppercase tracking-widest">{formatText(currentModule?.targetModality || 'UNMAPPED')}</span>
               </div>
@@ -179,26 +180,27 @@ function ArchitectureCanvasContent() {
 
           <div className="flex items-center gap-6">
              {isSyncing && (
-               <div className="flex items-center gap-2 text-[#A7DADB]/40">
+               <div className="px-4 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 flex items-center gap-2 text-[#A7DADB]">
                  <Cloud size={14} className="animate-pulse" />
-                 <span className="text-[9px] font-black uppercase tracking-tighter">Syncing</span>
+                 <span className="text-[9px] font-black uppercase tracking-tighter">Synchronizing</span>
                </div>
              )}
-             <Tooltip title="View ULS Schema">
-                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', '&:hover': { bgcolor: 'white/[0.08]', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
+             <Tooltip title="View Handover Schema">
+                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', border: '1px solid rgba(255,255,255,0.05)', '&:hover': { bgcolor: 'white/[0.08]', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
              </Tooltip>
              <button 
                onClick={() => setIsVaultOpen(true)}
-               className="p-2 rounded-xl bg-white/[0.03] text-slate-500 hover:text-[#A7DADB] transition-all"
+               className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"
              >
                <Database size={20} />
              </button>
              <button 
                 onClick={handleDraftScript} 
                 disabled={isDrafting}
-                className="px-8 py-2.5 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50"
+                className="px-8 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50 flex items-center gap-3"
               >
-                {isDrafting ? 'Drafting...' : 'Draft Script'}
+                {isDrafting ? <CircularProgress size={14} color="inherit" /> : <Workflow size={14} />}
+                {isDrafting ? 'Mapping...' : 'Map Constellation'}
               </button>
           </div>
         </header>
@@ -224,10 +226,12 @@ function ArchitectureCanvasContent() {
                    <div className="w-20 h-20 rounded-[2rem] bg-[#A7DADB]/5 flex items-center justify-center mb-10 border border-[#A7DADB]/10 relative group">
                      <Lightbulb size={32} className="text-[#A7DADB] relative z-10 group-hover:scale-110 transition-transform" />
                    </div>
-                   <h3 className="text-4xl font-bold text-white mb-6 tracking-tighter">Architecture Canvas</h3>
-                   <p className="text-slate-500 text-sm max-w-sm leading-relaxed mb-12 font-medium uppercase tracking-widest">
-                     Select a node from the neural trace to begin orchestration.
-                   </p>
+                   <div className="p-10 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] backdrop-blur-xl mb-8">
+                     <h3 className="text-4xl font-bold text-white mb-6 tracking-tighter uppercase">Architecture Canvas</h3>
+                     <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">
+                       Select a node from the neural trace to begin orchestration.
+                     </p>
+                   </div>
                    <div className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 text-left max-w-lg backdrop-blur-3xl shadow-2xl">
                       <div className="p-4 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB]">
                         <ShieldCheck size={28} />
