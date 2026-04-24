@@ -1,28 +1,33 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   BookOpen, 
   Activity, 
   History, 
   X, 
-  Search,
   AlertOctagon,
   Fingerprint,
-  Monitor,
   Mic2,
-  Zap,
-  FileEdit,
   ChevronRight,
-  Info,
-  Workflow
+  Workflow,
+  Eye,
+  MousePointer2,
+  GitBranch,
+  StickyNote,
+  Maximize2,
+  Play
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconButton, Modal, Backdrop, Fade, Box, Tooltip, Typography } from '@mui/material';
+
+interface Artifact {
+  id: string;
+  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[SPEAKER_NOTES]';
+  content: string;
+  title?: string;
+}
 
 interface ScriptDraftingWorkspaceProps {
   content: string;
@@ -45,6 +50,44 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
 
+  // --- PARSE MARKDOWN INTO BENTO ARTIFACTS ---
+  const artifacts = useMemo(() => {
+    if (!content) return [];
+    
+    const lines = content.split('\n');
+    const results: Artifact[] = [];
+    let currentArtifact: Partial<Artifact> | null = null;
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      const typeMatch = trimmed.match(/^\[(VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES)\]/);
+      
+      if (typeMatch) {
+        if (currentArtifact) results.push(currentArtifact as Artifact);
+        
+        const type = `[${typeMatch[1]}]` as Artifact['type'];
+        currentArtifact = {
+          id: `artifact-${index}`,
+          type,
+          content: trimmed.replace(/^\[.*?\]:?/, '').trim()
+        };
+      } else if (currentArtifact && trimmed) {
+        currentArtifact.content += `\n${trimmed}`;
+      } else if (trimmed && !currentArtifact) {
+        // Handle introductory text or titles
+        results.push({
+          id: `intro-${index}`,
+          type: '[NARRATION]', // Fallback to narration style for general text
+          content: trimmed,
+          title: 'Orchestration Note'
+        });
+      }
+    });
+
+    if (currentArtifact) results.push(currentArtifact as Artifact);
+    return results;
+  }, [content]);
+
   // --- Tooltip Content Helpers ---
   const TooltipContent = ({ title, body }: { title: string, body: string }) => (
     <Box sx={{ p: 1.5, maxWidth: 280 }}>
@@ -57,28 +100,44 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     </Box>
   );
 
+  const getTypeIcon = (type: Artifact['type']) => {
+    switch (type) {
+      case '[VISUAL]': return <Eye size={18} className="text-[#A7DADB]" />;
+      case '[NARRATION]': return <Mic2 size={18} className="text-[#A7DADB]" />;
+      case '[ACTIVITY]': return <MousePointer2 size={18} className="text-[#A7DADB]" />;
+      case '[BRANCHING]': return <GitBranch size={18} className="text-[#A7DADB]" />;
+      case '[SPEAKER_NOTES]': return <StickyNote size={18} className="text-[#64748B]" />;
+      default: return <Workflow size={18} className="text-[#A7DADB]" />;
+    }
+  };
+
+  const getCardStyle = (type: Artifact['type']) => {
+    switch (type) {
+      case '[VISUAL]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/20";
+      case '[NARRATION]': return "md:col-span-2 md:row-span-1 border-white/10 bg-white/[0.01]";
+      case '[ACTIVITY]': return "md:col-span-1 md:row-span-2 border-indigo-500/30 bg-indigo-500/[0.02]";
+      case '[BRANCHING]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/40 font-mono";
+      case '[SPEAKER_NOTES]': return "md:col-span-1 md:row-span-1 border-white/5 bg-white/[0.005]";
+      default: return "md:col-span-1 border-white/10";
+    }
+  };
+
   return (
     <div className="flex flex-col w-full relative">
       
       {/* --- FLOATING METRIC HUD (Refined Glassmorphic) --- */}
       <div className="sticky top-0 py-6 mb-12 z-40">
-        <div className="max-w-fit mx-auto px-10 py-4 rounded-[2rem] border border-[#A7DADB]/20 bg-[#0d1b2a]/60 backdrop-blur-2xl shadow-2xl flex items-center gap-12 relative overflow-hidden">
+        <div className="max-w-fit mx-auto px-10 py-4 rounded-[2rem] border border-[#A7DADB]/20 bg-[#020617]/80 backdrop-blur-3xl shadow-2xl flex items-center gap-12 relative overflow-hidden">
           <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
           
           <div className="flex items-center gap-10 relative z-10">
-            <Tooltip 
-              enterTouchDelay={0} leaveTouchDelay={2500}
-              title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. 'Verified' means every factual claim is mathematically anchored to your source documents." />}
-            >
+            <Tooltip enterTouchDelay={0} title={<TooltipContent title="Integrity Guardian" body="Deterministic verification via semantic truth-anchoring." />}>
               <div className="flex items-center gap-4 group cursor-help">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-2xl ${hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'} shadow-lg transition-transform group-hover:scale-105`}>
+                <div className={`flex items-center justify-center w-10 h-10 rounded-2xl ${hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'} shadow-lg`}>
                   {hallucinationFlag ? <AlertOctagon size={18} className="animate-pulse" /> : <Fingerprint size={18} />}
                 </div>
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5 leading-none mb-1">
-                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A7DADB]/50">Integrity</span>
-                    <Info size={10} className="text-[#A7DADB]/30" />
-                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A7DADB]/50 mb-1">Integrity</span>
                   <span className={`text-xs font-black uppercase tracking-widest ${hallucinationFlag ? 'text-rose-500' : 'text-[#A7DADB]'}`}>
                     {hallucinationFlag ? 'Flagged' : 'Verified'}
                   </span>
@@ -88,205 +147,114 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
             <div className="h-8 w-px bg-white/[0.05]" />
 
-            <Tooltip 
-              enterTouchDelay={0} leaveTouchDelay={2500}
-              title={<TooltipContent title="Grounding Density" body="Measures document coverage. A high score means the Architect successfully utilized the majority of your provided requirements." />}
-            >
-              <div className="flex flex-col gap-2 group cursor-help">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Grounding</span>
-                    <Info size={10} className="text-[#A7DADB]/30 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <span className="text-[10px] font-mono font-black text-white">{groundingScore}/10</span>
-                </div>
-                <div className="w-24 h-1 rounded-full bg-white/[0.03] overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${groundingScore * 10}%` }} className={`h-full ${groundingScore > 7 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Grounding</span>
+                <span className="text-[10px] font-mono font-black text-white">{groundingScore}/10</span>
               </div>
-            </Tooltip>
+              <div className="w-24 h-1 rounded-full bg-white/[0.03] overflow-hidden">
+                <motion.div initial={{ width: 0 }} animate={{ width: `${groundingScore * 10}%` }} className="h-full bg-emerald-500" />
+              </div>
+            </div>
 
-            <Tooltip 
-              enterTouchDelay={0} leaveTouchDelay={2500}
-              title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}
-            >
-              <div className="flex flex-col gap-2 group cursor-help">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Cognitive</span>
-                    <Info size={10} className="text-[#A7DADB]/30 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <span className="text-[10px] font-mono font-black text-white">{cognitiveLoadScore}/10</span>
-                </div>
-                <div className="w-24 h-1 rounded-full bg-white/[0.03] overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${cognitiveLoadScore * 10}%` }} className={`h-full ${cognitiveLoadScore < 5 ? 'bg-[#A7DADB]' : 'bg-rose-500'}`} />
-                </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Cognitive</span>
+                <span className="text-[10px] font-mono font-black text-white">{cognitiveLoadScore}/10</span>
               </div>
-            </Tooltip>
+              <div className="w-24 h-1 rounded-full bg-white/[0.03] overflow-hidden">
+                <motion.div initial={{ width: 0 }} animate={{ width: `${cognitiveLoadScore * 10}%` }} className="h-full bg-[#4F46E5]" />
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 relative z-10">
-             <button 
-               onClick={() => setIsInsightOpen(true)}
-               className="px-6 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB] hover:text-black transition-all shadow-lg"
-             >
-               Knowledge Verification
-             </button>
-          </div>
+          <button 
+            onClick={() => setIsInsightOpen(true)}
+            className="px-6 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB] hover:text-black transition-all"
+          >
+            Verification Ledger
+          </button>
         </div>
       </div>
 
-      {/* --- SEAMLESS STORYBOARD CONTENT --- */}
-      <div className="w-full max-w-5xl mx-auto">
+      {/* --- BENTO GRID ARTIFACTS --- */}
+      <div className="w-full max-w-7xl mx-auto px-6">
         <AnimatePresence mode="wait">
           {isLoading ? (
-            <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-16 py-12">
-               <div className="space-y-6">
-                 <div className="h-20 w-4/5 bg-white/[0.02] rounded-3xl animate-pulse relative overflow-hidden" />
-                 <div className="h-4 w-1/4 bg-[#A7DADB]/5 rounded-full animate-pulse" />
-               </div>
-               <div className="p-10 rounded-[2.5rem] border border-[#A7DADB]/5 bg-white/[0.01] space-y-4">
-                  <div className="h-3 w-32 bg-[#A7DADB]/10 rounded-full" />
-                  <div className="space-y-2">
-                    <div className="h-4 w-full bg-white/[0.02] rounded-full" />
-                    <div className="h-4 w-3/4 bg-white/[0.02] rounded-full" />
-                  </div>
-               </div>
-               <div className="pl-14 space-y-4 border-l border-white/5">
-                  <div className="h-2 w-24 bg-cyan-500/10 rounded-full" />
-                  <div className="h-6 w-full bg-white/[0.03] rounded-full" />
-               </div>
-               <div className="p-12 rounded-[3rem] border border-[#A7DADB]/5 bg-emerald-500/[0.02] space-y-4">
-                  <div className="h-4 w-40 bg-emerald-500/10 rounded-full" />
-                  <div className="h-4 w-full bg-white/[0.02] rounded-full" />
-               </div>
+            <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-3 gap-6 py-12">
+               {[1,2,3,4,5,6].map(i => (
+                 <div key={i} className={`h-64 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.05] animate-pulse ${i === 1 ? 'md:col-span-2' : ''}`} />
+               ))}
             </motion.div>
           ) : (
-            <article className="pb-32 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-                components={{
-                  h1: ({children}) => {
-                    const titleText = children?.toString() || '';
-                    const isGapped = titleText.includes('!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!');
-                    return (
-                      <div className="mb-24">
-                        {isGapped && (
-                          <div className="mb-12 p-8 rounded-[2.5rem] border border-amber-500/20 bg-amber-500/[0.02] flex gap-6 items-center backdrop-blur-md">
-                            <Search size={24} className="text-amber-500" />
-                            <p className="text-xs text-amber-500/80 font-black uppercase tracking-widest">Knowledge Coverage Gap Detected</p>
-                          </div>
-                        )}
-                        <h1 className="text-7xl font-bold text-white tracking-tighter leading-none mb-4 break-words">
-                          {titleText.replace('!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!', '').trim()}
-                        </h1>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-40"
+            >
+              {artifacts.map((art, idx) => (
+                <motion.div
+                  key={art.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.05 }}
+                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  className={`
+                    relative overflow-hidden group rounded-[2.5rem] p-8
+                    bg-white/[0.015] backdrop-blur-2xl border
+                    ${getCardStyle(art.type)}
+                    transition-all duration-500 hover:bg-white/[0.03]
+                  `}
+                >
+                  {/* Card Glow */}
+                  <div className="absolute inset-0 bg-[#A7DADB]/[0.02] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-8 relative z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all">
+                        {getTypeIcon(art.type)}
                       </div>
-                    );
-                  },
-                  h2: ({children}) => (
-                    <h2 className="text-[10px] font-black mt-32 mb-10 text-[#A7DADB] uppercase tracking-[0.5em] flex items-center gap-8 break-words">
-                      <span className="w-12 h-[1px] bg-[#A7DADB]/30" /> {children} <span className="flex-1 h-[1px] bg-white/[0.03]" />
-                    </h2>
-                  ),
-                  p: ({children}) => {
-                    const text = children?.toString() || '';
-                    
-                    if (text.includes('[VISUAL]')) {
-                      return (
-                        <div className="my-14 p-10 rounded-[2.5rem] bg-white/[0.01] border border-[#A7DADB]/10 relative group/visual w-full overflow-hidden shadow-2xl">
-                          <div className="flex items-center gap-4 mb-6 text-[#A7DADB]/40">
-                             <Monitor size={18} />
-                             <span className="text-[10px] font-black uppercase tracking-[0.3em]">Art Direction</span>
-                          </div>
-                          <p className="text-slate-400 font-light text-lg leading-relaxed italic break-words">
-                            {text.replace('[VISUAL]:', '').replace('[VISUAL]', '').trim()}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    if (text.includes('[NARRATION]')) {
-                      return (
-                        <div className="mb-14 pl-14 relative group/voice w-full">
-                          <div className="absolute left-0 top-3 text-[#A7DADB]/10 group-hover/voice:text-[#A7DADB]/30 transition-all">
-                            <Mic2 size={32} />
-                          </div>
-                          <div className="text-[9px] font-black text-[#A7DADB]/30 uppercase tracking-[0.3em] mb-3 font-mono">Spoken Payload</div>
-                          <p className="text-white text-2xl font-light leading-[1.6] tracking-tight break-words">
-                            {text.replace('[NARRATION]:', '').replace('[NARRATION]', '').trim()}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    if (text.includes('[ACTIVITY]')) {
-                      return (
-                        <div className="my-16 p-12 rounded-[3rem] bg-[#A7DADB]/[0.02] border border-[#A7DADB]/10 shadow-2xl w-full overflow-hidden relative">
-                          <div className="flex items-center gap-4 mb-6 text-[#A7DADB] relative z-10">
-                             <Zap size={20} fill="currentColor" />
-                             <span className="text-[10px] font-black uppercase tracking-[0.3em]">Engagement Protocol</span>
-                          </div>
-                          <p className="text-slate-200 font-medium text-xl leading-relaxed break-words relative z-10">
-                            {text.replace('[ACTIVITY]:', '').replace('[ACTIVITY]', '').trim()}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    if (text.includes('[BRANCHING]')) {
-                      return (
-                        <div className="my-14 p-10 rounded-[2.5rem] border border-[#A7DADB]/20 bg-white/[0.01] w-full overflow-hidden relative group/logic shadow-2xl">
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/5 to-transparent pointer-events-none" />
-                          <div className="flex items-center gap-4 mb-6 text-[#A7DADB] relative z-10">
-                             <Workflow size={22} className="group-hover/logic:rotate-90 transition-transform duration-700" />
-                             <span className="text-[11px] font-black uppercase tracking-[0.4em]">Architectural Logic</span>
-                          </div>
-                          <div className="text-slate-300 font-mono text-base leading-relaxed break-words whitespace-pre-wrap relative z-10 pl-6 border-l border-[#A7DADB]/20">
-                            {text.replace('[BRANCHING]:', '').replace('[BRANCHING]', '').trim()}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (text.includes('[SPEAKER_NOTES]')) {
-                      return (
-                        <div className="my-10 p-6 rounded-2xl bg-white/[0.01] border border-white/[0.05] flex gap-5 items-start w-full overflow-hidden">
-                           <FileEdit size={16} className="text-slate-600 mt-1" />
-                           <p className="text-slate-600 text-sm font-medium leading-relaxed break-words">
-                             <span className="text-[9px] font-black mr-3 uppercase tracking-tighter text-slate-500 font-mono">Note</span>
-                             {text.replace('[SPEAKER_NOTES]:', '').replace('[SPEAKER_NOTES]', '').trim()}
-                           </p>
-                        </div>
-                      );
-                    }
-
-                    // --- WRAP STANDARD TEXT IN CONTAINERS ---
-                    return (
-                      <div className="my-8 p-10 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] transition-all hover:bg-white/[0.02] w-full group/para">
-                        <p className="leading-relaxed text-slate-400 font-light text-xl tracking-tight break-words group-hover/para:text-slate-200 transition-colors">
-                          {children}
-                        </p>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#A7DADB]/40">
+                          {art.type.replace('[', '').replace(']', '')}
+                        </span>
+                        {art.title && <span className="text-xs font-bold text-white">{art.title}</span>}
                       </div>
-                    );
-                  },
-                  blockquote: ({children}) => (
-                    <div className="my-24 p-16 rounded-[3.5rem] bg-white/[0.01] border-l-2 border-[#A7DADB]/20 text-3xl font-light text-[#A7DADB]/80 leading-relaxed italic shadow-2xl break-words relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-[#A7DADB]/5 to-transparent pointer-events-none" />
-                      <div className="relative z-10">{children}</div>
                     </div>
-                  ),
-                  li: ({children}) => (
-                    <li className="flex gap-8 items-start text-slate-300 break-words w-full group/li">
-                      <div className="mt-4 w-1.5 h-1.5 rounded-full bg-[#A7DADB]/40 shrink-0 shadow-[0_0_10px_rgba(167,218,219,0.2)] group-hover/li:bg-[#A7DADB] transition-all" />
-                      <span className="text-2xl font-light leading-relaxed flex-1 min-w-0">{children}</span>
-                    </li>
-                  )
-                }}
-              >
-                {content}
-              </ReactMarkdown>
-            </article>
+                    <IconButton size="small" sx={{ color: 'white/[0.1]', '&:hover': { color: '#A7DADB' } }}><Maximize2 size={14} /></IconButton>
+                  </div>
+
+                  {/* Content */}
+                  <div className="relative z-10">
+                    {art.type === '[VISUAL]' && (
+                      <div className="aspect-video w-full rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center mb-6 relative overflow-hidden">
+                        <div className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Procedural Visualization</div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      </div>
+                    )}
+
+                    <div className={`
+                      ${art.type === '[NARRATION]' ? 'text-2xl font-light leading-relaxed text-white' : 'text-base text-slate-300 leading-relaxed'}
+                      ${art.type === '[SPEAKER_NOTES]' ? 'text-sm text-slate-500 italic' : ''}
+                      ${art.type === '[BRANCHING]' ? 'font-mono text-sm bg-black/20 p-4 rounded-xl border border-white/5' : ''}
+                    `}>
+                      {art.content}
+                    </div>
+
+                    {art.type === '[ACTIVITY]' && (
+                      <button className="mt-10 w-full py-4 bg-[#4F46E5] text-white rounded-2xl flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-500/20 hover:scale-[1.02] transition-all">
+                        <Play size={14} fill="currentColor" /> Launch Simulation
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Corner Accent */}
+                  <div className="absolute bottom-4 right-8 opacity-10 group-hover:opacity-30 transition-opacity">
+                    <Workflow size={40} className="text-[#A7DADB]" />
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -303,8 +271,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           <Box sx={{ 
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
             width: '90%', maxWidth: '700px', maxHeight: '85vh',
-            bgcolor: '#0F172A', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '48px',
-            p: 8, outline: 'none', overflowY: 'auto', boxShadow: '0 0 120px rgba(0,0,0,0.9)'
+            bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '48px',
+            p: 8, outline: 'none', overflowY: 'auto'
           }}>
             <div className="flex justify-between items-center mb-16">
                <div className="flex items-center gap-6">
@@ -326,11 +294,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                 </h4>
                 <div className="p-10 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-md">
                    <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/30" />
-                   <div className="text-base text-slate-400 leading-relaxed font-light italic">
-                     <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                        {semanticDelta || "Synthesizing truth anchors..."}
-                     </ReactMarkdown>
-                   </div>
+                   <p className="text-base text-slate-400 leading-relaxed font-light italic">
+                      {semanticDelta || "Synthesizing truth anchors..."}
+                   </p>
                 </div>
               </section>
 
