@@ -145,6 +145,15 @@ function ArchitectureCanvasContent() {
         const { data, error: bpError } = await supabase.from('blueprint_generator').select('*').eq('id', blueprintId).single();
         if (bpError) throw bpError;
         setBlueprint(data as Blueprint);
+
+        // --- AUTO-HARVEST BLUEPRINT DATA ---
+        fetch('/api/ingest/harvest-blueprint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          body: JSON.stringify({ blueprintId, blueprintJson: (data as any).blueprint_json })
+        }).catch(err => console.error('Auto-Harvest Failed:', err));
+
       } catch (err: unknown) {
         console.error('Canvas Fetch Error:', err);
         router.push('/handover');

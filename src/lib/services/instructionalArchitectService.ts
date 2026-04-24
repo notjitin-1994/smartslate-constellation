@@ -63,18 +63,15 @@ export class InstructionalArchitectService {
       // --- PASS 3: GROUNDED CONVERSATIONAL SYNTHESIS ---
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
-        temperature: 0.2, // Slight increase for conversational fluency
+        temperature: 0.1, // Near-deterministic
         system: `You are a World-Class Instructional Designer. Your goal is to draft a high-fidelity production script.
         
         --- THE GROUNDED CONVERSATIONALIST PROTOCOL ---
-        1. VOICE: Use a professional, engaging instructional voice for framing and transitions.
-        2. KNOWLEDGE: You are strictly forbidden from inventing factual details. This includes but is not limited to:
-           - Program/Course durations (e.g., "5 weeks").
-           - Certification names or titles.
-           - Specific metrics or passing scores (e.g., "75%").
-           - Specific attempt limits or rules.
-        3. GAPS: If any of the above administrative or numeric details are required for the script but missing from the [FACT_LEDGER], you MUST use: "[MISSING_DATA: category]".
-        4. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
+        1. EXCLUSIVE SOURCES: The [FACT_LEDGER] contains data from TWO sources: User-Uploaded Documents and the Strategic Polaris Blueprint. These are your ONLY allowed sources.
+        2. KNOWLEDGE: You are strictly forbidden from inventing factual details, durations, or metrics not in the [FACT_LEDGER].
+        3. VOICE: Use a professional, engaging instructional voice for framing and transitions.
+        4. GAPS: If an instructional step is required but missing from the [FACT_LEDGER], you MUST use: "[MISSING_DATA: category]".
+        5. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
         
         --- FORMATTING ---
         - H1 for Title.

@@ -26,6 +26,67 @@ export class KnowledgeIngestService {
     }
   }
 
+  /**
+   * Automatically harvests strategic facts from the Polaris Blueprint
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async harvestBlueprint(blueprintId: string, blueprintJson: any) {
+    console.log(`[Ingest] [HARVEST] Initializing Strategic Harvesting for: ${blueprintId}`);
+    
+    try {
+      // 1. Check if already harvested
+      const { count } = await supabase
+        .from('knowledge_vault')
+        .select('*', { count: 'exact', head: true })
+        .eq('blueprint_id', blueprintId)
+        .eq('content_type', 'text')
+        .contains('metadata', { is_blueprint_source: true });
+
+      if (count && count > 0) {
+        console.log('[Ingest] [HARVEST] Strategic data already present. Skipping.');
+        return;
+      }
+
+      // 2. Distill Blueprint to Atomic Facts
+      const { text: blueprintFacts } = await generateText({
+        model: google('gemini-3-flash-preview'),
+        system: `You are a Strategic Data Harvester. Extract every verifiable fact, requirement, objective, and audience detail from the provided Blueprint JSON. Output as a numbered list of core institutional facts.`,
+        prompt: `BLUEPRINT_JSON:\n${JSON.stringify(blueprintJson)}`,
+      });
+
+      console.log(`[Ingest] [HARVEST] Extracted ${blueprintFacts.split('\n').length} strategic facts.`);
+
+      // 3. Ingest into Vault
+      const chunks = this.chunkText(blueprintFacts, 1000);
+      const valuesToEmbed = chunks.map((chunk: string) => `[STRATEGIC_BLUEPRINT] \n\n DATA: ${chunk}`);
+      
+      const { embeddings } = await embedMany({
+        model: google.textEmbeddingModel('gemini-embedding-2'),
+        values: valuesToEmbed,
+        providerOptions: { google: { outputDimensionality: 3072 } }
+      });
+
+      const rows = chunks.map((chunk: string, i: number) => ({
+        blueprint_id: blueprintId,
+        content_type: 'text',
+        raw_content: chunk,
+        contextual_header: 'Strategic Blueprint Core Data',
+        embedding: embeddings[i],
+        metadata: {
+          source_name: 'POLARIS_BLUEPRINT',
+          is_blueprint_source: true,
+          chunk_index: i,
+          processed_at: new Date().toISOString(),
+        },
+      }));
+
+      await supabase.from('knowledge_vault').insert(rows);
+      console.log('[Ingest] [HARVEST] Strategic Blueprint successfully added to Truth Ledger.');
+    } catch (err) {
+      console.error('[Ingest] [HARVEST_ERROR]:', err);
+    }
+  }
+
   private async ingestDocument(asset: IngestAsset) {
     let fullText = '';
     console.log(`[Ingest] Processing document: ${asset.fileName}`);
