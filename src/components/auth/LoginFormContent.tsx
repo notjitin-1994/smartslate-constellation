@@ -65,15 +65,23 @@ export function LoginFormContent(): React.JSX.Element {
         </div>
       )}
 
-      <button type="submit" disabled={loading} className="group bg-secondary hover:bg-secondary-dark relative w-full rounded-xl px-6 py-3 font-semibold text-white shadow-lg transition-all disabled:opacity-50">
-        <span className="flex items-center justify-center gap-2">
-          {loading ? <span>Logging in...</span> : <><span>Login</span><ArrowRight size={16} /></>}
+      <button 
+        type="submit" 
+        disabled={loading} 
+        className="w-full py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50"
+      >
+        <span className="flex items-center justify-center gap-3">
+          {loading ? 'Processing' : (
+            <>
+              Sign In <ArrowRight size={14} strokeWidth={3} />
+            </>
+          )}
         </span>
       </button>
 
-      <div className="relative py-3">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5" /></div>
-        <div className="relative flex justify-center"><span className="bg-[#020C1B] px-3 text-[10px] font-bold text-white/30 uppercase">or</span></div>
+      <div className="relative py-4">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/[0.03]" /></div>
+        <div className="relative flex justify-center"><span className="bg-[#020617] px-4 text-[9px] font-black text-slate-700 uppercase tracking-widest">Protocol Gate</span></div>
       </div>
 
       <GoogleOAuthButton />

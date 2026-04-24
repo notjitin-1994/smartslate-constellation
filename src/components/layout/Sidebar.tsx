@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -37,7 +38,6 @@ const solaraSuiteLinks = [
   { name: 'Spectrum', path: '#', badge: 'Coming Soon', badgeType: 'soon' as const },
 ];
 
-// --- HELPER FOR CONSTELLATION ICONS ---
 const getModalityIcon = (type: string) => {
   const t = type?.toLowerCase() || '';
   if (t.includes('video')) return <Video size={16} />;
@@ -54,9 +54,6 @@ export default function Sidebar() {
   const { collapsed, setCollapsed, isConstellationMode, setIsConstellationMode } = useSidebar();
   const [isMounted, setIsMounted] = useState(false);
   const [dbName, setDbName] = useState<string | null>(null);
-
-  // For Constellation Mode Data (Sync from storage/window)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [modules, setModules] = useState<any[]>([]);
   const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
 
@@ -69,16 +66,11 @@ export default function Sidebar() {
           .select('first_name, last_name')
           .eq('user_id', user.id)
           .single();
-        
-        if (data?.first_name) {
-          setDbName(`${data.first_name} ${data.last_name || ''}`.trim());
-        }
+        if (data?.first_name) setDbName(`${data.first_name} ${data.last_name || ''}`.trim());
       }
     };
     fetchProfile();
 
-    // Listener for Constellation Data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleConstellationData = (e: any) => {
       if (e.detail?.modules) setModules(e.detail.modules);
       if (typeof e.detail?.activeIdx === 'number') setActiveNodeIdx(e.detail.activeIdx);
@@ -93,16 +85,12 @@ export default function Sidebar() {
     window.dispatchEvent(new CustomEvent('constellation-node-select', { detail: { idx } }));
   };
 
-  const getCapitalizedFullName = (): string => {
-    const rawName = dbName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
-    const name = rawName.trim();
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  };
+  const formatText = (txt: string) => txt.replace(/_/g, ' ');
 
   const variants = {
-    initial: (direction: number) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
+    initial: (direction: number) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
     animate: { x: 0, opacity: 1 },
-    exit: (direction: number) => ({ x: direction > 0 ? -300 : 300, opacity: 0 })
+    exit: (direction: number) => ({ x: direction > 0 ? -100 : 100, opacity: 0 })
   };
 
   return (
@@ -111,38 +99,34 @@ export default function Sidebar() {
         collapsed ? 'w-20' : 'w-[320px]'
       }`}
     >
-      {/* Header */}
       <div className={`flex items-center h-20 ${collapsed ? 'justify-center' : 'justify-between px-6'} relative z-20`}>
         <AnimatePresence mode="wait">
           {!collapsed && (
             <motion.div 
               key={isConstellationMode ? 'constellation-head' : 'global-head'}
-              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
               className="flex items-center gap-3"
             >
               {isConstellationMode ? (
                 <>
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                    <Workflow size={16} className="text-indigo-400" />
+                  <div className="w-8 h-8 rounded-lg bg-[#A7DADB]/10 flex items-center justify-center border border-[#A7DADB]/20">
+                    <Workflow size={16} className="text-[#A7DADB]" />
                   </div>
-                  <span className="text-sm font-bold tracking-tight text-white uppercase tracking-widest">Neural Trace</span>
+                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Neural Trace</span>
                 </>
               ) : <Brand />}
             </motion.div>
           )}
         </AnimatePresence>
         
-        {!isConstellationMode && (
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="text-text-secondary hover:text-white p-2 rounded-lg transition-all"
-          >
-            <IconSidebarToggle className={`h-5 w-5 transition-transform duration-500 ${collapsed ? 'rotate-180' : ''}`} />
-          </button>
-        )}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="text-slate-500 hover:text-[#A7DADB] p-2 rounded-lg transition-all"
+        >
+          <IconSidebarToggle className={`h-5 w-5 transition-transform duration-500 ${collapsed ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
-      {/* Navigation Body */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
         <AnimatePresence mode="wait" custom={isConstellationMode ? 1 : -1}>
           {!isConstellationMode ? (
@@ -151,12 +135,11 @@ export default function Sidebar() {
               custom={-1}
               variants={variants}
               initial="initial" animate="animate" exit="exit"
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               className={`px-4 py-4 space-y-8 ${collapsed ? 'flex flex-col items-center' : ''}`}
             >
-              {/* Quick Access */}
               <div className="space-y-3">
-                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Platform</h2>}
+                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Platform</h2>}
                 <div className="space-y-1">
                   {quickAccessItems.map((item) => {
                     const isActive = pathname === item.path;
@@ -168,41 +151,35 @@ export default function Sidebar() {
                         className={`group flex items-center gap-4 w-full rounded-xl transition-all duration-300 ${
                           collapsed ? 'justify-center h-12 w-12' : 'px-4 py-3'
                         } ${
-                          isActive ? 'bg-indigo-500/10 text-indigo-400 font-bold' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'
+                          isActive ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'
                         }`}
                       >
-                        <item.icon size={collapsed ? 22 : 20} className="shrink-0" />
-                        {!collapsed && <span className="text-sm">{item.title}</span>}
+                        <item.icon size={collapsed ? 22 : 18} className="shrink-0" />
+                        {!collapsed && <span className="text-[13px] font-bold tracking-tight">{item.title}</span>}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Neural Portal Trigger (Visible only on Architecture route) */}
               {!collapsed && pathname === '/constellation' && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="px-3"
-                >
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-3">
                    <button 
                      onClick={() => setIsConstellationMode(true)}
-                     className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 to-transparent border border-indigo-500/20 hover:border-indigo-500/40 transition-all group relative overflow-hidden"
+                     className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-[#A7DADB]/10 hover:border-[#A7DADB]/30 transition-all group relative"
                    >
-                     <div className="absolute inset-0 bg-indigo-500/5 group-hover:bg-indigo-500/10 transition-colors" />
-                     <Brain size={18} className="text-indigo-400 group-hover:scale-110 transition-transform relative z-10" />
-                     <div className="flex flex-col text-left relative z-10">
-                        <span className="text-[10px] font-black text-indigo-400/70 uppercase tracking-widest">Active Canvas</span>
-                        <span className="text-xs font-bold text-white uppercase tracking-tighter">Return to Neural Trace</span>
+                     <Brain size={18} className="text-[#A7DADB] group-hover:scale-110 transition-transform" />
+                     <div className="flex flex-col text-left">
+                        <span className="text-[9px] font-black text-[#A7DADB]/60 uppercase tracking-widest">Active Canvas</span>
+                        <span className="text-[11px] font-bold text-white uppercase">Neural Trace</span>
                      </div>
-                     <ArrowRight size={14} className="ml-auto text-indigo-400 group-hover:translate-x-1 transition-transform relative z-10" />
+                     <ArrowRight size={14} className="ml-auto text-[#A7DADB]/40 group-hover:translate-x-1 transition-transform" />
                    </button>
                 </motion.div>
               )}
 
-              {/* Solara Suite */}
               <div className="space-y-3">
-                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Solara Suite</h2>}
+                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Solara Suite</h2>}
                 <div className="space-y-1">
                   {solaraSuiteLinks.map((item) => (
                     <button
@@ -210,12 +187,12 @@ export default function Sidebar() {
                       onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
                       disabled={item.badgeType === 'soon'}
                       className={`group flex items-center justify-between w-full rounded-xl transition-all duration-300 ${
-                        collapsed ? 'hidden' : 'px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200'
+                        collapsed ? 'hidden' : 'px-4 py-3 text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'
                       }`}
                     >
-                      <span className="text-sm font-medium">{item.name}</span>
+                      <span className="text-[13px] font-bold">{item.name}</span>
                       <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
-                        item.badgeType === 'active' ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400' : 'border-slate-800 bg-slate-900 text-slate-600'
+                        item.badgeType === 'active' ? 'border-[#A7DADB]/20 bg-[#A7DADB]/5 text-[#A7DADB]' : 'border-slate-800 bg-slate-900 text-slate-600'
                       }`}>{item.badge}</span>
                     </button>
                   ))}
@@ -228,7 +205,7 @@ export default function Sidebar() {
               custom={1}
               variants={variants}
               initial="initial" animate="animate" exit="exit"
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               className="px-4 py-4 space-y-2"
             >
               {modules.map((mod, i) => {
@@ -237,22 +214,22 @@ export default function Sidebar() {
                   <button 
                     key={mod.id} 
                     onClick={() => handleNodeClick(i)}
-                    className={`w-full group relative flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-500
-                      ${isActive ? 'bg-indigo-500/10 border border-indigo-500/20' : 'hover:bg-white/5 border border-transparent'}
+                    className={`w-full group relative flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-300
+                      ${isActive ? 'bg-[#4F46E5]/10 border border-[#4F46E5]/20' : 'hover:bg-white/[0.03] border border-transparent'}
                     `}
                   >
                     <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-500
-                      ${isActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-slate-900/50 border-white/5 text-slate-500 group-hover:border-white/10'}
+                      ${isActive ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-[#4F46E5]' : 'bg-slate-900/50 border-[#A7DADB]/10 text-slate-500 group-hover:border-[#A7DADB]/30'}
                     `}>
                       {getModalityIcon(mod.targetModality)}
                     </div>
                     {!collapsed && (
                       <div className="flex flex-col text-left overflow-hidden">
-                        <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-indigo-400' : 'text-slate-600'}`}>{mod.id}</span>
-                        <span className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{mod.title}</span>
+                        <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-[#4F46E5]' : 'text-slate-600'}`}>{formatText(mod.id)}</span>
+                        <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
                       </div>
                     )}
-                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-500 rounded-full" />}
+                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-3 bottom-3 w-1 bg-[#4F46E5] rounded-full" />}
                   </button>
                 );
               })}
@@ -260,57 +237,45 @@ export default function Sidebar() {
           )}
         </AnimatePresence>
 
-        {/* Global Return Trigger (Symmetric to Neural Portal) */}
         {!collapsed && isConstellationMode && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="px-4 pb-6 mt-4"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-4 pb-6 mt-4">
             <button 
               onClick={() => setIsConstellationMode(false)}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-500/40 transition-all group relative overflow-hidden"
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-[#A7DADB]/10 hover:border-[#A7DADB]/30 transition-all group relative"
             >
-              <div className="absolute inset-0 bg-white/5 group-hover:bg-indigo-500/5 transition-colors" />
-              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center relative z-10">
-                <Icons.Blueprints size={16} className="text-slate-400 group-hover:text-indigo-400 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-[#A7DADB]/10 flex items-center justify-center">
+                <Icons.Blueprints size={16} className="text-slate-400 group-hover:text-[#A7DADB]" />
               </div>
-              <div className="flex flex-col text-left relative z-10">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Platform</span>
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-tighter group-hover:text-white transition-colors">Return to Dashboard</span>
+              <div className="flex flex-col text-left">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Global Platform</span>
+                <span className="text-[11px] font-bold text-slate-300 group-hover:text-white uppercase">Exit Trace</span>
               </div>
             </button>
           </motion.div>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="mt-auto p-4 border-t border-white/5 bg-slate-950/20 backdrop-blur-md">
+      <div className="mt-auto p-4 border-t border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
         {!collapsed ? (
           <div className="space-y-4">
-            <button
-              onClick={() => router.push('/profile')}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all group"
-            >
+            <button className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] transition-all group">
               <div className="relative">
                 <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-10 h-10" />
-                <div className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-4 border-[#0F172A]" />
+                <div className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-4 border-[#020617]" />
               </div>
               <div className="flex-1 text-left overflow-hidden">
-                <p className="text-sm font-bold text-white truncate">{getCapitalizedFullName()}</p>
-                <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
+                <p className="text-xs font-bold text-white truncate">{dbName || user?.email?.split('@')[0]}</p>
+                <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter truncate">{user?.email}</p>
               </div>
             </button>
-            
-            <div className="flex items-center gap-2">
-               <button onClick={signOut} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all">
-                 <Icons.Logout size={14} /> Log Out
-               </button>
-            </div>
+            <button onClick={signOut} className="w-full py-2.5 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all">
+              Log Out
+            </button>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-6 py-4">
              <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
-             <button onClick={() => setCollapsed(false)} className="text-slate-500 hover:text-white transition-colors">
+             <button onClick={() => setCollapsed(false)} className="text-slate-500 hover:text-[#A7DADB] transition-colors">
                <ChevronRight size={20} />
              </button>
           </div>

@@ -1,145 +1,59 @@
-// REQUIRED DEPENDENCIES:
-// - framer-motion (npm install framer-motion)
-// - lucide-react (npm install lucide-react)
-// - @mui/material @emotion/react @emotion/styled
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect, Suspense, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
-  Sparkles, 
-  Target, 
-  Database,
-  ShieldCheck,
-  Code2,
-  Users,
-  Trophy,
-  ClipboardCheck,
-  Lightbulb,
-  Workflow,
-  X,
-  Dna,
-  Cloud
-} from 'lucide-react';
-import { 
-  Box, 
-  Typography, 
-  Button, 
   CircularProgress, 
-  Chip, 
+  Box,
   IconButton,
-  Tooltip,
-  Modal,
-  Backdrop,
-  Fade
+  Typography,
+  Tooltip
 } from '@mui/material';
-import { useSearchParams, useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import { 
+  Database,
+  Cloud,
+  Code2,
+  X,
+  Lightbulb,
+  ShieldCheck
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
-import { useSidebar } from '@/lib/SidebarContext';
+import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
+import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// --- DYNAMIC IMPORTS FOR PERFORMANCE ---
-const KnowledgeVaultModal = dynamic(() => import('@/components/blueprints/KnowledgeVaultModal').then(mod => mod.KnowledgeVaultModal), {
-  ssr: false,
-  loading: () => <CircularProgress size={20} />
-});
-
-const ScriptDraftingWorkspace = dynamic(() => import('@/components/blueprints/ScriptDraftingWorkspace'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex flex-col items-center justify-center h-64 gap-4 animate-pulse">
-      <div className="h-4 w-48 bg-white/5 rounded-full" />
-      <div className="h-2 w-32 bg-white/5 rounded-full" />
-    </div>
-  )
-});
-
-// --- CONSTELLATION ZEN DESIGN SYSTEM ---
-const COLORS = {
-  bg: '#020617',
-  surface: '#0F172A',
-  primary: '#818CF8',
-  secondary: '#38BDF8',
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  glassBorder: 'rgba(255, 255, 255, 0.08)',
-  accentGlow: 'rgba(129, 140, 248, 0.15)',
-};
-
-// --- TYPES ---
-interface ModuleData {
-  id: string;
-  title: string;
-  description: string;
-  pedagogicalMode: string;
-  cognitiveLoad: number;
-  scaffolding: string;
-  assetGroundingStatus: string;
-  groundingTypes?: string[];
-  targetModality: string;
-  modalityRationale?: string;
-  learning_activities?: Array<{ type: string; activity: string; duration: string }>;
-}
-
+// --- Types ---
 interface Blueprint {
   id: string;
-  title: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  blueprint_json?: any;
+  blueprint_json: any;
+  user_id: string;
 }
 
-const extractEnrichedModules = (blueprint: Blueprint | null): ModuleData[] => {
-  if (!blueprint) return [];
-  const bj = blueprint.blueprint_json || {};
-  const modules = bj.content_outline?.modules || [];
-  const globalModalities = bj.instructional_strategy?.modalities || [];
-
-  return modules.map((mod: Record<string, unknown>, i: number) => {
-    const deliveryMethod = String(mod.delivery_method || '').toLowerCase();
-    const matchedModality = globalModalities.find((m: { type: string }) => {
-      const typeWords = m.type.toLowerCase().split(/[\s()/-]+/);
-      const deliveryWords = deliveryMethod.split(/[\s()/-]+/);
-      return deliveryWords.some(dw => dw.length > 2 && typeWords.includes(dw)) ||
-             typeWords.some(tw => tw.length > 2 && deliveryWords.includes(tw));
-    }) || globalModalities[0] || { type: 'Standard eLearning', rationale: 'Default delivery method.' };
-
-    return {
-      title: String(mod.title || ''),
-      description: String(mod.description || ''),
-      learning_activities: Array.isArray(mod.learning_activities) ? (mod.learning_activities as Array<{ type: string; activity: string; duration: string }>) : [],
-      id: `NODE_0${i + 1}`,
-      pedagogicalMode: i === 0 ? 'ACTIVATION' : mod.assessment ? 'APPLICATION' : 'DEMONSTRATION',
-      cognitiveLoad: 0,
-      scaffolding: 'MEDIUM',
-      assetGroundingStatus: 'PENDING',
-      targetModality: matchedModality.type,
-      modalityRationale: matchedModality.rationale
-    };
-  });
+const COLORS = {
+  background: '#020617',
+  surface: '#0d1b2a',
+  primary: '#A7DADB', // Brand Teal
+  action: '#4F46E5',  // Brand Indigo (CTA)
+  textMuted: '#64748B',
 };
 
 function ArchitectureCanvasContent() {
   const searchParams = useSearchParams();
   const blueprintId = searchParams.get('blueprintId');
-  const [loading, setLoading] = useState(true);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-  const [isStrategyOpen, setIsStrategyOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isDrafting, setIsDrafting] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [showUlsPreview, setShowUlsPreview] = useState(false);
-  const [isDrafting, setIsDrafting] = useState(false);
-  const router = useRouter();
-
-  // --- SIDEBAR INTEGRATION ---
-  const { setIsConstellationMode } = useSidebar();
 
   // --- PERSISTENCE HOOK ---
   const { state, updateState, isSyncing } = useConstellationPersistence(blueprintId);
 
   useEffect(() => {
-    const fetchBlueprint = async () => {
-      if (!blueprintId) { setLoading(false); return; }
+    async function loadBlueprint() {
+      if (!blueprintId) return;
       try {
         setLoading(true);
         const { data, error: bpError } = await supabase.from('blueprint_generator').select('*').eq('id', blueprintId).single();
@@ -155,49 +69,33 @@ function ArchitectureCanvasContent() {
         }).catch(err => console.error('Auto-Harvest Failed:', err));
 
       } catch (err: unknown) {
-        console.error('Canvas Fetch Error:', err);
-        router.push('/handover');
-      } finally { setLoading(false); }
-    };
-    fetchBlueprint();
-  }, [blueprintId, router]);
-
-  const modules = useMemo(() => {
-    const base = extractEnrichedModules(blueprint);
-    return base.map((mod, idx) => {
-      const output = state.scriptOutputs[idx];
-      if (!output) return mod;
-      return {
-        ...mod,
-        cognitiveLoad: output.cognitiveLoadScore,
-        assetGroundingStatus: output.hallucinationFlag ? 'WARNING' : 'RESOLVED',
-        groundingTypes: output.groundingTypes
-      };
-    });
-  }, [blueprint, state.scriptOutputs]);
-
-  // Sync state to Global Sidebar
-  useEffect(() => {
-    setIsConstellationMode(true);
-    const event = new CustomEvent('constellation-sidebar-sync', { 
-      detail: { modules, activeIdx: state.activeNodeIdx } 
-    });
-    window.dispatchEvent(event);
-    return () => setIsConstellationMode(false);
-  }, [modules, state.activeNodeIdx, setIsConstellationMode]);
-
-  // Listen for Sidebar selections
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleSelect = (e: any) => {
-      if (typeof e.detail?.idx === 'number') {
-        updateState({ activeNodeIdx: e.detail.idx });
+        console.error('Failed to load blueprint:', err);
+      } finally {
+        setLoading(false);
       }
+    }
+    loadBlueprint();
+  }, [blueprintId]);
+
+  // Sync state to Sidebar via Custom Event
+  useEffect(() => {
+    if (!blueprint) return;
+    const modules = blueprint.blueprint_json?.modules || [];
+    window.dispatchEvent(new CustomEvent('constellation-sidebar-sync', {
+      detail: { modules, activeIdx: state.activeNodeIdx }
+    }));
+  }, [blueprint, state.activeNodeIdx]);
+
+  // Listen for Sidebar Node Selection
+  useEffect(() => {
+    const handleNodeSelect = (e: any) => {
+      updateState({ activeNodeIdx: e.detail.idx });
     };
-    window.addEventListener('constellation-node-select', handleSelect);
-    return () => window.removeEventListener('constellation-node-select', handleSelect);
+    window.addEventListener('constellation-node-select', handleNodeSelect);
+    return () => window.removeEventListener('constellation-node-select', handleNodeSelect);
   }, [updateState]);
 
+  const modules = blueprint?.blueprint_json?.modules || [];
   const currentModule = modules[state.activeNodeIdx] || null;
 
   const handleDraftScript = async () => {
@@ -230,77 +128,68 @@ function ArchitectureCanvasContent() {
     } finally { setIsDrafting(false); }
   };
 
+  const formatText = (txt: string) => txt.replace(/_/g, ' ');
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617]">
       <CircularProgress sx={{ color: COLORS.primary }} size={40} thickness={2} />
     </div>
   );
 
-  const bj = blueprint?.blueprint_json || {};
   const activeScript = state.scriptOutputs[state.activeNodeIdx];
 
   return (
-    <Box sx={{ flex: 1, minHeight: '100vh', bgcolor: '#020617', color: '#F8FAFC', overflow: 'hidden', position: 'relative', selection: 'rgba(129, 140, 248, 0.3)' }}>
+    <Box sx={{ flex: 1, minHeight: '100vh', bgcolor: '#020617', color: '#F8FAFC', overflow: 'hidden', position: 'relative', selection: 'rgba(167, 218, 219, 0.2)' }}>
       
       {/* Background Ambience */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 blur-[120px] rounded-full" />
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#A7DADB]/5 blur-[150px] rounded-full" />
       </div>
 
       {/* --- MAIN WORKSPACE --- */}
       <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10, position: 'relative', overflow: 'hidden' }}>
         {/* Global HUD Header */}
-        <header className="h-20 flex items-center justify-between px-12 z-20 shrink-0">
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={() => setIsStrategyOpen(true)}
-              className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
-            >
-              <Dna size={14} className="text-indigo-400 group-hover:rotate-45 transition-transform" />
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Strategic DNA</span>
-            </button>
-            <div className="h-4 w-px bg-white/10" />
+        <header className="h-20 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03]">
+          <div className="flex items-center gap-8">
             <div className="flex flex-col">
-              <h2 className="text-sm font-bold text-white tracking-tight leading-none mb-1">{currentModule?.title}</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">{currentModule?.id}</span>
-                <div className="w-1 h-1 rounded-full bg-slate-700" />
-                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">{currentModule?.targetModality}</span>
+              <h2 className="text-lg font-bold text-white tracking-tight leading-none mb-1">{formatText(currentModule?.title || 'Instructional Node')}</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-slate-500 font-mono font-bold tracking-widest">{formatText(currentModule?.id || 'NO_ID')}</span>
+                <div className="w-1 h-1 rounded-full bg-slate-800" />
+                <span className="text-[10px] text-[#A7DADB] font-black uppercase tracking-widest">{formatText(currentModule?.targetModality || 'UNMAPPED')}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
              {isSyncing && (
-               <div className="flex items-center gap-2 text-indigo-400/50">
+               <div className="flex items-center gap-2 text-[#A7DADB]/40">
                  <Cloud size={14} className="animate-pulse" />
-                 <span className="text-[9px] font-bold uppercase tracking-tighter">Syncing...</span>
+                 <span className="text-[9px] font-black uppercase tracking-tighter">Syncing</span>
                </div>
              )}
              <Tooltip title="View ULS Schema">
-                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: 'slate.500', bgcolor: 'white/5', '&:hover': { bgcolor: 'white/10' } }}><Code2 size={16} /></IconButton>
+                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', '&:hover': { bgcolor: 'white/[0.08]', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
              </Tooltip>
              <button 
                onClick={() => setIsVaultOpen(true)}
-               className="p-2 rounded-lg hover:bg-white/5 text-slate-400 transition-colors"
+               className="p-2 rounded-xl bg-white/[0.03] text-slate-500 hover:text-[#A7DADB] transition-all"
              >
                <Database size={20} />
              </button>
-             <Button 
-                variant="contained" 
+             <button 
                 onClick={handleDraftScript} 
                 disabled={isDrafting}
-                className="ml-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full px-8 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all"
-                startIcon={isDrafting ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />}
+                className="px-8 py-2.5 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50"
               >
-                Draft Script
-              </Button>
+                {isDrafting ? 'Drafting...' : 'Draft Script'}
+              </button>
           </div>
         </header>
 
         {/* ZEN EDITOR AREA (Dissolved Container) */}
-        <div className="flex-1 overflow-y-auto px-12 lg:px-24 pb-20 pt-4 custom-scrollbar relative z-10">
+        <div className="flex-1 overflow-y-auto px-12 lg:px-24 pb-20 pt-10 custom-scrollbar relative z-10">
             <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
                 <ScriptDraftingWorkspace 
@@ -314,24 +203,23 @@ function ArchitectureCanvasContent() {
                 />
               ) : (
                 <motion.div 
-                  initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center text-center py-32"
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col items-center justify-center text-center py-40"
                 >
-                   <div className="w-24 h-24 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 relative group">
-                     <Lightbulb size={40} className="text-indigo-400 relative z-10 group-hover:scale-110 transition-transform" />
-                     <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full" />
+                   <div className="w-20 h-20 rounded-[2rem] bg-[#A7DADB]/5 flex items-center justify-center mb-10 border border-[#A7DADB]/10 relative group">
+                     <Lightbulb size={32} className="text-[#A7DADB] relative z-10 group-hover:scale-110 transition-transform" />
                    </div>
-                   <h3 className="text-3xl font-bold text-white mb-4 tracking-tighter">Architecture Hub</h3>
-                   <p className="text-slate-400 text-sm max-w-sm leading-relaxed mb-12 font-light">
-                     Select a neural node to begin drafting high-fidelity instructional content grounded in your organizational truth.
+                   <h3 className="text-4xl font-bold text-white mb-6 tracking-tighter">Architecture Canvas</h3>
+                   <p className="text-slate-500 text-sm max-w-sm leading-relaxed mb-12 font-medium uppercase tracking-widest">
+                     Select a node from the neural trace to begin orchestration.
                    </p>
-                   <div className="flex items-center gap-6 p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 text-left max-w-lg backdrop-blur-md">
-                      <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-                        <ShieldCheck size={24} className="text-cyan-400" />
+                   <div className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 text-left max-w-lg backdrop-blur-3xl shadow-2xl">
+                      <div className="p-4 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB]">
+                        <ShieldCheck size={28} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-black text-slate-200 uppercase tracking-widest mb-1">Integrity Pass Enabled</h4>
-                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Every claim is mathematically verified against the Atomic Fact Ledger using high-precision semantic matching.</p>
+                        <h4 className="text-[11px] font-black text-white uppercase tracking-[0.2em] mb-1">Claim-Only Verification</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed font-medium">Instructional payloads are verified against the truth ledger using deterministic semantic anchors.</p>
                       </div>
                    </div>
                 </motion.div>
@@ -340,135 +228,37 @@ function ArchitectureCanvasContent() {
         </div>
       </Box>
 
-      {/* --- OVERLAY MODALS --- */}
-
-      {/* STRATEGIC DNA MODAL */}
-      <Modal
-        open={isStrategyOpen}
-        onClose={() => setIsStrategyOpen(false)}
-        closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(8px)', bgcolor: 'rgba(2, 6, 23, 0.8)' } }}
-      >
-        <Fade in={isStrategyOpen}>
-          <Box sx={{ 
-            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '90%', maxWidth: '1000px', maxHeight: '90vh',
-            bgcolor: '#0F172A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '32px',
-            p: 6, outline: 'none', overflowY: 'auto', boxShadow: '0 0 50px rgba(0,0,0,0.5)'
-          }}>
-            <div className="flex justify-between items-start mb-12">
-              <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
-                   <Target size={24} className="text-indigo-400" />
-                 </div>
-                 <div>
-                   <h2 className="text-2xl font-extrabold text-white tracking-tight">Strategic DNA</h2>
-                   <p className="text-slate-500 text-sm font-medium uppercase tracking-widest">Polaris Blueprint Configuration</p>
-                 </div>
-              </div>
-              <IconButton onClick={() => setIsStrategyOpen(false)} sx={{ color: 'slate.500', bgcolor: 'white/5' }}><X /></IconButton>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-               <div className="space-y-8">
-                  <section>
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                      <Users size={14} className="text-indigo-400" /> Target Audience
-                    </h3>
-                    <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-4">
-                       <div>
-                         <span className="text-[10px] text-slate-600 uppercase font-bold block mb-2">Key Roles</span>
-                         <div className="flex flex-wrap gap-2">
-                           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                           {bj.target_audience?.demographics?.roles?.map((r: any, i: number) => <Chip key={i} label={r} size="small" sx={{ color: 'white', bgcolor: 'white/5', border: '1px solid rgba(255,255,255,0.05)' }} />)}
-                         </div>
-                       </div>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                      <ClipboardCheck size={14} className="text-emerald-400" /> Assessment Strategy
-                    </h3>
-                    <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5">
-                      <p className="text-sm text-slate-400 leading-relaxed italic">&ldquo;{bj.assessment_strategy?.overview}&rdquo;</p>
-                    </div>
-                  </section>
-               </div>
-
-               <div className="space-y-8">
-                  <section>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                      <Workflow size={14} className="text-cyan-400" /> Instructional Logic
-                    </h4>
-                    <div className="space-y-3">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {bj.instructional_strategy?.modalities?.map((m: any, i: number) => (
-                        <div key={i} className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 flex gap-4">
-                           <div>
-                             <h4 className="text-sm font-bold text-white mb-1">{m.type}</h4>
-                             <p className="text-[11px] text-slate-500 leading-relaxed">{m.rationale}</p>
-                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                      <Trophy size={14} className="text-amber-400" /> Success Metrics
-                    </h3>
-                    <div className="grid grid-cols-1 gap-3">
-                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                       {bj.success_metrics?.metrics?.map((m: any, i: number) => (
-                         <div key={i} className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
-                            <span className="text-xs text-slate-300 font-medium">{m.metric}</span>
-                            <Chip label={m.target} size="small" sx={{ bgcolor: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)', fontWeight: 800, fontSize: '10px' }} />
-                         </div>
-                       ))}
-                    </div>
-                  </section>
-               </div>
-            </div>
-          </Box>
-        </Fade>
-      </Modal>
-
-      <KnowledgeVaultModal isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} blueprintId={blueprintId || ""} blueprintContext={bj} />
+      <KnowledgeVaultModal isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} blueprintId={blueprintId || ""} blueprintContext={blueprint?.blueprint_json || {}} />
 
       {/* ULS OVERLAY */}
       <AnimatePresence>
         {showUlsPreview && (
-          <Box component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} sx={{ position: 'fixed', inset: 0, zIndex: 1000, bgcolor: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(30px)', p: 6, display: 'flex', justifyContent: 'center' }}>
-            <Box sx={{ maxWidth: '800px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                    <Code2 size={24} className="text-indigo-400" />
+          <Box component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} sx={{ position: 'fixed', inset: 0, zIndex: 1000, bgcolor: 'rgba(2, 6, 23, 0.98)', backdropFilter: 'blur(40px)', p: 8, display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ maxWidth: '900px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 8 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div className="w-14 h-14 rounded-2xl bg-[#4F46E5]/10 flex items-center justify-center border border-[#4F46E5]/20">
+                    <Code2 size={28} className="text-[#4F46E5]" />
                   </div>
                   <Box>
-                    <Typography variant="h5" sx={{ fontWeight: 800, color: 'white' }}>Universal Learning Schema</Typography>
-                    <Typography variant="caption" sx={{ color: 'slate.500', letterSpacing: '0.1em' }}>V.1.0-GLA HANDOVER PACKET</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'white', tracking: '-0.02em' }}>Universal Learning Schema</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase' }}>V.1.0-GLA HANDOVER PACKET</Typography>
                   </Box>
                 </Box>
-                <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: 'white', bgcolor: 'white/5' }}><X size={20} /></IconButton>
+                <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: 'white', bgcolor: 'white/[0.05]', '&:hover': { bgcolor: 'white/[0.1]' } }}><X size={24} /></IconButton>
               </Box>
-              <Box sx={{ flex: 1, bgcolor: '#020617', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', p: 4, overflow: 'auto' }}>
-                <pre className="text-indigo-300 text-xs font-mono leading-relaxed">
+              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: '40px', border: '1px solid rgba(255,255,255,0.05)', p: 6, overflow: 'auto' }}>
+                <pre className="text-[#A7DADB]/80 text-[13px] font-mono leading-relaxed">
                   {JSON.stringify({
                     uls_version: "1.0-GLA",
-                    meta: { polaris_id: blueprintId, strategy_alignment: "HIGH" },
+                    meta: { polaris_id: blueprintId, status: "READY" },
                     active_node: currentModule ? {
                       node_id: currentModule.id,
-                      mode: currentModule.pedagogicalMode,
                       modality: currentModule.targetModality,
-                      script: activeScript?.script,
-                      grounding: activeScript?.groundingScore,
-                      cognitive_load: currentModule.cognitiveLoad
+                      grounding: activeScript?.groundingScore
                     } : null,
-                    full_sequence: modules.map((m) => ({ id: m.id, mode: m.pedagogicalMode, modality: m.targetModality }))
-                  }, null, 2)}
+                    full_sequence: modules.map((m: any) => ({ id: m.id, title: m.title }))
+                  }, null, 4)}
                 </pre>
               </Box>
             </Box>
@@ -480,5 +270,5 @@ function ArchitectureCanvasContent() {
 }
 
 export default function ArchitectureCanvas() {
-  return <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-[#020617]"><CircularProgress /></div>}><ArchitectureCanvasContent /></Suspense>;
+  return <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-[#020617]"><CircularProgress sx={{ color: '#A7DADB' }} /></div>}><ArchitectureCanvasContent /></Suspense>;
 }

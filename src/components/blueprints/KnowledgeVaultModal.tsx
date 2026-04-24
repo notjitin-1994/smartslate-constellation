@@ -1,5 +1,4 @@
-// REQUIRED DEPENDENCY: framer-motion (npm install framer-motion), lucide-react (npm install lucide-react)
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -10,9 +9,6 @@ import {
   Image as ImageIcon, 
   UploadCloud, 
   X, 
-  CheckCircle2, 
-  Loader2,
-  Sparkles,
   FileCode,
   Trash2
 } from 'lucide-react';
@@ -58,9 +54,8 @@ export const KnowledgeVaultModal = ({
 
     const uniqueFiles = new Map<string, VaultFile>();
     data?.forEach((row: { metadata: Record<string, unknown> | null, content_type: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const metadata = row.metadata as any;
-      const name = metadata?.source_name || 'Unknown File';
+      const name = (metadata?.source_name || 'Unknown File').replace(/_/g, ' ');
       if (!uniqueFiles.has(name)) {
         uniqueFiles.set(name, {
           id: name,
@@ -86,7 +81,7 @@ export const KnowledgeVaultModal = ({
     const droppedFiles = Array.from(e.dataTransfer.files);
     const newFiles: VaultFile[] = droppedFiles.map(f => ({
       id: Math.random().toString(36).substr(2, 9),
-      name: f.name,
+      name: f.name.replace(/_/g, ' '),
       file: f,
       type: f.type,
       status: 'pending'
@@ -122,7 +117,6 @@ export const KnowledgeVaultModal = ({
         const file = fileItem.file!;
         const base64 = await fileToBase64(file);
         
-        // Detect Content Type reliably
         const fileType = file.type.toLowerCase();
         const fileName = file.name.toLowerCase();
         
@@ -174,136 +168,117 @@ export const KnowledgeVaultModal = ({
       const response = await fetch(`/api/ingest/delete?blueprintId=${blueprintId}&fileName=${encodeURIComponent(fileName)}`, {
         method: 'DELETE'
       });
-
       if (!response.ok) throw new Error('Delete failed');
-      
       setFiles(prev => prev.filter(f => f.name !== fileName));
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Delete failed: ${errorMessage}`);
+      alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const getFileIcon = (type: string) => {
     if (type.includes('pdf') || type.includes('word') || type.includes('text') || type === 'pdf' || type === 'docx' || type === 'text') return <FileText size={18} className="text-[#A7DADB]" />;
-    if (type.includes('video') || type === 'video') return <Video size={18} className="text-[#7C69F5]" />;
-    if (type.includes('image') || type === 'image') return <ImageIcon size={18} className="text-pink-400" />;
-    return <FileCode size={18} className="text-[#94A3B8]" />;
+    if (type.includes('video') || type === 'video') return <Video size={18} className="text-[#A7DADB]/60" />;
+    if (type.includes('image') || type === 'image') return <ImageIcon size={18} className="text-[#A7DADB]/40" />;
+    return <FileCode size={18} className="text-[#A7DADB]/20" />;
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        onClick={onClose}
-        className="absolute inset-0 bg-[#020C1B]/80 backdrop-blur-md" 
-      />
+      <div onClick={onClose} className="absolute inset-0 bg-[#020617]/90 backdrop-blur-2xl" />
 
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-        className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-[rgba(124, 105, 245, 0.2)] bg-[#020C1B] shadow-[0_0_50px_rgba(0,0,0,0.5)]"
-        style={{ background: 'radial-gradient(circle at top left, rgba(124, 105, 245, 0.08), transparent 40%), #020C1B' }}
+        initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        className="relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] border border-[#A7DADB]/10 bg-[#020617] shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-[rgba(124, 105, 245, 0.1)] p-6">
+        <div className="flex items-center justify-between border-b border-white/[0.03] p-8">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-[#E2E8F0]">Knowledge Vault</h2>
-            <p className="text-sm text-[#94A3B8]">Manage your multi-modal instructional assets</p>
+            <h2 className="text-2xl font-bold tracking-tighter text-white">Knowledge Vault</h2>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/60 mt-1">Institutional Fact Repository</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-[#E2E8F0]">
+          <button onClick={onClose} className="rounded-xl p-2 bg-white/[0.03] text-slate-500 hover:text-white transition-all">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-8">
           {!isSynthesizing ? (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <label 
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={onDrop}
-                className="group relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[rgba(124, 105, 245, 0.2)] bg-white/[0.02] p-10 transition-all hover:border-[#7C69F5]/50 hover:bg-[#7C69F5]/5"
+                className="group relative flex cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#A7DADB]/20 bg-white/[0.01] p-12 transition-all hover:border-[#A7DADB]/40 hover:bg-[#A7DADB]/5"
               >
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  ref={fileInputRef}
-                  multiple
-                  onChange={(e) => {
+                <input type="file" className="hidden" ref={fileInputRef} multiple onChange={(e) => {
                     const selected = Array.from(e.target.files || []);
                     setFiles(prev => {
                        const existingNames = new Set(prev.map(f => f.name));
                        const filtered: VaultFile[] = selected.filter(f => !existingNames.has(f.name)).map(f => ({
                         id: Math.random().toString(36).substr(2, 9),
-                        name: f.name,
+                        name: f.name.replace(/_/g, ' '),
                         file: f,
                         type: f.type,
                         status: 'pending'
                       }));
                       return [...prev, ...filtered];
                     });
-                  }}
-                />
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #7C69F5 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-                <UploadCloud className="mb-4 text-[#7C69F5] transition-transform group-hover:-translate-y-1" size={42} />
-                <p className="text-center text-[#E2E8F0]">
-                  <span className="font-semibold text-[#7C69F5]">Click to upload</span> or drag and drop
+                }} />
+                <UploadCloud className="mb-6 text-[#A7DADB]/40 group-hover:text-[#A7DADB] transition-all" size={48} />
+                <p className="text-center text-slate-200 font-bold uppercase tracking-widest text-[11px]">
+                  Deposit Instructional Assets
                 </p>
-                <p className="mt-1 text-xs text-[#94A3B8]">PDF, DOCX, Video, or Image assets</p>
+                <p className="mt-2 text-[10px] text-slate-600 font-black uppercase tracking-tighter">PDF, DOCX, Video, or Images</p>
               </label>
 
-              <div className="max-h-[240px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="max-h-[300px] space-y-3 overflow-y-auto pr-2 custom-scrollbar">
                 {files.map((fileItem) => (
-                  <div key={fileItem.id} className="group flex items-center justify-between rounded-lg border border-[rgba(124, 105, 245, 0.1)] bg-white/[0.03] p-3 hover:bg-white/[0.05]">
-                    <div className="flex items-center gap-3">
-                      {getFileIcon(fileItem.type)}
+                  <div key={fileItem.id} className="group flex items-center justify-between rounded-2xl border border-white/[0.03] bg-white/[0.01] p-4 hover:border-[#A7DADB]/20 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05]">{getFileIcon(fileItem.type)}</div>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-[#E2E8F0] truncate max-w-[300px]">{fileItem.name}</span>
-                        {fileItem.isExisting && <span className="text-[10px] text-[#A7DADB] font-bold uppercase tracking-tighter">Processed</span>}
+                        <span className="text-sm font-bold text-white truncate max-w-[300px]">{fileItem.name}</span>
+                        {fileItem.isExisting && <span className="text-[9px] text-[#A7DADB] font-black uppercase tracking-widest mt-0.5">Verified Asset</span>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {fileItem.status === 'complete' && <CheckCircle2 size={16} className="text-[#A7DADB]" />}
-                      <button 
-                        onClick={() => fileItem.isExisting ? handleDelete(fileItem.name) : setFiles(prev => prev.filter(f => f.id !== fileItem.id))} 
-                        className="text-[#94A3B8] hover:text-red-400 transition-colors p-1"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    <button 
+                      onClick={() => fileItem.isExisting ? handleDelete(fileItem.name) : setFiles(prev => prev.filter(f => f.id !== fileItem.id))} 
+                      className="text-slate-600 hover:text-rose-500 transition-colors p-2"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
                 {files.length === 0 && (
-                  <div className="text-center py-8 border border-dashed border-white/5 rounded-xl">
-                    <p className="text-xs text-[#94A3B8] italic">No assets in vault. Initialize ingestion to begin.</p>
+                  <div className="text-center py-10 border border-dashed border-white/[0.03] rounded-3xl">
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Repository Empty</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-4">
                 <button
                   disabled={files.filter(f => f.status === 'pending').length === 0}
                   onClick={handleIngest}
-                  className="group relative overflow-hidden rounded-full bg-[#7C69F5] px-8 py-3 font-semibold text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                  className="px-10 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50"
                 >
-                  <span className="relative z-10 flex items-center gap-2">Initialize Ingest Engine <Sparkles size={18} /></span>
-                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+                  Start Ingestion
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="relative mb-8 flex h-32 w-32 items-center justify-center">
-                <motion.div animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} className="absolute inset-0 rounded-full border border-[#7C69F5]/30" />
-                <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-[#7C69F5]/20 shadow-[0_0_30px_rgba(124,105,245,0.4)]">
-                  <Loader2 className="animate-spin text-[#7C69F5]" size={32} />
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="relative mb-10">
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="w-24 h-24 rounded-full border border-[#A7DADB]/20 border-t-[#A7DADB]" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-[#A7DADB] rounded-full shadow-[0_0_20px_#A7DADB]" />
                 </div>
               </div>
-              <h3 className="mb-2 text-xl font-bold text-[#E2E8F0]">Synthesizing Wisdom</h3>
-              <p className="mb-6 text-sm text-[#94A3B8]">Aligning multi-modal assets with Polaris standards...</p>
+              <h3 className="mb-2 text-xl font-bold text-white tracking-tight">Processing Assets</h3>
+              <p className="mb-10 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Building Neural Map</p>
               <div className="w-full max-w-sm">
-                <div className="mb-2 flex justify-between text-xs font-medium text-[#94A3B8]"><span>V.4-ALPHA Processing</span><span>{Math.round(progress)}%</span></div>
-                <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-gradient-to-r from-[#7C69F5] to-[#A7DADB]" />
+                <div className="h-1 w-full rounded-full bg-white/[0.03] overflow-hidden">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-[#A7DADB]" />
                 </div>
               </div>
             </div>

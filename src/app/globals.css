@@ -4,21 +4,19 @@
 
 @layer base {
   :root {
-    --background: #020c1b;
-    --foreground: #e0e0e0;
-    --primary: #a7dadb;
-    --secondary: #4f46e5;
+    --background: #020617;
+    --foreground: #F8FAFC;
+    --primary: #A7DADB;     /* Brand Teal */
+    --action: #4F46E5;      /* Brand Indigo (CTA Only) */
     --surface: #0d1b2a;
-    --text-primary: #e0e0e0;
-    --text-secondary: #b0c5c6;
-    --text-disabled: #7a8a8b;
-    --success: #10b981;
-    --error: #ef4444;
-    --info: #3b82f6;
+    --text-primary: #F8FAFC;
+    --text-secondary: #64748B;
+    --success: #10B981;
+    --error: #EF4444;
   }
 
   body {
-    @apply antialiased bg-background text-foreground;
+    @apply antialiased bg-[#020617] text-[#F8FAFC];
     font-family: var(--font-lato), ui-sans-serif, system-ui, sans-serif;
     overflow-x: hidden;
   }
@@ -53,10 +51,6 @@
     background: rgba(167, 218, 219, 0.3);
   }
 
-  ::-webkit-scrollbar-corner {
-    background: transparent;
-  }
-
   /* Prevent Autofill from changing background colors - Brand Preservation (Polaris V4 Protocol) */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
@@ -76,39 +70,30 @@
     background: rgba(13, 27, 42, 0.75);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(167, 218, 219, 0.1); /* Teal border */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 
-  /* Premium Glass Card System - Polaris V4 Port */
+  /* Premium Glass Card System - Restyled for Teal */
   .glass-card {
     position: relative;
     border-radius: 1rem;
-    background:
-      linear-gradient(rgba(13, 27, 42, 0.55), rgba(13, 27, 42, 0.55)) padding-box,
-      linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06)) border-box;
-    border: 1px solid transparent;
-    box-shadow:
-      0 8px 40px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    background: rgba(13, 27, 42, 0.55);
+    border: 1px solid rgba(167, 218, 219, 0.1); /* Teal border */
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
     -webkit-backdrop-filter: blur(18px);
     backdrop-filter: blur(18px);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .premium-input {
-    @apply w-full rounded-xl border bg-white/5 py-2.5 px-4 text-sm text-white backdrop-blur-sm transition-all duration-200 placeholder:text-white/30 focus:ring-2 focus:outline-none;
-    background:
-      linear-gradient(rgba(13, 27, 42, 0.4), rgba(13, 27, 42, 0.4)) padding-box,
-      linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)) border-box;
-    border: 1px solid transparent;
+    @apply w-full rounded-xl border bg-white/[0.03] py-2.5 px-4 text-sm text-white backdrop-blur-sm transition-all duration-200 placeholder:text-white/20 focus:ring-2 focus:outline-none;
+    border: 1px solid rgba(167, 218, 219, 0.15); /* Teal border */
   }
 
   .premium-input:focus {
-    background:
-      linear-gradient(rgba(13, 27, 42, 0.6), rgba(13, 27, 42, 0.6)) padding-box,
-      linear-gradient(135deg, rgba(167, 218, 219, 0.4), rgba(167, 218, 219, 0.1)) border-box;
-    @apply ring-[#a7dadb]/20;
+    border-color: #A7DADB;
+    @apply ring-[#A7DADB]/20;
   }
 
   /* Custom Scrollbar Utility */
@@ -122,25 +107,25 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(129, 140, 248, 0.2);
+    background: rgba(167, 218, 219, 0.2); /* Teal scrollbar */
     border-radius: 10px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(129, 140, 248, 0.4);
   }
 }
 
 @layer utilities {
-  @keyframes scan {
-    0% { left: -100%; opacity: 0; }
-    50% { opacity: 0.5; }
-    100% { left: 100%; opacity: 0; }
-  }
-  .animate-scan {
-    animation: scan 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
   .font-heading {
     font-family: 'Quicksand', ui-sans-serif, system-ui, sans-serif;
+  }
+  
+  .text-teal {
+    color: #A7DADB;
+  }
+  
+  .border-teal {
+    border-color: rgba(167, 218, 219, 0.2);
+  }
+  
+  .bg-indigo-action {
+    background-color: #4F46E5;
   }
 }
