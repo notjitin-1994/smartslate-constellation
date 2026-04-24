@@ -61,15 +61,24 @@ export class InstructionalArchitectService {
 
       const factLedger = await this.extractAtomicFacts(contextText, node.title);
 
-      // Polaris Context
+      // Polaris Context - HARDENED DEFENSIVE EXTRACTION
       const bp = node.blueprintContext as any;
-      let strategicContext = 'N/A';
+      let strategicContext = 'Institutional context unavailable.';
+      
       if (bp) {
-        strategicContext = `
-        - Audience: ${bp.target_audience?.demographics?.roles?.join(', ')}
-        - Level: ${bp.target_audience?.demographics?.experience_levels?.join(', ')}
-        - Goal: ${bp.executive_summary?.content}
-        `;
+        try {
+          const roles = bp.target_audience?.demographics?.roles || [];
+          const levels = bp.target_audience?.demographics?.experience_levels || [];
+          const goal = bp.executive_summary?.content || 'Standard Instructional Goal';
+          
+          strategicContext = `
+          - Audience Roles: ${Array.isArray(roles) ? roles.join(', ') : 'General'}
+          - Expertise Levels: ${Array.isArray(levels) ? levels.join(', ') : 'Foundational'}
+          - Strategic Goal: ${goal}
+          `;
+        } catch (ctxErr) {
+          console.warn('[Architect] Context extraction partial failure:', ctxErr);
+        }
       }
 
       // --- PASS 3: CONSTRAINED SYNTHESIS ---

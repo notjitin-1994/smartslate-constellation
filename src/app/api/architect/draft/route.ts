@@ -28,10 +28,19 @@ export async function POST(req: NextRequest) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('[Architect API Error]:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred during instructional drafting.';
+    const err = error as Error;
+    // CRITICAL: Capture full error trace for Vercel logs
+    console.error('[Architect API CRASH]:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    
     return NextResponse.json(
-      { error: errorMessage },
+      { 
+        error: err.message || 'An error occurred during instructional drafting.',
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+      },
       { status: 500 }
     );
   }
