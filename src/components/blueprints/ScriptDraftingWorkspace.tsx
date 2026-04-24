@@ -17,7 +17,6 @@ import {
   GitBranch,
   StickyNote,
   Maximize2,
-  Play,
   Sparkles,
   Layers
 } from 'lucide-react';
@@ -28,13 +27,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IconButton, Modal, Backdrop, Fade, Box, Tooltip, Typography } from '@mui/material';
 
 // --- SUB-COMPONENT: PROCEDURAL GENERATIVE LENS ---
-// This simulates high-fidelity generated instructional visuals
 const GenerativeLens = ({ content }: { content: string }) => {
   const [seed] = useState(Math.floor(Math.random() * 1000));
   
   return (
     <div className="relative w-full h-full bg-[#020617] overflow-hidden flex items-center justify-center group/viz">
-      {/* Dynamic Background Pattern */}
       <div className="absolute inset-0 opacity-20 group-hover/viz:opacity-40 transition-opacity duration-1000"
         style={{
           backgroundImage: `radial-gradient(circle at 50% 50%, #A7DADB15 0%, transparent 70%), 
@@ -42,7 +39,6 @@ const GenerativeLens = ({ content }: { content: string }) => {
         }}
       />
       
-      {/* Animated "Neural" Grid */}
       <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -54,12 +50,9 @@ const GenerativeLens = ({ content }: { content: string }) => {
 
       <div className="relative z-10 flex flex-col items-center gap-6 px-12 text-center">
          <motion.div 
-           animate={{ 
-             scale: [1, 1.05, 1],
-             rotate: [0, 2, -2, 0] 
-           }}
+           animate={{ scale: [1, 1.05, 1], rotate: [0, 2, -2, 0] }}
            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-           className="w-24 h-24 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center backdrop-blur-xl shadow-2xl shadow-[#A7DADB]/5"
+           className="w-24 h-24 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center backdrop-blur-xl shadow-2xl"
          >
             <Sparkles size={32} className="text-[#A7DADB]" />
          </motion.div>
@@ -70,12 +63,6 @@ const GenerativeLens = ({ content }: { content: string }) => {
                &quot;{content.split(' ').slice(0, 8).join(' ')}...&quot;
             </div>
          </div>
-      </div>
-
-      {/* Decorative Accents */}
-      <div className="absolute top-4 right-4 flex gap-2">
-         <div className="w-1.5 h-1.5 rounded-full bg-[#A7DADB] animate-pulse" />
-         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
       </div>
       <div className="absolute bottom-4 left-6 text-[8px] font-mono text-[#A7DADB]/30 tracking-widest uppercase">
          Instructional Frame ID: {seed}-CONST
@@ -112,32 +99,27 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
 
-  // --- DEEP SEMANTIC PARSER (Hardened for Markdown & Bleeding) ---
+  // --- CONSOLIDATED SEMANTIC PARSER ---
   const artifacts = useMemo(() => {
     if (!content) return [];
     
-    // Normalize content: Remove horizontal rules and normalize scene markers
     const normalized = content
       .replace(/---/g, '')
       .replace(/###\s+\*\*Scene/gi, '[HEADER] Scene')
       .replace(/\*\*(Storyboard Constellation.*?)\*\*/i, '[HEADER] $1');
 
     const lines = normalized.split('\n');
-    const results: Artifact[] = [];
+    const tempResults: Artifact[] = [];
     let currentArtifact: Partial<Artifact> | null = null;
-
-    // Detection Regex: Finds [TYPE] even if wrapped in ** or ###
     const typeRegex = /\[(VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|HEADER)\]/;
 
     lines.forEach((line, index) => {
       const trimmed = line.trim();
       if (!trimmed) return;
-
       const typeMatch = trimmed.match(typeRegex);
       
       if (typeMatch) {
-        if (currentArtifact) results.push(currentArtifact as Artifact);
-        
+        if (currentArtifact) tempResults.push(currentArtifact as Artifact);
         const type = `[${typeMatch[1]}]` as Artifact['type'];
         currentArtifact = {
           id: `artifact-${index}`,
@@ -147,8 +129,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       } else if (currentArtifact) {
         currentArtifact.content += `\n${trimmed}`;
       } else {
-        // Handle introductory text as Header/Hero
-        results.push({
+        tempResults.push({
           id: `intro-${index}`,
           type: '[HEADER]', 
           content: trimmed,
@@ -156,9 +137,23 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         });
       }
     });
+    if (currentArtifact) tempResults.push(currentArtifact as Artifact);
 
-    if (currentArtifact) results.push(currentArtifact as Artifact);
-    return results;
+    // --- CONSOLIDATION LOGIC: Merge all headers into one single top card ---
+    const headers = tempResults.filter(a => a.type === '[HEADER]');
+    const others = tempResults.filter(a => a.type !== '[HEADER]');
+    
+    if (headers.length > 0) {
+      const consolidatedHeader: Artifact = {
+        id: 'main-constellation-header',
+        type: '[HEADER]',
+        title: 'Core Architecture Initiation',
+        content: headers.map(h => h.content).join('\n\n')
+      };
+      return [consolidatedHeader, ...others];
+    }
+
+    return others;
   }, [content]);
 
   const TooltipContent = ({ title, body }: { title: string, body: string }) => (
@@ -186,10 +181,10 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
-      case '[HEADER]': return "md:col-span-3 border-white/5 bg-white/[0.005]";
+      case '[HEADER]': return "md:col-span-3 border-[#A7DADB]/10 bg-white/[0.005] py-12 px-14";
       case '[VISUAL]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/20";
       case '[NARRATION]': return "md:col-span-2 md:row-span-1 border-white/10 bg-white/[0.01]";
-      case '[ACTIVITY]': return "md:col-span-1 md:row-span-2 border-indigo-500/30 bg-indigo-500/[0.02]";
+      case '[ACTIVITY]': return "md:col-span-1 md:row-span-1 border-indigo-500/30 bg-indigo-500/[0.02]";
       case '[BRANCHING]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/40 font-mono";
       case '[SPEAKER_NOTES]': return "md:col-span-1 md:row-span-1 border-white/5 bg-white/[0.005]";
       default: return "md:col-span-1 border-white/10";
@@ -280,10 +275,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     shadow-[0_20px_60px_rgba(0,0,0,0.4)]
                   `}
                 >
-                  {/* Card Glow */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-                  {/* Header */}
                   <div className="flex items-center justify-between mb-8 relative z-10">
                     <div className="flex items-center gap-5">
                       <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all">
@@ -299,7 +292,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     <IconButton size="small" sx={{ color: 'white/[0.05]', '&:hover': { color: '#A7DADB' } }}><Maximize2 size={14} /></IconButton>
                   </div>
 
-                  {/* Content Area with ReactMarkdown Restoration */}
                   <div className="relative z-10">
                     {art.type === '[VISUAL]' && (
                       <div className="aspect-video w-full rounded-[2rem] bg-black/60 border border-white/5 flex items-center justify-center mb-10 relative overflow-hidden shadow-2xl">
@@ -309,7 +301,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
                     <div className={`
                       prose prose-invert max-w-none
-                      ${art.type === '[HEADER]' ? 'text-4xl font-bold tracking-tighter text-white py-10' : ''}
+                      ${art.type === '[HEADER]' ? 'text-4xl font-bold tracking-tighter text-white/90' : ''}
                       ${art.type === '[NARRATION]' ? 'text-2xl font-light leading-relaxed text-white/90' : 'text-[15px] text-slate-400 leading-relaxed'}
                       ${art.type === '[SPEAKER_NOTES]' ? 'text-sm text-slate-500 italic border-l-2 border-white/5 pl-8 py-2' : ''}
                       ${art.type === '[BRANCHING]' ? 'font-mono text-[13px] bg-black/40 p-8 rounded-3xl border border-white/5 text-[#A7DADB]/80' : ''}
@@ -318,15 +310,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                         {art.content}
                       </ReactMarkdown>
                     </div>
-
-                    {art.type === '[ACTIVITY]' && (
-                      <button className="mt-12 w-full py-5 bg-[#4F46E5] text-white rounded-2xl flex items-center justify-center gap-4 text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-indigo-500/30 hover:bg-[#4F46E5]/90 transition-all group/btn">
-                        <Play size={14} fill="currentColor" /> Deploy Simulation
-                      </button>
-                    )}
                   </div>
 
-                  {/* Corner Branding */}
                   <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-10 transition-opacity">
                     <Workflow size={80} className="text-[#A7DADB]" />
                   </div>
