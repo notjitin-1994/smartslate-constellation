@@ -259,6 +259,28 @@ export default function Sidebar() {
             </motion.nav>
           )}
         </AnimatePresence>
+
+        {/* Global Return Trigger (Symmetric to Neural Portal) */}
+        {!collapsed && isConstellationMode && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="px-4 pb-6 mt-4"
+          >
+            <button 
+              onClick={() => setIsConstellationMode(false)}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-500/40 transition-all group relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-white/5 group-hover:bg-indigo-500/5 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center relative z-10">
+                <Icons.Blueprints size={16} className="text-slate-400 group-hover:text-indigo-400 transition-colors" />
+              </div>
+              <div className="flex flex-col text-left relative z-10">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Platform</span>
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-tighter group-hover:text-white transition-colors">Return to Dashboard</span>
+              </div>
+            </button>
+          </motion.div>
+        )}
       </div>
 
       {/* Footer */}
