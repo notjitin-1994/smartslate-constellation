@@ -80,9 +80,9 @@ function ArchitectureCanvasContent() {
   // Sync state to Sidebar via Custom Event
   useEffect(() => {
     if (!blueprint) return;
-    const modules = blueprint.blueprint_json?.modules || [];
+    const modulesData = blueprint.blueprint_json?.content_outline?.modules || [];
     window.dispatchEvent(new CustomEvent('constellation-sidebar-sync', {
-      detail: { modules, activeIdx: state.activeNodeIdx }
+      detail: { modules: modulesData, activeIdx: state.activeNodeIdx }
     }));
   }, [blueprint, state.activeNodeIdx]);
 
@@ -96,7 +96,8 @@ function ArchitectureCanvasContent() {
     return () => window.removeEventListener('constellation-node-select', handleNodeSelect);
   }, [updateState]);
 
-  const modules = blueprint?.blueprint_json?.modules || [];
+  // --- TRAVERSE NESTED SCHEMA ---
+  const modules = blueprint?.blueprint_json?.content_outline?.modules || [];
   const activeIdx = Math.min(Math.max(0, state.activeNodeIdx), Math.max(0, modules.length - 1));
   const currentModule = modules[activeIdx] || null;
 

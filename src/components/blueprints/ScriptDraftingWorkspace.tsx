@@ -3,9 +3,7 @@
 
 import React, { useState } from 'react';
 import { 
-  BookOpen, 
   Activity, 
-  History, 
   X, 
   Search,
   AlertOctagon,
@@ -16,7 +14,9 @@ import {
   GitMerge,
   FileEdit,
   ChevronRight,
-  Info
+  Info,
+  BookOpen,
+  History
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -60,23 +60,26 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   return (
     <div className="flex flex-col w-full relative">
       
-      {/* --- FLOATING METRIC HUD (Refined Glassmorphic) --- */}
-      <div className="sticky top-0 py-6 mb-12 border-b border-white/[0.03] bg-[#020617]/80 backdrop-blur-3xl z-40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-10">
-            {/* Integrity Pass */}
+      {/* --- FLOATING METRIC HUD (Teal Accented Glass) --- */}
+      <div className="sticky top-0 py-6 mb-12 z-40">
+        <div className="max-w-fit mx-auto px-10 py-4 rounded-[2rem] border border-[#A7DADB]/20 bg-[#0d1b2a]/60 backdrop-blur-2xl shadow-2xl flex items-center gap-12 relative overflow-hidden">
+          {/* Subtle Inner Glow */}
+          <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
+          
+          <div className="flex items-center gap-10 relative z-10">
+            {/* Integrity Pill */}
             <Tooltip 
               enterTouchDelay={0} leaveTouchDelay={2500}
-              title={<TooltipContent title="Hallucination Guardian" body="This measures content purity. 'Verified' means every factual claim is mathematically anchored to your source documents. 'Flagged' indicates the AI introduced outside knowledge." />}
+              title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. 'Verified' means every factual claim is mathematically anchored to your source documents." />}
             >
               <div className="flex items-center gap-4 group cursor-help">
                 <div className={`flex items-center justify-center w-10 h-10 rounded-2xl ${hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'} shadow-lg transition-transform group-hover:scale-105`}>
                   {hallucinationFlag ? <AlertOctagon size={18} className="animate-pulse" /> : <Fingerprint size={18} />}
                 </div>
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-600">Integrity Pass</span>
-                    <Info size={10} className="text-slate-700" />
+                  <div className="flex items-center gap-1.5 leading-none mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A7DADB]/50">Integrity</span>
+                    <Info size={10} className="text-[#A7DADB]/30" />
                   </div>
                   <span className={`text-xs font-black uppercase tracking-widest ${hallucinationFlag ? 'text-rose-500' : 'text-[#A7DADB]'}`}>
                     {hallucinationFlag ? 'Flagged' : 'Verified'}
@@ -90,13 +93,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             {/* Grounding Density */}
             <Tooltip 
               enterTouchDelay={0} leaveTouchDelay={2500}
-              title={<TooltipContent title="Grounding Density" body="Measures document coverage. A high score (e.g., 9/10) means the Architect successfully utilized the majority of the instructional requirements provided in your Knowledge Vault." />}
+              title={<TooltipContent title="Grounding Density" body="Measures document coverage. A high score means the Architect successfully utilized the majority of your provided requirements." />}
             >
               <div className="flex flex-col gap-2 group cursor-help">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-600">Grounding Density</span>
-                    <Info size={10} className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-1.5 leading-none">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Grounding</span>
+                    <Info size={10} className="text-[#A7DADB]/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <span className="text-[10px] font-mono font-black text-white">{groundingScore}/10</span>
                 </div>
@@ -109,13 +112,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             {/* Cognitive Velocity */}
             <Tooltip 
               enterTouchDelay={0} leaveTouchDelay={2500}
-              title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. This score balances the density of new information against pedagogical flow. Lower scores indicate more digestible, learner-friendly content." />}
+              title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}
             >
               <div className="flex flex-col gap-2 group cursor-help">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-600">Cognitive Velocity</span>
-                    <Info size={10} className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-1.5 leading-none">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Cognitive</span>
+                    <Info size={10} className="text-[#A7DADB]/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <span className="text-[10px] font-mono font-black text-white">{cognitiveLoadScore}/10</span>
                 </div>
@@ -126,30 +129,50 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             </Tooltip>
           </div>
 
-          <div className="flex items-center gap-4">
-             <Tooltip 
-               enterTouchDelay={0} leaveTouchDelay={2500}
-               title={<TooltipContent title="Knowledge Verification" body="The master audit log. View every semantic link between your script and the original source documents. Includes the adversarial sentinel critique and citations." />}
+          <div className="flex items-center gap-4 relative z-10">
+             <button 
+               onClick={() => setIsInsightOpen(true)}
+               className="px-6 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB]/10 hover:text-white transition-all shadow-lg"
              >
-               <button 
-                 onClick={() => setIsInsightOpen(true)}
-                 className="px-6 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB] hover:text-black transition-all group shadow-xl"
-               >
-                 Knowledge Verification
-               </button>
-             </Tooltip>
+               Knowledge Verification
+             </button>
           </div>
         </div>
       </div>
 
+      {/* --- SEAMLESS STORYBOARD CONTENT --- */}
       <div className="w-full max-w-5xl mx-auto">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-16 py-12">
-               <div className="h-16 w-3/4 bg-white/[0.01] rounded-3xl animate-pulse" />
+               {/* Skeletal Title */}
                <div className="space-y-6">
-                 <div className="h-4 w-full bg-white/[0.01] rounded-full animate-pulse" />
-                 <div className="h-64 w-full bg-white/[0.01] rounded-[3rem] animate-pulse" />
+                 <div className="h-20 w-4/5 bg-white/[0.02] rounded-3xl animate-pulse relative overflow-hidden">
+                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                 </div>
+                 <div className="h-4 w-1/4 bg-[#A7DADB]/5 rounded-full animate-pulse" />
+               </div>
+               
+               {/* Skeletal Visual Artifact */}
+               <div className="p-10 rounded-[2.5rem] border border-[#A7DADB]/5 bg-white/[0.01] space-y-4">
+                  <div className="h-3 w-32 bg-[#A7DADB]/10 rounded-full" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-white/[0.02] rounded-full" />
+                    <div className="h-4 w-3/4 bg-white/[0.02] rounded-full" />
+                  </div>
+               </div>
+
+               {/* Skeletal Narration */}
+               <div className="pl-14 space-y-4 border-l border-white/5">
+                  <div className="h-2 w-24 bg-cyan-500/10 rounded-full" />
+                  <div className="h-6 w-full bg-white/[0.03] rounded-full" />
+                  <div className="h-6 w-4/5 bg-white/[0.03] rounded-full" />
+               </div>
+
+               {/* Skeletal Activity */}
+               <div className="p-12 rounded-[3rem] border border-[#A7DADB]/5 bg-emerald-500/[0.02] space-y-4">
+                  <div className="h-4 w-40 bg-emerald-500/10 rounded-full" />
+                  <div className="h-4 w-full bg-white/[0.02] rounded-full" />
                </div>
             </motion.div>
           ) : (
@@ -164,7 +187,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     return (
                       <div className="mb-24">
                         {isGapped && (
-                          <div className="mb-12 p-8 rounded-[2.5rem] border border-amber-500/20 bg-amber-500/[0.02] flex gap-6 items-center">
+                          <div className="mb-12 p-8 rounded-[2.5rem] border border-amber-500/20 bg-amber-500/[0.02] flex gap-6 items-center backdrop-blur-md">
                             <Search size={24} className="text-amber-500" />
                             <p className="text-xs text-amber-500/80 font-black uppercase tracking-widest">Knowledge Coverage Gap Detected</p>
                           </div>
@@ -185,7 +208,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     
                     if (text.includes('[VISUAL]')) {
                       return (
-                        <div className="my-14 p-10 rounded-[2.5rem] bg-white/[0.01] border border-[#A7DADB]/10 relative group/visual w-full overflow-hidden">
+                        <div className="my-14 p-10 rounded-[2.5rem] bg-white/[0.01] border border-[#A7DADB]/10 relative group/visual w-full overflow-hidden shadow-2xl">
                           <div className="flex items-center gap-4 mb-6 text-[#A7DADB]/40">
                              <Monitor size={18} />
                              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Art Direction</span>
@@ -203,7 +226,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                           <div className="absolute left-0 top-3 text-[#A7DADB]/10 group-hover/voice:text-[#A7DADB]/30 transition-all">
                             <Mic2 size={32} />
                           </div>
-                          <div className="text-[9px] font-black text-[#A7DADB]/30 uppercase tracking-[0.3em] mb-3">Spoken Payload</div>
+                          <div className="text-[9px] font-black text-[#A7DADB]/30 uppercase tracking-[0.3em] mb-3 font-mono">Spoken Payload</div>
                           <p className="text-white text-2xl font-light leading-[1.6] tracking-tight break-words">
                             {text.replace('[NARRATION]:', '').replace('[NARRATION]', '').trim()}
                           </p>
@@ -213,12 +236,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
                     if (text.includes('[ACTIVITY]')) {
                       return (
-                        <div className="my-16 p-12 rounded-[3rem] bg-[#A7DADB]/[0.02] border border-[#A7DADB]/10 shadow-2xl w-full overflow-hidden">
-                          <div className="flex items-center gap-4 mb-6 text-[#A7DADB]">
+                        <div className="my-16 p-12 rounded-[3rem] bg-[#A7DADB]/[0.02] border border-[#A7DADB]/10 shadow-2xl w-full overflow-hidden relative">
+                          <div className="absolute inset-0 bg-[#A7DADB]/[0.01] pointer-events-none" />
+                          <div className="flex items-center gap-4 mb-6 text-[#A7DADB] relative z-10">
                              <Zap size={20} fill="currentColor" />
                              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Engagement Protocol</span>
                           </div>
-                          <p className="text-slate-200 font-medium text-xl leading-relaxed break-words">
+                          <p className="text-slate-200 font-medium text-xl leading-relaxed break-words relative z-10">
                             {text.replace('[ACTIVITY]:', '').replace('[ACTIVITY]', '').trim()}
                           </p>
                         </div>
@@ -232,7 +256,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              <GitMerge size={18} />
                              <span className="text-[9px] font-black uppercase tracking-[0.3em]">Logic Path</span>
                           </div>
-                          <div className="text-slate-400 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap overflow-hidden">
+                          <div className="text-slate-400 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">
                             {text.replace('[BRANCHING]:', '').replace('[BRANCHING]', '').trim()}
                           </div>
                         </div>
@@ -244,7 +268,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                         <div className="my-10 p-6 rounded-2xl bg-white/[0.01] border border-white/[0.05] flex gap-5 items-start w-full overflow-hidden">
                            <FileEdit size={16} className="text-slate-600 mt-1" />
                            <p className="text-slate-600 text-sm font-medium leading-relaxed break-words">
-                             <span className="text-[9px] font-black mr-3 uppercase tracking-tighter text-slate-500">Note</span>
+                             <span className="text-[9px] font-black mr-3 uppercase tracking-tighter text-slate-500 font-mono">Note</span>
                              {text.replace('[SPEAKER_NOTES]:', '').replace('[SPEAKER_NOTES]', '').trim()}
                            </p>
                         </div>
@@ -272,33 +296,17 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     return <p className="mb-12 leading-relaxed text-slate-400 font-light text-xl tracking-tight break-words">{children}</p>;
                   },
                   blockquote: ({children}) => (
-                    <div className="my-24 p-16 rounded-[3.5rem] bg-white/[0.01] border-l-2 border-[#A7DADB]/20 text-3xl font-light text-[#A7DADB]/80 leading-relaxed italic shadow-2xl break-words">
-                      {children}
+                    <div className="my-24 p-16 rounded-[3.5rem] bg-white/[0.01] border-l-2 border-[#A7DADB]/20 text-3xl font-light text-[#A7DADB]/80 leading-relaxed italic shadow-2xl break-words relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-[#A7DADB]/5 to-transparent pointer-events-none" />
+                      <div className="relative z-10">{children}</div>
                     </div>
                   ),
-                  ul: ({children}) => <ul className="space-y-8 mb-20 w-full">{children}</ul>,
                   li: ({children}) => (
-                    <li className="flex gap-8 items-start text-slate-300 break-words w-full">
-                      <div className="mt-4 w-1.5 h-1.5 rounded-full bg-[#A7DADB]/40 shrink-0" />
+                    <li className="flex gap-8 items-start text-slate-300 break-words w-full group/li">
+                      <div className="mt-4 w-1.5 h-1.5 rounded-full bg-[#A7DADB]/40 shrink-0 shadow-[0_0_10px_rgba(167,218,219,0.2)] group-hover/li:bg-[#A7DADB] transition-all" />
                       <span className="text-2xl font-light leading-relaxed flex-1 min-w-0">{children}</span>
                     </li>
-                  ),
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  code: ({inline, className, children, ...props}: any) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return !inline ? (
-                      <div className="my-20 rounded-[2.5rem] bg-[#010409]/50 border border-white/[0.05] overflow-hidden w-full">
-                        <div className="px-8 py-4 bg-white/[0.02] border-b border-white/[0.05] flex justify-between items-center">
-                           <span className="text-[9px] text-slate-600 uppercase font-black tracking-widest">{match?.[1] || 'Manifest'}</span>
-                        </div>
-                        <pre className="p-10 overflow-x-auto text-lg text-slate-300 font-mono leading-relaxed custom-scrollbar">
-                          <code className={className} {...props}>{children}</code>
-                        </pre>
-                      </div>
-                    ) : (
-                      <code className="bg-[#A7DADB]/10 px-2 py-0.5 rounded text-[#A7DADB] text-sm font-mono break-words" {...props}>{children}</code>
-                    );
-                  }
+                  )
                 }}
               >
                 {content}
@@ -314,31 +322,36 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         onClose={() => setIsInsightOpen(false)}
         closeAfterTransition
         BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(20px)', bgcolor: 'rgba(2, 6, 23, 0.9)' } }}
+        BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(25px)', bgcolor: 'rgba(2, 6, 23, 0.95)' } }}
       >
         <Fade in={isInsightOpen}>
           <Box sx={{ 
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '90%', maxWidth: '600px', maxHeight: '80vh',
-            bgcolor: '#0F172A', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '40px',
-            p: 6, outline: 'none', overflowY: 'auto', boxShadow: '0 0 100px rgba(0,0,0,0.8)'
+            width: '90%', maxWidth: '700px', maxHeight: '85vh',
+            bgcolor: '#0F172A', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '48px',
+            p: 8, outline: 'none', overflowY: 'auto', boxShadow: '0 0 120px rgba(0,0,0,0.9)'
           }}>
-            <div className="flex justify-between items-center mb-12">
-               <div className="flex items-center gap-4">
-                  <Activity size={24} className="text-[#A7DADB]" />
-                  <h2 className="text-xl font-black text-white uppercase tracking-widest">Knowledge Verification</h2>
+            <div className="flex justify-between items-center mb-16">
+               <div className="flex items-center gap-6">
+                  <div className="p-4 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-lg shadow-[#A7DADB]/5">
+                    <Activity size={28} className="text-[#A7DADB]" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-1">Knowledge Verification</h2>
+                    <p className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Master Integrity Ledger</p>
+                  </div>
                </div>
-               <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]' }}><X size={20} /></IconButton>
+               <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', p: 2 }}><X size={24} /></IconButton>
             </div>
 
-            <div className="space-y-12">
-              <section className="space-y-5">
-                <h4 className="text-[10px] text-slate-600 uppercase tracking-[0.3em] font-black flex items-center gap-3">
-                  <History size={14} className="text-[#A7DADB]" /> Semantic Integrity
+            <div className="space-y-16">
+              <section className="space-y-6">
+                <h4 className="text-[10px] text-slate-600 uppercase tracking-[0.4em] font-black flex items-center gap-4">
+                   <History size={14} className="text-[#A7DADB]" /> Semantic Integrity Pass
                 </h4>
-                <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/[0.05] relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/20" />
-                   <div className="text-sm text-slate-400 leading-relaxed font-medium italic">
+                <div className="p-10 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-md">
+                   <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/30" />
+                   <div className="text-base text-slate-400 leading-relaxed font-light italic">
                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                         {semanticDelta || "Synthesizing truth anchors..."}
                      </ReactMarkdown>
@@ -346,15 +359,15 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                 </div>
               </section>
 
-              <section className="space-y-5">
-                <h4 className="text-[10px] text-slate-600 uppercase tracking-[0.3em] font-black flex items-center gap-3">
-                  <BookOpen size={14} className="text-[#A7DADB]" /> Verified Citations
+              <section className="space-y-6">
+                <h4 className="text-[10px] text-slate-600 uppercase tracking-[0.4em] font-black flex items-center gap-4">
+                   <BookOpen size={14} className="text-[#A7DADB]" /> Verified Institutional Citations
                 </h4>
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 gap-4">
                    {citations.map((cite, i) => (
-                     <div key={i} className="flex gap-4 items-center p-4 rounded-2xl bg-white/[0.01] border border-white/[0.05]">
-                        <div className="text-[9px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 px-2 py-1 rounded-md">{i + 1}</div>
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight truncate">{cite}</span>
+                     <div key={i} className="flex gap-6 items-center p-6 rounded-[2rem] bg-white/[0.01] border border-white/[0.05] hover:border-[#A7DADB]/20 transition-all group/cite">
+                        <div className="text-[10px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-8 h-8 flex items-center justify-center rounded-xl border border-[#A7DADB]/20 shadow-md transition-all group-hover/cite:scale-110">{i + 1}</div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest truncate">{cite}</span>
                      </div>
                    ))}
                 </div>
@@ -366,9 +379,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
       <button 
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-10 right-10 w-14 h-14 rounded-full bg-white/[0.02] border border-[#A7DADB]/20 flex items-center justify-center text-[#A7DADB] hover:bg-[#A7DADB] hover:text-black transition-all shadow-2xl backdrop-blur-3xl group"
+        className="fixed bottom-10 right-10 w-16 h-16 rounded-full bg-[#020617] border border-[#A7DADB]/30 flex items-center justify-center text-[#A7DADB] hover:bg-[#A7DADB] hover:text-black transition-all shadow-2xl backdrop-blur-3xl group z-50"
       >
-        <ChevronRight size={24} className="-rotate-90 group-hover:-translate-y-1 transition-transform" />
+        <ChevronRight size={28} className="-rotate-90 group-hover:-translate-y-1 transition-transform" />
       </button>
     </div>
   );
