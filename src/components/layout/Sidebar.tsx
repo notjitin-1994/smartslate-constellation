@@ -1,85 +1,76 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Brand } from './Brand';
-import { UserAvatar } from './UserAvatar';
-import {
-  IconSidebarToggle,
-  Icons,
-} from './icons';
-import { useSidebar } from '@/lib/SidebarContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
-  ChevronRight,
+  LayoutDashboard, 
   Workflow, 
-  Video, 
-  MousePointer2, 
-  FileText, 
-  MessageSquare, 
+  Database, 
+  Settings as IconSettings,
+  ChevronLeft as IconSidebarToggle,
   Monitor,
+  LogOut as IconLogout,
+  Brain,
   ArrowRight,
-  Brain
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import * as Icons from 'lucide-react';
 
-const quickAccessItems = [
-  { title: 'Dashboard', icon: Icons.Dashboard, path: '/dashboard' },
-  { title: 'Architecture', icon: Icons.Blueprints, path: '/constellation' },
-  { title: 'Asset Ingest', icon: Icons.Assets, path: '/assets' },
-];
+const Brand = () => (
+  <div className="flex items-center gap-3">
+    <div className="w-8 h-8 rounded-lg bg-[#4F46E5] flex items-center justify-center shadow-lg shadow-indigo-500/20">
+      <Workflow size={18} className="text-white" />
+    </div>
+    <div className="flex flex-col">
+      <span className="text-[13px] font-black text-white tracking-tighter uppercase leading-none">Smartslate</span>
+      <span className="text-[9px] font-black text-[#A7DADB] uppercase tracking-[0.2em] leading-none mt-1">Constellation</span>
+    </div>
+  </div>
+);
 
-const solaraSuiteLinks = [
-  { name: 'Polaris', path: 'https://polaris.smartslate.io', badge: 'Live', badgeType: 'active' as const, isExternal: true },
-  { name: 'Nova', path: '#', badge: 'Coming Soon', badgeType: 'soon' as const },
-  { name: 'Orbit', path: '#', badge: 'Coming Soon', badgeType: 'soon' as const },
-  { name: 'Spectrum', path: '#', badge: 'Coming Soon', badgeType: 'soon' as const },
-];
-
-const getModalityIcon = (type: string) => {
-  const t = type?.toLowerCase() || '';
-  if (t.includes('video')) return <Video size={16} />;
-  if (t.includes('interactive') || t.includes('scorm') || t.includes('simulation')) return <MousePointer2 size={16} />;
-  if (t.includes('case') || t.includes('text') || t.includes('checklist') || t.includes('pdf')) return <FileText size={16} />;
-  if (t.includes('audio') || t.includes('podcast')) return <MessageSquare size={16} />;
-  return <Monitor size={16} />;
+const variants = {
+  initial: (direction: number) => ({
+    x: direction > 0 ? 20 : -20,
+    opacity: 0,
+  }),
+  animate: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -20 : 20,
+    opacity: 0,
+  }),
 };
 
 export default function Sidebar() {
-  const router = useRouter();
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
-  const { collapsed, setCollapsed, isConstellationMode, setIsConstellationMode } = useSidebar();
-  const [isMounted, setIsMounted] = useState(false);
-  const [dbName, setDbName] = useState<string | null>(null);
+  const router = useRouter();
+  const [collapsed, setCollapsed] = useState(false);
+  const [isConstellationMode, setIsConstellationMode] = useState(false);
   const [modules, setModules] = useState<any[]>([]);
-  const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
+  const [activeNodeIdx, setActiveNodeIdx] = useState(0);
+
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 3;
 
   useEffect(() => {
-    setIsMounted(true);
-    const fetchProfile = async () => {
-      if (user?.id) {
-        const { data } = await supabase
-          .from('user_profiles')
-          .select('first_name, last_name')
-          .eq('user_id', user.id)
-          .single();
-        if (data?.first_name) setDbName(`${data.first_name} ${data.last_name || ''}`.trim());
+    const handleSync = (e: any) => {
+      if (e.detail.modules) setModules(e.detail.modules);
+      if (typeof e.detail.activeIdx === 'number') {
+        setActiveNodeIdx(e.detail.activeIdx);
+        // Automatically jump to the page containing the active node
+        const pageOfNode = Math.floor(e.detail.activeIdx / itemsPerPage) + 1;
+        setCurrentPage(pageOfNode);
       }
     };
-    fetchProfile();
-
-    const handleConstellationData = (e: any) => {
-      if (e.detail?.modules) setModules(e.detail.modules);
-      if (typeof e.detail?.activeIdx === 'number') setActiveNodeIdx(e.detail.activeIdx);
-    };
-    window.addEventListener('constellation-sidebar-sync', handleConstellationData);
-    return () => window.removeEventListener('constellation-sidebar-sync', handleConstellationData);
-  }, [user?.id]);
-
-  if (!isMounted) return null;
+    window.addEventListener('constellation-sidebar-sync', handleSync);
+    return () => window.removeEventListener('constellation-sidebar-sync', handleSync);
+  }, []);
 
   const handleNodeClick = (idx: number) => {
     window.dispatchEvent(new CustomEvent('constellation-node-select', { detail: { idx } }));
@@ -87,10 +78,37 @@ export default function Sidebar() {
 
   const formatText = (txt: string) => txt.replace(/_/g, ' ');
 
-  const variants = {
-    initial: (direction: number) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
-    animate: { x: 0, opacity: 1 },
-    exit: (direction: number) => ({ x: direction > 0 ? -100 : 100, opacity: 0 })
+  const getModalityIcon = (mod: string) => {
+    switch (mod?.toUpperCase()) {
+      case 'VIDEO': return <Icons.Play size={14} />;
+      case 'IMAGE': return <Icons.Image size={14} />;
+      case 'INTERACTIVE': return <Icons.MousePointer2 size={14} />;
+      default: return <Icons.FileText size={14} />;
+    }
+  };
+
+  const quickAccessItems = [
+    { title: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { title: 'Knowledge Vault', icon: Database, path: '/assets' },
+    { title: 'Settings', icon: IconSettings, path: '#' },
+  ];
+
+  const solaraSuiteLinks = [
+    { name: 'ULS Architecture', badge: 'v1.0', badgeType: 'active', path: '/handover' },
+    { name: 'Neural Flow', badge: 'BETA', badgeType: 'active', path: '#' },
+    { name: 'Simulate', badge: 'SOON', badgeType: 'soon', path: '#' },
+  ];
+
+  // --- PAGINATION CALCULATIONS ---
+  const totalPages = Math.ceil(modules.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentModulesSlice = modules.slice(startIndex, startIndex + itemsPerPage);
+
+  const getPaginationNumbers = () => {
+    if (totalPages <= 3) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (currentPage === 1) return [1, 2, 3];
+    if (currentPage === totalPages) return [totalPages - 2, totalPages - 1, totalPages];
+    return [currentPage - 1, currentPage, currentPage + 1];
   };
 
   return (
@@ -127,7 +145,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10 flex flex-col">
         <AnimatePresence mode="wait" custom={isConstellationMode ? 1 : -1}>
           {!isConstellationMode ? (
             <motion.nav 
@@ -184,7 +202,7 @@ export default function Sidebar() {
                   {solaraSuiteLinks.map((item) => (
                     <button
                       key={item.name}
-                      onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
+                      onClick={() => router.push(item.path)}
                       disabled={item.badgeType === 'soon'}
                       className={`group flex items-center transition-all duration-300 ${
                         collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl justify-between'
@@ -212,35 +230,79 @@ export default function Sidebar() {
               variants={variants}
               initial="initial" animate="animate" exit="exit"
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className={`px-4 py-4 space-y-2 ${collapsed ? 'flex flex-col items-center' : ''}`}
+              className={`px-4 py-4 space-y-2 flex-1 flex flex-col ${collapsed ? 'items-center' : ''}`}
             >
-              {modules.map((mod, i) => {
-                const isActive = activeNodeIdx === i;
-                return (
-                  <button 
-                    key={mod.id} 
-                    onClick={() => handleNodeClick(i)}
-                    className={`group relative flex items-center transition-all duration-300
-                      ${collapsed ? 'justify-center h-11 w-11 rounded-xl' : 'p-3.5 gap-4 w-full rounded-2xl'}
-                      ${isActive ? 'bg-[#4F46E5]/10 border border-[#4F46E5]/20' : 'hover:bg-white/[0.03] border border-transparent'}
-                    `}
-                  >
-                    <div className={`shrink-0 flex items-center justify-center border transition-all duration-500
-                      ${collapsed ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'}
-                      ${isActive ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-[#4F46E5]' : 'bg-slate-900/50 border-[#A7DADB]/10 text-slate-500 group-hover:border-[#A7DADB]/30'}
-                    `}>
-                      {getModalityIcon(mod.targetModality)}
-                    </div>
-                    {!collapsed && (
-                      <div className="flex flex-col text-left overflow-hidden">
-                        <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-[#4F46E5]' : 'text-slate-600'}`}>{formatText(mod.id)}</span>
-                        <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
+              <div className="flex-1 space-y-2">
+                {currentModulesSlice.map((mod, relativeIdx) => {
+                  const absoluteIdx = startIndex + relativeIdx;
+                  const isActive = activeNodeIdx === absoluteIdx;
+                  return (
+                    <button 
+                      key={mod.id} 
+                      onClick={() => handleNodeClick(absoluteIdx)}
+                      className={`group relative flex items-center transition-all duration-300
+                        ${collapsed ? 'justify-center h-11 w-11 rounded-xl' : 'p-3.5 gap-4 w-full rounded-2xl'}
+                        ${isActive ? 'bg-[#4F46E5]/10 border border-[#4F46E5]/20' : 'hover:bg-white/[0.03] border border-transparent'}
+                      `}
+                    >
+                      <div className={`shrink-0 flex items-center justify-center border transition-all duration-500
+                        ${collapsed ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'}
+                        ${isActive ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-[#4F46E5]' : 'bg-slate-900/50 border-[#A7DADB]/10 text-slate-500 group-hover:border-[#A7DADB]/30'}
+                      `}>
+                        {getModalityIcon(mod.targetModality)}
                       </div>
-                    )}
-                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-2 bottom-2 w-1 bg-[#4F46E5] rounded-full" />}
-                  </button>
-                );
-              })}
+                      {!collapsed && (
+                        <div className="flex flex-col text-left overflow-hidden">
+                          <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-[#4F46E5]' : 'text-slate-600'}`}>{formatText(mod.id)}</span>
+                          <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
+                        </div>
+                      )}
+                      {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-2 bottom-2 w-1 bg-[#4F46E5] rounded-full" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* --- SIDEBAR PAGINATION SYSTEM --- */}
+              {totalPages > 1 && (
+                <div className={`mt-auto pt-6 border-t border-white/[0.03] flex items-center gap-2 ${collapsed ? 'flex-col' : 'justify-center'}`}>
+                   {!collapsed && (
+                     <button 
+                       disabled={currentPage === 1}
+                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                       className="p-1.5 rounded-lg hover:bg-white/[0.05] text-slate-500 disabled:opacity-20 transition-all"
+                     >
+                       <ChevronLeft size={16} />
+                     </button>
+                   )}
+                   
+                   <div className={`flex items-center gap-1.5 ${collapsed ? 'flex-col' : ''}`}>
+                      {getPaginationNumbers().map(num => (
+                        <button
+                          key={num}
+                          onClick={() => setCurrentPage(num)}
+                          className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${
+                            currentPage === num 
+                              ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/20' 
+                              : 'text-slate-600 hover:text-[#A7DADB] hover:bg-white/[0.03]'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                   </div>
+
+                   {!collapsed && (
+                     <button 
+                       disabled={currentPage === totalPages}
+                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                       className="p-1.5 rounded-lg hover:bg-white/[0.05] text-slate-500 disabled:opacity-20 transition-all"
+                     >
+                       <ChevronRight size={16} />
+                     </button>
+                   )}
+                </div>
+              )}
             </motion.nav>
           )}
         </AnimatePresence>
@@ -252,7 +314,7 @@ export default function Sidebar() {
               className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-[#A7DADB]/10 hover:border-[#A7DADB]/30 transition-all group relative"
             >
               <div className="w-8 h-8 rounded-lg bg-slate-900 border border-[#A7DADB]/10 flex items-center justify-center">
-                <Icons.Blueprints size={16} className="text-slate-400 group-hover:text-[#A7DADB]" />
+                <LayoutDashboard size={16} className="text-slate-400 group-hover:text-[#A7DADB]" />
               </div>
               <div className="flex flex-col text-left">
                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Global Platform</span>
@@ -263,38 +325,31 @@ export default function Sidebar() {
         )}
         
         {collapsed && isConstellationMode && (
-          <div className="flex flex-col items-center pb-6 mt-4">
-             <button onClick={() => setIsConstellationMode(false)} className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500 hover:text-[#A7DADB] transition-all">
-                <Icons.Blueprints size={18} />
+          <div className="flex flex-col items-center pb-6 mt-4 gap-4">
+             <button onClick={() => setIsConstellationMode(false)} className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500 hover:text-[#A7DADB] transition-all" title="Exit Trace">
+                <LayoutDashboard size={18} />
              </button>
           </div>
         )}
       </div>
 
-      <div className="mt-auto p-4 border-t border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
+      <div className={`p-4 border-t border-white/[0.03] mt-auto relative z-20 ${collapsed ? 'flex flex-col items-center' : ''}`}>
         {!collapsed ? (
-          <div className="space-y-4">
-            <button className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] transition-all group">
-              <div className="relative">
-                <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-10 h-10" />
-                <div className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-4 border-[#020617]" />
-              </div>
-              <div className="flex-1 text-left overflow-hidden">
-                <p className="text-xs font-bold text-white truncate">{dbName || user?.email?.split('@')[0]}</p>
-                <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter truncate">{user?.email}</p>
-              </div>
-            </button>
-            <button onClick={signOut} className="w-full py-2.5 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all">
-              Log Out
-            </button>
-          </div>
+          <button
+            onClick={() => {/* handle sign out */}}
+            className="w-full flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-rose-500/5 hover:text-rose-500 rounded-xl transition-all group"
+          >
+            <IconLogout size={18} className="group-hover:rotate-12 transition-transform" />
+            <span className="text-[13px] font-bold">Sign Out</span>
+          </button>
         ) : (
-          <div className="flex flex-col items-center gap-6 py-4">
-             <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
-             <button onClick={() => setCollapsed(false)} className="text-slate-500 hover:text-[#A7DADB] transition-colors">
-               <ChevronRight size={20} />
-             </button>
-          </div>
+          <button
+            onClick={() => {/* handle sign out */}}
+            className="h-10 w-10 flex items-center justify-center text-slate-500 hover:bg-rose-500/5 hover:text-rose-500 rounded-xl transition-all"
+            title="Sign Out"
+          >
+            <IconLogout size={18} />
+          </button>
         )}
       </div>
     </aside>
