@@ -89,17 +89,22 @@ function ArchitectureCanvasContent() {
   // Listen for Sidebar Node Selection
   useEffect(() => {
     const handleNodeSelect = (e: any) => {
-      updateState({ activeNodeIdx: e.detail.idx });
+      const idx = typeof e.detail.idx === 'number' ? e.detail.idx : 0;
+      updateState({ activeNodeIdx: idx });
     };
     window.addEventListener('constellation-node-select', handleNodeSelect);
     return () => window.removeEventListener('constellation-node-select', handleNodeSelect);
   }, [updateState]);
 
   const modules = blueprint?.blueprint_json?.modules || [];
-  const currentModule = modules[state.activeNodeIdx] || null;
+  const activeIdx = Math.min(Math.max(0, state.activeNodeIdx), Math.max(0, modules.length - 1));
+  const currentModule = modules[activeIdx] || null;
 
   const handleDraftScript = async () => {
-    if (!currentModule || !blueprintId) return;
+    if (!currentModule || !blueprintId) {
+      console.error('[Draft Error] Missing context:', { currentModule, blueprintId });
+      return;
+    }
     setIsDrafting(true);
     try {
       const response = await fetch('/api/architect/draft', {
