@@ -15,7 +15,12 @@ import {
   Search,
   AlertOctagon,
   Fingerprint,
-  Cpu
+  Cpu,
+  Monitor,
+  Mic2,
+  Zap,
+  GitMerge,
+  FileEdit
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -173,8 +178,85 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   ),
                   h3: ({children}) => <h3 className="text-2xl font-bold mt-12 mb-6 text-white tracking-tight leading-snug">{children}</h3>,
                   p: ({children}) => {
-                    if (typeof children === 'string' && children.includes('[MISSING_DATA:')) {
-                      const parts = children.split(/(\[MISSING_DATA:.*?\])/g);
+                    const text = children?.toString() || '';
+                    
+                    // --- ARTIFACT: [VISUAL] ---
+                    if (text.includes('[VISUAL]')) {
+                      return (
+                        <div className="my-10 p-6 rounded-3xl bg-indigo-500/5 border border-indigo-500/20 relative overflow-hidden group/visual">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400" />
+                          <div className="flex items-center gap-3 mb-3 text-indigo-400">
+                             <Monitor size={16} />
+                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Visual Direction</span>
+                          </div>
+                          <p className="text-slate-300 font-light text-base leading-relaxed italic">
+                            {text.replace('[VISUAL]:', '').replace('[VISUAL]', '').trim()}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    // --- ARTIFACT: [NARRATION] ---
+                    if (text.includes('[NARRATION]')) {
+                      return (
+                        <div className="mb-10 pl-8 relative group/voice">
+                          <div className="absolute left-0 top-2 text-cyan-500/30 group-hover/voice:text-cyan-500 transition-colors">
+                            <Mic2 size={24} />
+                          </div>
+                          <div className="text-[10px] font-bold text-cyan-500/50 uppercase tracking-widest mb-1">Instructor Dialogue</div>
+                          <p className="text-slate-200 text-xl font-medium leading-relaxed tracking-tight">
+                            {text.replace('[NARRATION]:', '').replace('[NARRATION]', '').trim()}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    // --- ARTIFACT: [ACTIVITY] ---
+                    if (text.includes('[ACTIVITY]')) {
+                      return (
+                        <div className="my-10 p-8 rounded-[32px] bg-emerald-500/5 border border-emerald-500/20 shadow-lg">
+                          <div className="flex items-center gap-3 mb-4 text-emerald-400">
+                             <Zap size={18} fill="currentColor" className="animate-pulse" />
+                             <span className="text-xs font-black uppercase tracking-[0.2em]">Learning Activity</span>
+                          </div>
+                          <p className="text-slate-300 font-medium text-lg">
+                            {text.replace('[ACTIVITY]:', '').replace('[ACTIVITY]', '').trim()}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    // --- ARTIFACT: [BRANCHING] ---
+                    if (text.includes('[BRANCHING]')) {
+                      return (
+                        <div className="my-10 p-6 rounded-3xl bg-amber-500/5 border border-amber-500/20 border-dashed">
+                          <div className="flex items-center gap-3 mb-3 text-amber-400">
+                             <GitMerge size={16} />
+                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Logical Branch</span>
+                          </div>
+                          <p className="text-slate-300 font-mono text-sm leading-relaxed">
+                            {text.replace('[BRANCHING]:', '').replace('[BRANCHING]', '').trim()}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    // --- ARTIFACT: [SPEAKER_NOTES] ---
+                    if (text.includes('[SPEAKER_NOTES]')) {
+                      return (
+                        <div className="my-8 p-4 rounded-xl bg-white/[0.02] border border-white/5 flex gap-4 items-start">
+                           <FileEdit size={14} className="text-slate-500 mt-1" />
+                           <p className="text-slate-500 text-xs font-medium leading-relaxed">
+                             <span className="text-slate-400 font-bold mr-2 uppercase tracking-tighter">Producer Note:</span>
+                             {text.replace('[SPEAKER_NOTES]:', '').replace('[SPEAKER_NOTES]', '').trim()}
+                           </p>
+                        </div>
+                      );
+                    }
+
+                    // --- ORIGINAL MISSING DATA HANDLER ---
+                    if (text.includes('[MISSING_DATA:')) {
+                      const parts = text.split(/(\[MISSING_DATA:.*?\])/g);
                       return (
                         <p className="mb-8 leading-relaxed text-slate-300 font-light text-xl">
                           {parts.map((part, i) => {

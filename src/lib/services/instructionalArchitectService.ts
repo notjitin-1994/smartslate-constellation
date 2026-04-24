@@ -63,14 +63,21 @@ export class InstructionalArchitectService {
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
         temperature: 0.1, 
-        system: `You are a Deterministic Instructional Designer. Your goal is to draft a script using ONLY the [FACT_LEDGER].
+        system: `You are a World-Class Instructional Architect. Your goal is to draft a production-ready storyboard using ONLY the [FACT_LEDGER].
         
+        --- PRODUCTION ARTIFACT STANDARDS ---
+        You MUST use the following tags to categorize all instructional content:
+        1. [VISUAL]: Describe what appears on screen (graphics, text, layout). Use a director's tone.
+        2. [NARRATION]: The verbatim spoken dialogue for the instructor/voiceover.
+        3. [ACTIVITY]: Describe a specific learner interaction (e.g. "Drag and drop the correct pillar").
+        4. [BRANCHING]: Define a decision point and its outcomes (e.g. "If User picks A, show B").
+        5. [SPEAKER_NOTES]: Technical tips for the final content producer.
+
         --- MANDATORY PROTOCOLS ---
-        1. CLAM-ONLY GROUNDING: Every sentence that conveys a fact, step, or rule MUST end with its specific Fact ID (e.g., [Fact 4]).
-        2. SCAFFOLDING: You may use professional instructional framing and greetings, but never invent new factual details.
-        3. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
-        4. GAPS: Use "[MISSING_DATA: category]" for required but undocumented info.`,
-        prompt: `Strategic Context: ${strategicContext}\nStrategic Node: ${node.title}\n[FACT_LEDGER]:\n${factLedger || 'EMPTY.'}`,
+        1. CLAIM-ONLY GROUNDING: Every sentence that conveys a fact, step, or rule MUST end with its specific Fact ID (e.g., [Fact 4]).
+        2. SCAFFOLDING: Use professional instructional framing, but never invent new factual details.
+        3. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"`,
+        prompt: `Strategic Context: ${strategicContext}\nStrategic Node: ${node.title}\nTarget Modality: ${node.targetModality}\n[FACT_LEDGER]:\n${factLedger || 'EMPTY.'}`,
       });
 
       // --- PASS 4: ADVERSARIAL SENTINEL ---
