@@ -118,27 +118,42 @@ export class InstructionalArchitectService {
       providerOptions: { google: { outputDimensionality: 3072 } }
     });
 
-    const { data, error } = await supabase.rpc('match_knowledge', {
-      query_embedding: embedding,
-      match_threshold: strictModule ? 0.3 : 0.85, 
-      match_count: 10,
-      p_blueprint_id: node.blueprintId,
-      p_module_id: strictModule ? node.id : null
-    });
+    try {
+      const { data, error } = await supabase.rpc('match_knowledge', {
+        query_embedding: embedding,
+        match_threshold: strictModule ? 0.3 : 0.7, 
+        match_count: 15,
+        p_blueprint_id: node.blueprintId,
+        p_module_id: strictModule ? node.id : null
+      });
 
-    if (strictModule && (!data || data.length === 0)) {
-      const moduleNum = node.id.split('_')[1]?.replace(/^0+/, '');
-      const { data: sourceData } = await supabase
-        .from('knowledge_vault')
-        .select('id, content_type, raw_content, media_url, metadata')
-        .eq('blueprint_id', node.blueprintId)
-        .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%,metadata->>source_name.eq.POLARIS_BLUEPRINT`)
-        .limit(10);
-      if (sourceData && sourceData.length > 0) return sourceData;
+      if (error) {
+        console.error('[Architect DB Error] RPC Failed:', error);
+        throw error;
+      }
+
+      if (strictModule && (!data || data.length === 0)) {
+        console.log('[Architect] Strict match empty. Fetching module-specific and global blueprint facts...');
+        const moduleNum = node.id.split('_')[1]?.replace(/^0+/, '');
+        const { data: sourceData, error: fetchError } = await supabase
+          .from('knowledge_vault')
+          .select('id, content_type, raw_content, media_url, metadata')
+          .eq('blueprint_id', node.blueprintId)
+          .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%,metadata->>source_name.eq.POLARIS_BLUEPRINT`)
+          .limit(20);
+        
+        if (fetchError) {
+          console.error('[Architect DB Error] Manual fetch failed:', fetchError);
+          throw fetchError;
+        }
+        return sourceData || [];
+      }
+
+      return data || [];
+    } catch (err) {
+      console.error('[Architect DB Error] Retrieval Pipeline Crash:', err);
+      throw err;
     }
-
-    if (error) throw error;
-    return data || [];
   }
 
   private async performAdversarialAudit(draft: string, factLedger: string) {
