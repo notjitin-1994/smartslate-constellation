@@ -135,7 +135,7 @@ function ArchitectureCanvasContent() {
   const { setIsConstellationMode } = useSidebar();
 
   // --- PERSISTENCE HOOK ---
-  const { state, updateState, isSyncing, constellationId } = useConstellationPersistence(blueprintId);
+  const { state, updateState, isSyncing } = useConstellationPersistence(blueprintId);
 
   useEffect(() => {
     const fetchBlueprint = async () => {
@@ -299,9 +299,9 @@ function ArchitectureCanvasContent() {
           </div>
         </header>
 
-        {/* ZEN EDITOR AREA */}
-        <div className="flex-1 overflow-y-auto px-12 pb-12 pt-4 custom-scrollbar">
-           <div className="max-w-4xl mx-auto w-full h-full min-h-[80vh] rounded-3xl border border-white/5 bg-[#0F172A]/20 backdrop-blur-sm shadow-2xl relative overflow-hidden">
+        {/* ZEN EDITOR AREA (Dissolved Container) */}
+        <div className="flex-1 overflow-y-auto px-12 lg:px-24 pb-20 pt-4 custom-scrollbar relative z-10">
+            <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
                 <ScriptDraftingWorkspace 
                   content={activeScript?.script || ""}
@@ -313,27 +313,30 @@ function ArchitectureCanvasContent() {
                   isLoading={isDrafting}
                 />
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12">
-                   <div className="w-24 h-24 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 relative">
-                     <Lightbulb size={40} className="text-indigo-400 relative z-10" />
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center justify-center text-center py-32"
+                >
+                   <div className="w-24 h-24 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 relative group">
+                     <Lightbulb size={40} className="text-indigo-400 relative z-10 group-hover:scale-110 transition-transform" />
                      <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full" />
                    </div>
-                   <h3 className="text-2xl font-bold text-white mb-4 tracking-tight">Immersive Architecture Workspace</h3>
-                   <p className="text-slate-400 text-sm max-w-md leading-relaxed mb-8">
-                     Your instructional design canvas is online. Use the <b>Neural Trace</b> sidebar to navigate through strategic nodes.
+                   <h3 className="text-3xl font-bold text-white mb-4 tracking-tighter">Architecture Hub</h3>
+                   <p className="text-slate-400 text-sm max-w-sm leading-relaxed mb-12 font-light">
+                     Select a neural node to begin drafting high-fidelity instructional content grounded in your organizational truth.
                    </p>
-                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-left max-w-lg">
-                      <div className="p-3 rounded-xl bg-cyan-500/10">
-                        <ShieldCheck size={20} className="text-cyan-400" />
+                   <div className="flex items-center gap-6 p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 text-left max-w-lg backdrop-blur-md">
+                      <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
+                        <ShieldCheck size={24} className="text-cyan-400" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-slate-200 uppercase mb-1">Triple-Pass Integrity Shield</h4>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">Your work is automatically persisted locally and synchronized to the cloud ID: <span className="font-mono text-indigo-400">{constellationId?.substring(0, 8)}</span>.</p>
+                        <h4 className="text-xs font-black text-slate-200 uppercase tracking-widest mb-1">Integrity Pass Enabled</h4>
+                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Every claim is mathematically verified against the Atomic Fact Ledger using high-precision semantic matching.</p>
                       </div>
                    </div>
-                </div>
+                </motion.div>
               )}
-           </div>
+            </AnimatePresence>
         </div>
       </Box>
 
