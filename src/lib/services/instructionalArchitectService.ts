@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { supabase as defaultClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
 import { generateText, embed } from 'ai';
 import { google } from '@/lib/google';
 
@@ -133,7 +133,10 @@ export class InstructionalArchitectService {
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
-    const supabase = defaultClient;
+    // USE ADMIN CLIENT FOR SERVER-SIDE RAG: Bypasses RLS to allow the Architect to "read" the vault.
+    // Security: This key never leaves the server.
+    const supabase = createAdminClient();
+    
     const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
     const { embedding } = await embed({
       model: google.textEmbeddingModel('gemini-embedding-2'),
