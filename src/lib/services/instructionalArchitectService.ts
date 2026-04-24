@@ -43,6 +43,18 @@ export class InstructionalArchitectService {
   async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
     console.log(`[Architect] [VERIFY_INIT] Mapping Constellation for: ${node.title}`);
 
+    // --- PASS 0: PRE-FLIGHT DIAGNOSTIC ---
+    try {
+      const supabase = createAdminClient();
+      const { error: healthCheck } = await supabase.from('knowledge_vault').select('id').limit(1);
+      if (healthCheck) {
+        console.error('[Architect Health] Supabase Access Denied:', healthCheck);
+        throw new Error(`Database Access Denied: ${healthCheck.message}`);
+      }
+    } catch (err: any) {
+      throw new Error(`Infrastructure Denied: ${err.message}`);
+    }
+
     try {
       // --- PASS 1: TIERED RETRIEVAL ---
       let sourceChunks = await this.retrieveGroundingContext(node, true);
@@ -87,7 +99,7 @@ export class InstructionalArchitectService {
 
       // --- PASS 3: CONSTRAINED SYNTHESIS ---
       const { text: draft } = await generateText({
-        model: google('gemini-3.1-pro-preview'),
+        model: google('gemini-1.5-pro'),
         temperature: 0.1, 
         system: `You are a World-Class Instructional Architect. Your goal is to draft a production-ready storyboard (Constellation) using ONLY the [FACT_LEDGER].
         
@@ -129,7 +141,7 @@ export class InstructionalArchitectService {
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
     if (!rawContext.trim()) return '';
     const { text } = await generateText({
-      model: google('gemini-3.1-pro-preview'),
+      model: google('gemini-1.5-pro'),
       system: `Distill the provided chunks into a numbered list of UNIQUE Atomic Facts related to "${nodeTitle}". Capture granular details, advice, and metrics.`,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
@@ -143,9 +155,8 @@ export class InstructionalArchitectService {
     
     const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
     const { embedding } = await embed({
-      model: google.textEmbeddingModel('gemini-embedding-2'),
+      model: google.textEmbeddingModel('text-embedding-004'),
       value: queryText,
-      providerOptions: { google: { outputDimensionality: 3072 } }
     });
 
     try {
@@ -188,7 +199,7 @@ export class InstructionalArchitectService {
 
   private async performAdversarialAudit(draft: string, factLedger: string) {
     const { text } = await generateText({
-      model: google('gemini-3-flash-preview'),
+      model: google('gemini-1.5-flash'),
       system: `You are an Adversarial Integrity Sentinel. 
       Verify that every factual claim in the DRAFT is explicitly supported by a Fact in the [FACT_LEDGER].
       Ignore conversational framing (greetings, transitions). 
