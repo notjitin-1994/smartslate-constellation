@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 // 1. Sanitize standard keys
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || '';
@@ -12,14 +13,25 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Admin Client: SERVER ONLY. 
- * Bypasses RLS. Use ONLY for system-level tasks (e.g. initial blueprint harvest).
+ * Bypasses RLS using the Service Role Key.
+ * We use the standard supabase-js createClient for definitive RLS bypass.
  */
 export const createAdminClient = () => {
   if (typeof window !== 'undefined') {
     throw new Error('CRITICAL SECURITY ERROR: Admin Client initialized in browser.');
   }
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  return createBrowserClient(supabaseUrl, serviceKey || '');
+  
+  if (!serviceKey) {
+    console.error('[Supabase Admin] CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing.');
+  }
+
+  return createSupabaseClient(supabaseUrl, serviceKey || '', {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
 };
 
 export const createClient = () => supabase;

@@ -10,7 +10,8 @@ import {
   UploadCloud, 
   X, 
   FileCode,
-  Trash2
+  Trash2,
+  Cloud
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -267,18 +268,27 @@ export const KnowledgeVaultModal = ({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="relative mb-10">
-                <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="w-24 h-24 rounded-full border border-[#A7DADB]/20 border-t-[#A7DADB]" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-[#A7DADB] rounded-full shadow-[0_0_20px_#A7DADB]" />
+            <div className="flex flex-col items-center justify-center py-20 px-10">
+              <div className="p-16 rounded-[4rem] bg-white/[0.01] border border-[#A7DADB]/10 relative overflow-hidden flex flex-col items-center w-full max-w-md shadow-2xl">
+                <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
+                <div className="relative mb-12">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }} className="w-32 h-32 rounded-full border-2 border-[#A7DADB]/10 border-t-[#A7DADB] shadow-[0_0_30px_rgba(167,218,219,0.1)]" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Cloud size={32} className="text-[#A7DADB] animate-pulse" />
+                  </div>
                 </div>
-              </div>
-              <h3 className="mb-2 text-xl font-bold text-white tracking-tight">Processing Assets</h3>
-              <p className="mb-10 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Building Neural Map</p>
-              <div className="w-full max-w-sm">
-                <div className="h-1 w-full rounded-full bg-white/[0.03] overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-[#A7DADB]" />
+                <h3 className="mb-3 text-2xl font-bold text-white tracking-tighter uppercase">Architectural Synthesis</h3>
+                <p className="mb-10 text-[10px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/40 text-center leading-relaxed">
+                  Mapping institutional knowledge<br/>into neural constellations
+                </p>
+                <div className="w-full">
+                  <div className="h-1 w-full rounded-full bg-white/[0.03] overflow-hidden border border-white/5">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-gradient-to-r from-[#4F46E5] to-[#A7DADB]" />
+                  </div>
+                  <div className="mt-4 flex justify-between items-center">
+                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Progress</span>
+                     <span className="text-[10px] font-mono font-bold text-[#A7DADB]">{Math.round(progress)}%</span>
+                  </div>
                 </div>
               </div>
             </div>

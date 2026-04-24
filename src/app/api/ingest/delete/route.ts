@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -13,6 +13,8 @@ export async function DELETE(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supabase = createAdminClient();
 
     // Delete all chunks for this specific file in this blueprint
     const { error } = await supabase

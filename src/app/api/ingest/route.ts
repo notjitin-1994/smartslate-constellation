@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       fileName,
       metadata,
       blueprintContext,
+      useAdmin: true,
     });
 
     return NextResponse.json({

@@ -266,19 +266,39 @@ function ArchitectureCanvasContent() {
                 </Box>
                 <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: 'white', bgcolor: 'white/[0.05]', '&:hover': { bgcolor: 'white/[0.1]' } }}><X size={24} /></IconButton>
               </Box>
-              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: '40px', border: '1px solid rgba(255,255,255,0.05)', p: 6, overflow: 'auto' }}>
-                <pre className="text-[#A7DADB]/80 text-[13px] font-mono leading-relaxed">
-                  {JSON.stringify({
-                    uls_version: "1.0-GLA",
-                    meta: { polaris_id: blueprintId, status: "READY" },
-                    active_node: currentModule ? {
-                      node_id: currentModule.id,
-                      modality: currentModule.targetModality,
-                      grounding: activeScript?.groundingScore
-                    } : null,
-                    full_sequence: modules.map((m: any) => ({ id: m.id, title: m.title }))
-                  }, null, 4)}
-                </pre>
+              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: '48px', border: '1px solid rgba(167, 218, 219, 0.05)', p: 8, overflow: 'auto', position: 'relative' }}>
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#4F46E5]/40 to-transparent" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] space-y-4">
+                      <span className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-widest">Core Metadata</span>
+                      <pre className="text-[#A7DADB] text-xs font-mono">
+                        {JSON.stringify({
+                          uls_version: "1.0-GLA",
+                          meta: { polaris_id: blueprintId, status: "READY" }
+                        }, null, 2)}
+                      </pre>
+                   </div>
+                   <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] space-y-4">
+                      <span className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-widest">Active Node</span>
+                      <pre className="text-[#A7DADB] text-xs font-mono">
+                        {JSON.stringify(currentModule ? {
+                          node_id: currentModule.id,
+                          modality: currentModule.targetModality,
+                          grounding: activeScript?.groundingScore
+                        } : null, null, 2)}
+                      </pre>
+                   </div>
+                   <div className="md:col-span-2 p-8 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] space-y-4">
+                      <span className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-widest">Full Sequence Trace</span>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {modules.map((m: any) => (
+                          <div key={m.id} className="p-3 rounded-xl bg-black/40 border border-white/5 text-[10px] font-mono text-slate-400">
+                             {m.id}: {m.title}
+                          </div>
+                        ))}
+                      </div>
+                   </div>
+                </div>
               </Box>
             </Box>
           </Box>
