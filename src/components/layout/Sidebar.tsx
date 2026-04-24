@@ -96,7 +96,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`hidden h-screen flex-col md:flex fixed left-0 top-0 z-50 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) glass-sidebar ${
-        collapsed ? 'w-20' : 'w-[320px]'
+        collapsed ? 'w-16' : 'w-72'
       }`}
     >
       <div className={`flex items-center h-20 ${collapsed ? 'justify-center' : 'justify-between px-6'} relative z-20`}>
@@ -121,7 +121,7 @@ export default function Sidebar() {
         
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="text-slate-500 hover:text-[#A7DADB] p-2 rounded-lg transition-all"
+          className={`text-slate-500 hover:text-[#A7DADB] p-2 rounded-lg transition-all ${collapsed ? 'w-8 h-8 flex items-center justify-center' : ''}`}
         >
           <IconSidebarToggle className={`h-5 w-5 transition-transform duration-500 ${collapsed ? 'rotate-180' : ''}`} />
         </button>
@@ -140,7 +140,7 @@ export default function Sidebar() {
             >
               <div className="space-y-3">
                 {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Platform</h2>}
-                <div className="space-y-1">
+                <div className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : ''}`}>
                   {quickAccessItems.map((item) => {
                     const isActive = pathname === item.path;
                     return (
@@ -148,13 +148,13 @@ export default function Sidebar() {
                         key={item.title}
                         onClick={() => router.push(item.path)}
                         title={collapsed ? item.title : ''}
-                        className={`group flex items-center gap-4 w-full rounded-xl transition-all duration-300 ${
-                          collapsed ? 'justify-center h-12 w-12' : 'px-4 py-3'
+                        className={`group flex items-center transition-all duration-300 ${
+                          collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl'
                         } ${
                           isActive ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'
                         }`}
                       >
-                        <item.icon size={collapsed ? 22 : 18} className="shrink-0" />
+                        <item.icon size={collapsed ? 20 : 18} className="shrink-0" />
                         {!collapsed && <span className="text-[13px] font-bold tracking-tight">{item.title}</span>}
                       </button>
                     );
@@ -180,20 +180,26 @@ export default function Sidebar() {
 
               <div className="space-y-3">
                 {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Solara Suite</h2>}
-                <div className="space-y-1">
+                <div className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : ''}`}>
                   {solaraSuiteLinks.map((item) => (
                     <button
                       key={item.name}
                       onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
                       disabled={item.badgeType === 'soon'}
-                      className={`group flex items-center justify-between w-full rounded-xl transition-all duration-300 ${
-                        collapsed ? 'hidden' : 'px-4 py-3 text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'
-                      }`}
+                      className={`group flex items-center transition-all duration-300 ${
+                        collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl justify-between'
+                      } ${collapsed ? 'text-slate-600' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'}`}
                     >
-                      <span className="text-[13px] font-bold">{item.name}</span>
-                      <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
-                        item.badgeType === 'active' ? 'border-[#A7DADB]/20 bg-[#A7DADB]/5 text-[#A7DADB]' : 'border-slate-800 bg-slate-900 text-slate-600'
-                      }`}>{item.badge}</span>
+                      {collapsed ? (
+                        <Monitor size={18} />
+                      ) : (
+                        <>
+                          <span className="text-[13px] font-bold">{item.name}</span>
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
+                            item.badgeType === 'active' ? 'border-[#A7DADB]/20 bg-[#A7DADB]/5 text-[#A7DADB]' : 'border-slate-800 bg-slate-900 text-slate-600'
+                          }`}>{item.badge}</span>
+                        </>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -206,7 +212,7 @@ export default function Sidebar() {
               variants={variants}
               initial="initial" animate="animate" exit="exit"
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="px-4 py-4 space-y-2"
+              className={`px-4 py-4 space-y-2 ${collapsed ? 'flex flex-col items-center' : ''}`}
             >
               {modules.map((mod, i) => {
                 const isActive = activeNodeIdx === i;
@@ -214,11 +220,13 @@ export default function Sidebar() {
                   <button 
                     key={mod.id} 
                     onClick={() => handleNodeClick(i)}
-                    className={`w-full group relative flex items-center gap-4 p-3.5 rounded-2xl transition-all duration-300
+                    className={`group relative flex items-center transition-all duration-300
+                      ${collapsed ? 'justify-center h-11 w-11 rounded-xl' : 'p-3.5 gap-4 w-full rounded-2xl'}
                       ${isActive ? 'bg-[#4F46E5]/10 border border-[#4F46E5]/20' : 'hover:bg-white/[0.03] border border-transparent'}
                     `}
                   >
-                    <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-500
+                    <div className={`shrink-0 flex items-center justify-center border transition-all duration-500
+                      ${collapsed ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'}
                       ${isActive ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-[#4F46E5]' : 'bg-slate-900/50 border-[#A7DADB]/10 text-slate-500 group-hover:border-[#A7DADB]/30'}
                     `}>
                       {getModalityIcon(mod.targetModality)}
@@ -229,7 +237,7 @@ export default function Sidebar() {
                         <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
                       </div>
                     )}
-                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-3 bottom-3 w-1 bg-[#4F46E5] rounded-full" />}
+                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-2 bottom-2 w-1 bg-[#4F46E5] rounded-full" />}
                   </button>
                 );
               })}
@@ -252,6 +260,14 @@ export default function Sidebar() {
               </div>
             </button>
           </motion.div>
+        )}
+        
+        {collapsed && isConstellationMode && (
+          <div className="flex flex-col items-center pb-6 mt-4">
+             <button onClick={() => setIsConstellationMode(false)} className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500 hover:text-[#A7DADB] transition-all">
+                <Icons.Blueprints size={18} />
+             </button>
+          </div>
         )}
       </div>
 
