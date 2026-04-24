@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   CircularProgress, 
@@ -51,6 +51,20 @@ function ArchitectureCanvasContent() {
   // --- PERSISTENCE HOOK ---
   const { state, updateState, isSyncing } = useConstellationPersistence(blueprintId);
 
+  // --- DATA NORMALIZATION (Polaris V4 to Constellation Standard) ---
+  const modules = useMemo(() => {
+    const rawModules = blueprint?.blueprint_json?.content_outline?.modules || [];
+    return rawModules.map((m: any) => ({
+      ...m,
+      id: m.module_id || m.id || 'NO_ID',
+      targetModality: m.delivery_method || m.targetModality || 'TEXT',
+      pedagogicalMode: m.pedagogicalMode || 'Direct Instruction'
+    }));
+  }, [blueprint]);
+
+  const activeIdx = Math.min(Math.max(0, state.activeNodeIdx), Math.max(0, modules.length - 1));
+  const currentModule = modules[activeIdx] || null;
+
   useEffect(() => {
     async function loadBlueprint() {
       if (!blueprintId) return;
@@ -79,12 +93,11 @@ function ArchitectureCanvasContent() {
 
   // Sync state to Sidebar via Custom Event
   useEffect(() => {
-    if (!blueprint) return;
-    const modulesData = blueprint.blueprint_json?.content_outline?.modules || [];
+    if (!modules.length) return;
     window.dispatchEvent(new CustomEvent('constellation-sidebar-sync', {
-      detail: { modules: modulesData, activeIdx: state.activeNodeIdx }
+      detail: { modules: modules, activeIdx: activeIdx }
     }));
-  }, [blueprint, state.activeNodeIdx]);
+  }, [modules, activeIdx]);
 
   // Listen for Sidebar Node Selection
   useEffect(() => {
@@ -95,11 +108,6 @@ function ArchitectureCanvasContent() {
     window.addEventListener('constellation-node-select', handleNodeSelect);
     return () => window.removeEventListener('constellation-node-select', handleNodeSelect);
   }, [updateState]);
-
-  // --- TRAVERSE NESTED SCHEMA ---
-  const modules = blueprint?.blueprint_json?.content_outline?.modules || [];
-  const activeIdx = Math.min(Math.max(0, state.activeNodeIdx), Math.max(0, modules.length - 1));
-  const currentModule = modules[activeIdx] || null;
 
   const handleDraftScript = async () => {
     if (!currentModule || !blueprintId) {
@@ -130,6 +138,7 @@ function ArchitectureCanvasContent() {
         throw new Error(result.error);
       }
     } catch (err: unknown) {
+      console.error('[Drafting Error]:', err);
       alert(`Drafting Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
     } finally { setIsDrafting(false); }
   };
