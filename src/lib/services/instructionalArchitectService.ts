@@ -1,7 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { supabase } from '@/lib/supabase';
+import { supabase as defaultClient } from '@/lib/supabase';
 import { generateText, embed } from 'ai';
 import { google } from '@/lib/google';
+
+export type ContentType = 'text' | 'image' | 'video' | 'pdf' | 'docx';
+
+export interface IngestAsset {
+  blueprintId: string;
+  contentType: ContentType;
+  content: string; // Base64 for media/docs or raw text
+  fileName: string;
+  metadata?: Record<string, unknown>;
+  blueprintContext?: Record<string, unknown> | null;
+  useAdmin?: boolean; 
+}
 
 export interface ArchitecturalNode {
   id: string;
@@ -29,7 +41,7 @@ export class InstructionalArchitectService {
    * Implementation: Structured Fact-Verification (0% Hallucination Target).
    */
   async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
-    console.log(`[Architect] [VERIFY_INIT] Drafting script: ${node.title}`);
+    console.log(`[Architect] [VERIFY_INIT] Mapping Constellation for: ${node.title}`);
 
     try {
       // --- PASS 1: TIERED RETRIEVAL ---
@@ -37,6 +49,7 @@ export class InstructionalArchitectService {
       let isDataSparse = false;
 
       if (sourceChunks.length === 0) {
+        console.log('[Architect] Strict match empty. Fetching module-specific and global blueprint facts...');
         sourceChunks = await this.retrieveGroundingContext(node, false);
         if (sourceChunks.length === 0) isDataSparse = true;
       }
@@ -63,7 +76,7 @@ export class InstructionalArchitectService {
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
         temperature: 0.1, 
-        system: `You are a World-Class Instructional Architect. Your goal is to draft a production-ready storyboard using ONLY the [FACT_LEDGER].
+        system: `You are a World-Class Instructional Architect. Your goal is to draft a production-ready storyboard (Constellation) using ONLY the [FACT_LEDGER].
         
         --- PRODUCTION ARTIFACT STANDARDS ---
         You MUST use the following tags to categorize all instructional content:
@@ -95,7 +108,7 @@ export class InstructionalArchitectService {
         groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
       };
     } catch (err) {
-      console.error(`[Architect Error]:`, err);
+      console.error(`[Architect Error] Pipeline Crash:`, err);
       throw err;
     }
   }
@@ -111,6 +124,7 @@ export class InstructionalArchitectService {
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
+    const supabase = defaultClient;
     const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
     const { embedding } = await embed({
       model: google.textEmbeddingModel('gemini-embedding-2'),
@@ -121,7 +135,7 @@ export class InstructionalArchitectService {
     try {
       const { data, error } = await supabase.rpc('match_knowledge', {
         query_embedding: embedding,
-        match_threshold: strictModule ? 0.3 : 0.7, 
+        match_threshold: strictModule ? 0.3 : 0.75, 
         match_count: 15,
         p_blueprint_id: node.blueprintId,
         p_module_id: strictModule ? node.id : null
@@ -132,18 +146,18 @@ export class InstructionalArchitectService {
         throw error;
       }
 
+      // If strict match fails, perform a fallback query to ensure we catch global blueprint data
       if (strictModule && (!data || data.length === 0)) {
-        console.log('[Architect] Strict match empty. Fetching module-specific and global blueprint facts...');
-        const moduleNum = node.id.split('_')[1]?.replace(/^0+/, '');
+        const moduleNum = node.id.split('_')[1]?.replace(/^0+/, '') || node.id.replace(/[^\d]/g, '');
         const { data: sourceData, error: fetchError } = await supabase
           .from('knowledge_vault')
           .select('id, content_type, raw_content, media_url, metadata')
           .eq('blueprint_id', node.blueprintId)
           .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%,metadata->>source_name.eq.POLARIS_BLUEPRINT`)
-          .limit(20);
+          .limit(15);
         
         if (fetchError) {
-          console.error('[Architect DB Error] Manual fetch failed:', fetchError);
+          console.error('[Architect DB Error] Manual fallback failed:', fetchError);
           throw fetchError;
         }
         return sourceData || [];
@@ -151,7 +165,7 @@ export class InstructionalArchitectService {
 
       return data || [];
     } catch (err) {
-      console.error('[Architect DB Error] Retrieval Pipeline Crash:', err);
+      console.error('[Architect DB Error] Critical Retrieval Crash:', err);
       throw err;
     }
   }
