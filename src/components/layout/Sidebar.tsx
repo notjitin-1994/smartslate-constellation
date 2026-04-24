@@ -13,7 +13,6 @@ import { useSidebar } from '@/lib/SidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { 
-  ChevronLeft, 
   ChevronRight,
   Workflow, 
   Video, 
@@ -21,7 +20,6 @@ import {
   FileText, 
   MessageSquare, 
   Monitor,
-  ArrowLeft,
   ArrowRight,
   Brain
 } from 'lucide-react';
@@ -141,24 +139,6 @@ export default function Sidebar() {
           >
             <IconSidebarToggle className={`h-5 w-5 transition-transform duration-500 ${collapsed ? 'rotate-180' : ''}`} />
           </button>
-        )}
-
-        {isConstellationMode && !collapsed && (
-           <button 
-             onClick={() => setIsConstellationMode(false)}
-             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-all group"
-           >
-             <ArrowLeft size={12} className="group-hover:-translate-x-1 transition-transform" /> BACK
-           </button>
-        )}
-
-        {!isConstellationMode && !collapsed && pathname === '/constellation' && (
-           <button 
-             onClick={() => setIsConstellationMode(true)}
-             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 hover:text-indigo-200 hover:bg-indigo-500/20 transition-all group animate-in fade-in slide-in-from-left-2"
-           >
-             NEURAL TRACE <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
-           </button>
         )}
       </div>
 
@@ -300,18 +280,9 @@ export default function Sidebar() {
             </button>
             
             <div className="flex items-center gap-2">
-               <button onClick={signOut} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all">
+               <button onClick={signOut} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all">
                  <Icons.Logout size={14} /> Log Out
                </button>
-               {isConstellationMode ? (
-                  <button onClick={() => setIsConstellationMode(false)} className="w-12 h-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all">
-                    <ArrowLeft size={16} />
-                  </button>
-               ) : (
-                  <button onClick={() => setCollapsed(true)} className="w-12 h-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all">
-                    <ChevronLeft size={16} />
-                  </button>
-               )}
             </div>
           </div>
         ) : (
