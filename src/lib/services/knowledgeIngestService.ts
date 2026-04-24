@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase as defaultClient, createAdminClient } from '@/lib/supabase';
 import { generateText, embed, embedMany, generateObject } from 'ai';
 import { google } from '@/lib/google';
 import { extractText, getDocumentProxy } from 'unpdf';
@@ -14,6 +14,7 @@ export interface IngestAsset {
   fileName: string;
   metadata?: Record<string, unknown>;
   blueprintContext?: Record<string, unknown> | null;
+  useAdmin?: boolean; // New flag for server-side auth bypass
 }
 
 export class KnowledgeIngestService {
@@ -28,14 +29,16 @@ export class KnowledgeIngestService {
 
   /**
    * Automatically harvests strategic facts from the Polaris Blueprint
+   * Uses Admin Client (RLS Bypass) as this is a background system task.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async harvestBlueprint(blueprintId: string, blueprintJson: any) {
     console.log(`[Ingest] [HARVEST] Initializing Strategic Harvesting for: ${blueprintId}`);
+    const admin = createAdminClient();
     
     try {
       // 1. Check if already harvested
-      const { count } = await supabase
+      const { count } = await admin
         .from('knowledge_vault')
         .select('*', { count: 'exact', head: true })
         .eq('blueprint_id', blueprintId)
@@ -86,7 +89,7 @@ export class KnowledgeIngestService {
         },
       }));
 
-      await supabase.from('knowledge_vault').insert(rows);
+      await admin.from('knowledge_vault').insert(rows);
       console.log('[Ingest] [HARVEST] Strategic Blueprint successfully added to Truth Ledger.');
     } catch (err) {
       console.error('[Ingest] [HARVEST_ERROR]:', err);
@@ -94,6 +97,7 @@ export class KnowledgeIngestService {
   }
 
   private async ingestDocument(asset: IngestAsset) {
+    const supabase = asset.useAdmin ? createAdminClient() : defaultClient;
     let fullText = '';
     console.log(`[Ingest] Processing document: ${asset.fileName}`);
 
@@ -219,6 +223,7 @@ export class KnowledgeIngestService {
   }
 
   private async ingestMultimodalAsset(asset: IngestAsset) {
+    const supabase = asset.useAdmin ? createAdminClient() : defaultClient;
     console.log(`[Ingest] Processing multi-modal: ${asset.fileName}`);
     try {
       const { text: description } = await generateText({

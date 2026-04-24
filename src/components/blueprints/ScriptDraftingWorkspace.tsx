@@ -3,7 +3,9 @@
 
 import React, { useState } from 'react';
 import { 
+  BookOpen, 
   Activity, 
+  History, 
   X, 
   Search,
   AlertOctagon,
@@ -11,12 +13,10 @@ import {
   Monitor,
   Mic2,
   Zap,
-  GitMerge,
   FileEdit,
   ChevronRight,
   Info,
-  BookOpen,
-  History
+  Workflow
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -48,7 +48,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   // --- Tooltip Content Helpers ---
   const TooltipContent = ({ title, body }: { title: string, body: string }) => (
     <Box sx={{ p: 1.5, maxWidth: 280 }}>
-      <Typography variant="caption" sx={{ fontWeight: 900, color: '#A7DADB', textTransform: 'uppercase', display: 'block', mb: 1, letterSpacing: '0.1em' }}>
+      <Typography variant="caption" sx={{ fontStyle: 'normal', fontWeight: 900, color: '#A7DADB', textTransform: 'uppercase', display: 'block', mb: 1, letterSpacing: '0.1em' }}>
         {title}
       </Typography>
       <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', lineHeight: 1.6, fontWeight: 500 }}>
@@ -60,14 +60,12 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   return (
     <div className="flex flex-col w-full relative">
       
-      {/* --- FLOATING METRIC HUD (Teal Accented Glass) --- */}
+      {/* --- FLOATING METRIC HUD (Refined Glassmorphic) --- */}
       <div className="sticky top-0 py-6 mb-12 z-40">
         <div className="max-w-fit mx-auto px-10 py-4 rounded-[2rem] border border-[#A7DADB]/20 bg-[#0d1b2a]/60 backdrop-blur-2xl shadow-2xl flex items-center gap-12 relative overflow-hidden">
-          {/* Subtle Inner Glow */}
           <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
           
           <div className="flex items-center gap-10 relative z-10">
-            {/* Integrity Pill */}
             <Tooltip 
               enterTouchDelay={0} leaveTouchDelay={2500}
               title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. 'Verified' means every factual claim is mathematically anchored to your source documents." />}
@@ -90,7 +88,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
             <div className="h-8 w-px bg-white/[0.05]" />
 
-            {/* Grounding Density */}
             <Tooltip 
               enterTouchDelay={0} leaveTouchDelay={2500}
               title={<TooltipContent title="Grounding Density" body="Measures document coverage. A high score means the Architect successfully utilized the majority of your provided requirements." />}
@@ -109,7 +106,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
               </div>
             </Tooltip>
 
-            {/* Cognitive Velocity */}
             <Tooltip 
               enterTouchDelay={0} leaveTouchDelay={2500}
               title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}
@@ -132,7 +128,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           <div className="flex items-center gap-4 relative z-10">
              <button 
                onClick={() => setIsInsightOpen(true)}
-               className="px-6 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB]/10 hover:text-white transition-all shadow-lg"
+               className="px-6 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB] hover:text-black transition-all shadow-lg"
              >
                Knowledge Verification
              </button>
@@ -145,15 +141,10 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-16 py-12">
-               {/* Skeletal Title */}
                <div className="space-y-6">
-                 <div className="h-20 w-4/5 bg-white/[0.02] rounded-3xl animate-pulse relative overflow-hidden">
-                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
-                 </div>
+                 <div className="h-20 w-4/5 bg-white/[0.02] rounded-3xl animate-pulse relative overflow-hidden" />
                  <div className="h-4 w-1/4 bg-[#A7DADB]/5 rounded-full animate-pulse" />
                </div>
-               
-               {/* Skeletal Visual Artifact */}
                <div className="p-10 rounded-[2.5rem] border border-[#A7DADB]/5 bg-white/[0.01] space-y-4">
                   <div className="h-3 w-32 bg-[#A7DADB]/10 rounded-full" />
                   <div className="space-y-2">
@@ -161,15 +152,10 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     <div className="h-4 w-3/4 bg-white/[0.02] rounded-full" />
                   </div>
                </div>
-
-               {/* Skeletal Narration */}
                <div className="pl-14 space-y-4 border-l border-white/5">
                   <div className="h-2 w-24 bg-cyan-500/10 rounded-full" />
                   <div className="h-6 w-full bg-white/[0.03] rounded-full" />
-                  <div className="h-6 w-4/5 bg-white/[0.03] rounded-full" />
                </div>
-
-               {/* Skeletal Activity */}
                <div className="p-12 rounded-[3rem] border border-[#A7DADB]/5 bg-emerald-500/[0.02] space-y-4">
                   <div className="h-4 w-40 bg-emerald-500/10 rounded-full" />
                   <div className="h-4 w-full bg-white/[0.02] rounded-full" />
@@ -237,7 +223,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     if (text.includes('[ACTIVITY]')) {
                       return (
                         <div className="my-16 p-12 rounded-[3rem] bg-[#A7DADB]/[0.02] border border-[#A7DADB]/10 shadow-2xl w-full overflow-hidden relative">
-                          <div className="absolute inset-0 bg-[#A7DADB]/[0.01] pointer-events-none" />
                           <div className="flex items-center gap-4 mb-6 text-[#A7DADB] relative z-10">
                              <Zap size={20} fill="currentColor" />
                              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Engagement Protocol</span>
@@ -251,12 +236,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
                     if (text.includes('[BRANCHING]')) {
                       return (
-                        <div className="my-14 p-8 rounded-[2rem] border border-white/[0.05] bg-white/[0.01] w-full overflow-hidden">
-                          <div className="flex items-center gap-4 mb-5 text-[#A7DADB]/60">
-                             <GitMerge size={18} />
-                             <span className="text-[9px] font-black uppercase tracking-[0.3em]">Logic Path</span>
+                        <div className="my-14 p-10 rounded-[2.5rem] border border-[#A7DADB]/20 bg-white/[0.01] w-full overflow-hidden relative group/logic shadow-2xl">
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/5 to-transparent pointer-events-none" />
+                          <div className="flex items-center gap-4 mb-6 text-[#A7DADB] relative z-10">
+                             <Workflow size={22} className="group-hover/logic:rotate-90 transition-transform duration-700" />
+                             <span className="text-[11px] font-black uppercase tracking-[0.4em]">Architectural Logic</span>
                           </div>
-                          <div className="text-slate-400 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">
+                          <div className="text-slate-300 font-mono text-base leading-relaxed break-words whitespace-pre-wrap relative z-10 pl-6 border-l border-[#A7DADB]/20">
                             {text.replace('[BRANCHING]:', '').replace('[BRANCHING]', '').trim()}
                           </div>
                         </div>
@@ -275,25 +261,14 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                       );
                     }
 
-                    if (text.includes('[MISSING_DATA:')) {
-                      const parts = text.split(/(\[MISSING_DATA:.*?\])/g);
-                      return (
-                        <p className="mb-10 text-slate-300 font-light text-2xl break-words">
-                          {parts.map((part, i) => {
-                            if (part.startsWith('[MISSING_DATA:')) {
-                              const label = part.replace('[MISSING_DATA: ', '').replace('[MISSING_DATA:', '').replace(']', '');
-                              return (
-                                <span key={i} className="inline-flex px-3 py-1 mx-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black uppercase tracking-widest">
-                                  {label}
-                                </span>
-                              );
-                            }
-                            return part;
-                          })}
+                    // --- WRAP STANDARD TEXT IN CONTAINERS ---
+                    return (
+                      <div className="my-8 p-10 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] transition-all hover:bg-white/[0.02] w-full group/para">
+                        <p className="leading-relaxed text-slate-400 font-light text-xl tracking-tight break-words group-hover/para:text-slate-200 transition-colors">
+                          {children}
                         </p>
-                      );
-                    }
-                    return <p className="mb-12 leading-relaxed text-slate-400 font-light text-xl tracking-tight break-words">{children}</p>;
+                      </div>
+                    );
                   },
                   blockquote: ({children}) => (
                     <div className="my-24 p-16 rounded-[3.5rem] bg-white/[0.01] border-l-2 border-[#A7DADB]/20 text-3xl font-light text-[#A7DADB]/80 leading-relaxed italic shadow-2xl break-words relative overflow-hidden">
