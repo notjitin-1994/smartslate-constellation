@@ -109,10 +109,10 @@ export class InstructionalArchitectService {
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
     if (!rawContext.trim()) return '';
     const { text } = await generateText({
-      model: google('gemini-3.1-pro-preview'), // Use Pro for better extraction
+      model: google('gemini-3.1-pro-preview'), 
       system: `You are an Atomic Fact Distiller. 
-      Analyze the raw document chunks and extract every unique, verifiable fact, procedure, advice, or context related to "${nodeTitle}".
-      Output only a numbered list of Atomic Facts. Do not summarize; capture the granular detail.`,
+      Analyze the raw document chunks and extract every unique, verifiable fact, procedure, advice, context, or pedagogical nuance related to "${nodeTitle}".
+      Do not summarize. Extract granular details so they can be cited individually.`,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
     return text;
@@ -152,14 +152,19 @@ export class InstructionalArchitectService {
   private async performAdversarialAudit(draft: string, factLedger: string) {
     const { text } = await generateText({
       model: google('gemini-3-flash-preview'),
-      system: `You are an Integrity Sentinel. Compare the DRAFT script against the [FACT_LEDGER].
-      Identify "Factual Hallucinations"—any specific claim or procedure in the DRAFT not found in the [FACT_LEDGER].
-      NOTE: Do not flag conversational transitions or framing sentences unless they contain a new factual claim.
+      system: `You are a Claim-Only Integrity Sentinel. Your job is to verify the AUTHENTICITY of instructional content while ignoring CONVERSATIONAL VOICE.
+
+      --- THE AUDIT PROTOCOL ---
+      1. IGNORE (The Scaffolding): Do not flag greetings, pedagogical transitions (e.g. "Now we will move to..."), structural framing (e.g. "There are three pillars"), or empathetic context.
+      2. EXTRACT (The Payload): Identify every specific Factual Claim, Technical Step, Metric, or Named Procedure.
+      3. VERIFY: Check each Payload against the [FACT_LEDGER]. 
+      4. FLAG (Hallucination): Only set HALLUCINATED: YES if you find a specific factual payload that contradicts or is absent from the [FACT_LEDGER].
+
       Output format: 
       SCORE: [0-10]
       COGNITIVE_LOAD: [0-10]
       HALLUCINATED: [YES/NO]
-      CRITIQUE: [List any sentences that introduce unsupported factual knowledge.]`,
+      CRITIQUE: [List only the specific FACTUAL PAYLOADS that failed verification. Ignore voice/tone.]`,
       prompt: `DRAFT:\n${draft}\n\n[FACT_LEDGER]:\n${factLedger}`,
     });
 
