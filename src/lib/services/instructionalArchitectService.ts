@@ -55,12 +55,6 @@ export class InstructionalArchitectService {
       }
 
       // --- PASS 2: STRUCTURED FACT DISTILLATION ---
-      const contextText = sourceChunks
-        .map((c: any, i: number) => `[SOURCE ${i + 1}]: ${c.raw_content}`)
-        .join('\n\n');
-
-      const factLedger = await this.extractAtomicFacts(contextText, node.title);
-
       // Polaris Context - HARDENED DEFENSIVE EXTRACTION
       const bp = node.blueprintContext as any;
       let strategicContext = 'Institutional context unavailable.';
@@ -70,16 +64,26 @@ export class InstructionalArchitectService {
           const roles = bp.target_audience?.demographics?.roles || [];
           const levels = bp.target_audience?.demographics?.experience_levels || [];
           const goal = bp.executive_summary?.content || 'Standard Instructional Goal';
+          const delivery = bp.delivery_config?.method || bp.delivery_method || 'Standard Online';
           
           strategicContext = `
           - Audience Roles: ${Array.isArray(roles) ? roles.join(', ') : 'General'}
           - Expertise Levels: ${Array.isArray(levels) ? levels.join(', ') : 'Foundational'}
           - Strategic Goal: ${goal}
+          - Delivery Infrastructure: ${delivery}
           `;
         } catch (ctxErr) {
           console.warn('[Architect] Context extraction partial failure:', ctxErr);
         }
       }
+
+      // Merge strategic context into the distillation payload
+      const contextText = `[STRATEGIC_BLUEPRINT_CONTEXT]:\n${strategicContext}\n\n` + 
+        sourceChunks
+          .map((c: any, i: number) => `[SOURCE ${i + 1}]: ${c.raw_content}`)
+          .join('\n\n');
+
+      const factLedger = await this.extractAtomicFacts(contextText, node.title);
 
       // --- PASS 3: CONSTRAINED SYNTHESIS ---
       const { text: draft } = await generateText({

@@ -55,10 +55,10 @@ export class KnowledgeIngestService {
         model: google('gemini-3.1-pro-preview'), // Use Pro for better fact-gathering
         system: `You are an expert Strategic Data Harvester. 
         Your goal is to extract every verifiable metric, rule, and requirement from the Blueprint JSON.
-        PAY SPECIAL ATTENTION TO:
-        - Specific numbers (e.g., "5 weeks", "75% score", "2 attempts").
-        - Specific names (Certification titles, Program names).
-        - Audience demographics (UG, PG, roles).
+        PAY CRITICAL ATTENTION TO AND EXPLICITLY CAPTURE:
+        - Target Audience Details (e.g., "UG/PG students", roles, levels).
+        - Delivery & Technical Config (e.g., "SCORM package", "Vimeo", "LMS").
+        - Program Metrics (Durations, Passing Scores, Assessment counts).
         Output as a granular numbered list of core institutional facts.`,
         prompt: `BLUEPRINT_JSON:\n${JSON.stringify(blueprintJson)}`,
       });
