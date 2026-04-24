@@ -141,8 +141,8 @@ export class InstructionalArchitectService {
         .from('knowledge_vault')
         .select('id, content_type, raw_content, media_url, metadata')
         .eq('blueprint_id', node.blueprintId)
-        .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%`)
-        .limit(5);
+        .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%,metadata->>source_name.eq.POLARIS_BLUEPRINT`)
+        .limit(10); // Increase limit to catch blueprint facts
       if (sourceData && sourceData.length > 0) return sourceData;
     }
 

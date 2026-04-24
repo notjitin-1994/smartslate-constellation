@@ -47,10 +47,16 @@ export class KnowledgeIngestService {
         return;
       }
 
-      // 2. Distill Blueprint to Atomic Facts
+      // 2. Distill Blueprint to Atomic Facts with high-fidelity requirements
       const { text: blueprintFacts } = await generateText({
-        model: google('gemini-3-flash-preview'),
-        system: `You are a Strategic Data Harvester. Extract every verifiable fact, requirement, objective, and audience detail from the provided Blueprint JSON. Output as a numbered list of core institutional facts.`,
+        model: google('gemini-3.1-pro-preview'), // Use Pro for better fact-gathering
+        system: `You are an expert Strategic Data Harvester. 
+        Your goal is to extract every verifiable metric, rule, and requirement from the Blueprint JSON.
+        PAY SPECIAL ATTENTION TO:
+        - Specific numbers (e.g., "5 weeks", "75% score", "2 attempts").
+        - Specific names (Certification titles, Program names).
+        - Audience demographics (UG, PG, roles).
+        Output as a granular numbered list of core institutional facts.`,
         prompt: `BLUEPRINT_JSON:\n${JSON.stringify(blueprintJson)}`,
       });
 
