@@ -178,7 +178,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     }
   };
 
-  // --- FLUID BENTO STYLE ENGINE ---
+  // --- FLUID 2:1 BENTO STYLE ENGINE ---
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
       case '[HEADER]': 
@@ -186,12 +186,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       case '[VISUAL]': 
       case '[NARRATION]':
       case '[BRANCHING]':
-        // Flex-grow: 2 means these prefer more space. min-width ensures they wrap eventually.
-        return "flex-[2] min-w-[min(100%,600px)] border-white/10 bg-white/[0.01]";
+        // flex-grow: 2 ensures it takes 2/3 of a row if shared.
+        // min-width is lowered to 400px to allow side-by-side.
+        return "flex-[2] min-w-[min(100%,450px)] border-[#A7DADB]/20 bg-white/[0.01]";
       case '[ACTIVITY]':
       case '[SPEAKER_NOTES]':
-        // Flex-grow: 1 means these share space with others, but fill row if alone.
-        return "flex-1 min-w-[min(100%,400px)] border-white/10 bg-white/[0.005]";
+        // flex-grow: 1 ensures it takes 1/3 of a row if shared.
+        return "flex-1 min-w-[min(100%,300px)] border-white/10 bg-white/[0.005]";
       default: 
         return "flex-1 min-w-[300px] border-white/10";
     }
