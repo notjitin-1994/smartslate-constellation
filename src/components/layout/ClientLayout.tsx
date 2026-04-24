@@ -19,8 +19,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <Sidebar />
       <main 
-        className="flex-1 transition-all duration-300 ease-in-out"
-        style={{ paddingLeft: collapsed ? '64px' : '288px' }}
+        className="flex-1 transition-all duration-500 ease-in-out"
+        style={{ paddingLeft: collapsed ? '80px' : '320px' }}
       >
         {children}
       </main>

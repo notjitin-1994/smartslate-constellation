@@ -252,7 +252,7 @@ export default function DashboardPage() {
   const showHandoverBranch = isPolarisUser && hasBlueprints;
 
   return (
-    <div className="relative min-h-screen bg-[#020C1B] text-[#E2E8F0] selection:bg-[#7C69F5]/30 p-6 md:p-12 lg:px-20 lg:py-16 overflow-x-hidden">
+    <div className="relative min-h-screen bg-[#020617] text-[#F8FAFC] selection:bg-indigo-500/30 p-6 md:p-12 lg:px-20 lg:py-16 overflow-x-hidden">
       <BackgroundConstellation />
       
       <AnimatePresence>

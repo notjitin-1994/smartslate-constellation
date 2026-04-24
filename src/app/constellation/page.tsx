@@ -240,7 +240,7 @@ function ArchitectureCanvasContent() {
   const activeScript = state.scriptOutputs[state.activeNodeIdx];
 
   return (
-    <div className="flex h-screen bg-[#020617] text-slate-200 overflow-hidden relative selection:bg-indigo-500/30 font-sans">
+    <Box sx={{ flex: 1, minHeight: '100vh', bgcolor: '#020617', color: '#F8FAFC', overflow: 'hidden', position: 'relative', selection: 'rgba(129, 140, 248, 0.3)' }}>
       
       {/* Background Ambience */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -249,9 +249,9 @@ function ArchitectureCanvasContent() {
       </div>
 
       {/* --- MAIN WORKSPACE --- */}
-      <main className="flex-1 flex flex-col z-10 overflow-hidden ml-0"> {/* Margin-left handled by ClientLayout's main Sidebar */}
+      <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10, position: 'relative', overflow: 'hidden' }}>
         {/* Global HUD Header */}
-        <header className="h-20 flex items-center justify-between px-12 z-20">
+        <header className="h-20 flex items-center justify-between px-12 z-20 shrink-0">
           <div className="flex items-center gap-6">
             <button 
               onClick={() => setIsStrategyOpen(true)}
@@ -335,7 +335,7 @@ function ArchitectureCanvasContent() {
               )}
            </div>
         </div>
-      </main>
+      </Box>
 
       {/* --- OVERLAY MODALS --- */}
 
@@ -472,7 +472,7 @@ function ArchitectureCanvasContent() {
           </Box>
         )}
       </AnimatePresence>
-    </div>
+    </Box>
   );
 }
 
