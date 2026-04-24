@@ -49,7 +49,7 @@ export function useConstellationPersistence(blueprintId: string | null) {
         .select('*')
         .eq('blueprint_id', blueprintId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
         console.error('Failed to fetch constellation state:', fetchError);
