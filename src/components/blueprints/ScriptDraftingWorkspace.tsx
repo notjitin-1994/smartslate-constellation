@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   BookOpen, 
   Activity, 
@@ -17,89 +17,76 @@ import {
   GitBranch,
   StickyNote,
   Maximize2,
-  Play
+  Play,
+  Sparkles,
+  Layers
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconButton, Modal, Backdrop, Fade, Box, Tooltip, Typography } from '@mui/material';
 
-// --- SUB-COMPONENT: NEURAL VISUALIZATION ---
-const NeuralVisualization = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+// --- SUB-COMPONENT: PROCEDURAL GENERATIVE LENS ---
+// This simulates high-fidelity generated instructional visuals
+const GenerativeLens = ({ content }: { content: string }) => {
+  const [seed] = useState(Math.floor(Math.random() * 1000));
+  
+  return (
+    <div className="relative w-full h-full bg-[#020617] overflow-hidden flex items-center justify-center group/viz">
+      {/* Dynamic Background Pattern */}
+      <div className="absolute inset-0 opacity-20 group-hover/viz:opacity-40 transition-opacity duration-1000"
+        style={{
+          backgroundImage: `radial-gradient(circle at 50% 50%, #A7DADB15 0%, transparent 70%), 
+                            linear-gradient(${seed % 360}deg, #4F46E505 0%, transparent 100%)`
+        }}
+      />
+      
+      {/* Animated "Neural" Grid */}
+      <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#A7DADB" strokeWidth="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      <div className="relative z-10 flex flex-col items-center gap-6 px-12 text-center">
+         <motion.div 
+           animate={{ 
+             scale: [1, 1.05, 1],
+             rotate: [0, 2, -2, 0] 
+           }}
+           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+           className="w-24 h-24 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center backdrop-blur-xl shadow-2xl shadow-[#A7DADB]/5"
+         >
+            <Sparkles size={32} className="text-[#A7DADB]" />
+         </motion.div>
+         
+         <div className="space-y-2">
+            <div className="text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em] opacity-40">Procedural Gen Alpha</div>
+            <div className="text-lg font-bold text-white/80 tracking-tight leading-tight max-w-xs truncate-2-lines italic">
+               &quot;{content.split(' ').slice(0, 8).join(' ')}...&quot;
+            </div>
+         </div>
+      </div>
 
-    let animationFrameId: number;
-    let particles: Array<{ x: number, y: number, vx: number, vy: number }> = [];
-    
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      initParticles();
-    };
-
-    const initParticles = () => {
-      particles = [];
-      for (let i = 0; i < 40; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5
-        });
-      }
-    };
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = 'rgba(167, 218, 219, 0.15)';
-      ctx.fillStyle = 'rgba(167, 218, 219, 0.5)';
-
-      particles.forEach((p, i) => {
-        p.x += p.vx;
-        p.y += p.vy;
-
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        for (let j = i + 1; j < particles.length; j++) {
-          const p2 = particles[j];
-          const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
-          if (dist < 100) {
-            ctx.lineWidth = 1 - dist / 100;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          }
-        }
-      });
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    resize();
-    window.addEventListener('resize', resize);
-    draw();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-40" />;
+      {/* Decorative Accents */}
+      <div className="absolute top-4 right-4 flex gap-2">
+         <div className="w-1.5 h-1.5 rounded-full bg-[#A7DADB] animate-pulse" />
+         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+      </div>
+      <div className="absolute bottom-4 left-6 text-[8px] font-mono text-[#A7DADB]/30 tracking-widest uppercase">
+         Instructional Frame ID: {seed}-CONST
+      </div>
+    </div>
+  );
 };
 
 interface Artifact {
   id: string;
-  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[SPEAKER_NOTES]';
+  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[SPEAKER_NOTES]' | '[HEADER]';
   content: string;
   title?: string;
 }
@@ -125,17 +112,28 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
 
-  // --- PARSE MARKDOWN INTO BENTO ARTIFACTS ---
+  // --- DEEP SEMANTIC PARSER (Hardened for Markdown & Bleeding) ---
   const artifacts = useMemo(() => {
     if (!content) return [];
     
-    const lines = content.split('\n');
+    // Normalize content: Remove horizontal rules and normalize scene markers
+    const normalized = content
+      .replace(/---/g, '')
+      .replace(/###\s+\*\*Scene/gi, '[HEADER] Scene')
+      .replace(/\*\*(Storyboard Constellation.*?)\*\*/i, '[HEADER] $1');
+
+    const lines = normalized.split('\n');
     const results: Artifact[] = [];
     let currentArtifact: Partial<Artifact> | null = null;
 
+    // Detection Regex: Finds [TYPE] even if wrapped in ** or ###
+    const typeRegex = /\[(VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|HEADER)\]/;
+
     lines.forEach((line, index) => {
       const trimmed = line.trim();
-      const typeMatch = trimmed.match(/^\[(VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES)\]/);
+      if (!trimmed) return;
+
+      const typeMatch = trimmed.match(typeRegex);
       
       if (typeMatch) {
         if (currentArtifact) results.push(currentArtifact as Artifact);
@@ -144,16 +142,17 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         currentArtifact = {
           id: `artifact-${index}`,
           type,
-          content: trimmed.replace(/^\[.*?\]:?/, '').trim()
+          content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
         };
-      } else if (currentArtifact && trimmed) {
+      } else if (currentArtifact) {
         currentArtifact.content += `\n${trimmed}`;
-      } else if (trimmed && !currentArtifact) {
+      } else {
+        // Handle introductory text as Header/Hero
         results.push({
           id: `intro-${index}`,
-          type: '[NARRATION]', 
+          type: '[HEADER]', 
           content: trimmed,
-          title: 'Orchestration Note'
+          title: 'System Initiation'
         });
       }
     });
@@ -180,12 +179,14 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       case '[ACTIVITY]': return <MousePointer2 size={18} className="text-[#A7DADB]" />;
       case '[BRANCHING]': return <GitBranch size={18} className="text-[#A7DADB]" />;
       case '[SPEAKER_NOTES]': return <StickyNote size={18} className="text-[#64748B]" />;
+      case '[HEADER]': return <Layers size={18} className="text-[#A7DADB]" />;
       default: return <Workflow size={18} className="text-[#A7DADB]" />;
     }
   };
 
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
+      case '[HEADER]': return "md:col-span-3 border-white/5 bg-white/[0.005]";
       case '[VISUAL]': return "md:col-span-2 md:row-span-1 border-[#A7DADB]/20";
       case '[NARRATION]': return "md:col-span-2 md:row-span-1 border-white/10 bg-white/[0.01]";
       case '[ACTIVITY]': return "md:col-span-1 md:row-span-2 border-indigo-500/30 bg-indigo-500/[0.02]";
@@ -251,12 +252,12 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       </div>
 
       {/* --- BENTO GRID ARTIFACTS --- */}
-      <div className="w-full max-w-[95%] mx-auto px-4 lg:px-0">
+      <div className="w-full max-w-[98%] mx-auto px-6">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-3 grid-flow-dense gap-8 py-12">
                {[1,2,3,4,5,6].map(i => (
-                 <div key={i} className={`h-64 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.05] animate-pulse ${i === 1 ? 'md:col-span-2' : ''}`} />
+                 <div key={i} className={`h-64 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] animate-pulse ${i === 1 ? 'md:col-span-3' : ''}`} />
                ))}
             </motion.div>
           ) : (
@@ -270,68 +271,64 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.05 }}
-                  whileHover={{ y: -8, scale: 1.005, transition: { duration: 0.3 } }}
+                  whileHover={{ y: -8, transition: { duration: 0.3 } }}
                   className={`
                     relative overflow-hidden group rounded-[3rem] p-10
                     bg-white/[0.015] backdrop-blur-3xl border
                     ${getCardStyle(art.type)}
-                    transition-all duration-700 hover:bg-white/[0.03]
-                    shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:shadow-[#A7DADB]/5
+                    transition-all duration-700 hover:bg-white/[0.02]
+                    shadow-[0_20px_60px_rgba(0,0,0,0.4)]
                   `}
                 >
-                  {/* Card Glow Background */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                  {/* Card Glow */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-10 relative z-10">
+                  <div className="flex items-center justify-between mb-8 relative z-10">
                     <div className="flex items-center gap-5">
-                      <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all shadow-inner">
+                      <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all">
                         {getTypeIcon(art.type)}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/30 group-hover:text-[#A7DADB]/60 transition-colors">
+                        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/30">
                           {art.type.replace('[', '').replace(']', '')}
                         </span>
-                        {art.title && <span className="text-xs font-bold text-white tracking-tight">{art.title}</span>}
+                        {art.title && <span className="text-xs font-bold text-white tracking-tight uppercase">{art.title}</span>}
                       </div>
                     </div>
-                    <IconButton size="small" sx={{ color: 'white/[0.05]', '&:hover': { color: '#A7DADB', bgcolor: 'white/[0.05]' } }}><Maximize2 size={14} /></IconButton>
+                    <IconButton size="small" sx={{ color: 'white/[0.05]', '&:hover': { color: '#A7DADB' } }}><Maximize2 size={14} /></IconButton>
                   </div>
 
-                  {/* Content Area */}
+                  {/* Content Area with ReactMarkdown Restoration */}
                   <div className="relative z-10">
                     {art.type === '[VISUAL]' && (
-                      <div className="aspect-video w-full rounded-[2rem] bg-black/60 border border-white/5 flex items-center justify-center mb-8 relative overflow-hidden group/viz shadow-2xl">
-                        <NeuralVisualization />
-                        <div className="absolute top-4 left-6 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-[#A7DADB]/20 flex items-center gap-2">
-                           <div className="w-1.5 h-1.5 rounded-full bg-[#A7DADB] animate-ping" />
-                           <span className="text-[8px] font-black text-[#A7DADB] uppercase tracking-[0.2em]">Procedural Engine Active</span>
-                        </div>
-                        <div className="text-[9px] font-black text-[#A7DADB]/20 uppercase tracking-[0.5em] group-hover/viz:text-[#A7DADB]/40 transition-colors relative z-10">Live Constellation Frame</div>
-                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black to-transparent opacity-60" />
+                      <div className="aspect-video w-full rounded-[2rem] bg-black/60 border border-white/5 flex items-center justify-center mb-10 relative overflow-hidden shadow-2xl">
+                         <GenerativeLens content={art.content} />
                       </div>
                     )}
 
                     <div className={`
+                      prose prose-invert max-w-none
+                      ${art.type === '[HEADER]' ? 'text-4xl font-bold tracking-tighter text-white py-10' : ''}
                       ${art.type === '[NARRATION]' ? 'text-2xl font-light leading-relaxed text-white/90' : 'text-[15px] text-slate-400 leading-relaxed'}
-                      ${art.type === '[SPEAKER_NOTES]' ? 'text-sm text-slate-500 italic border-l border-white/10 pl-6 py-2' : ''}
-                      ${art.type === '[BRANCHING]' ? 'font-mono text-[13px] bg-black/40 p-6 rounded-2xl border border-white/5 text-slate-300' : ''}
-                      whitespace-pre-wrap
+                      ${art.type === '[SPEAKER_NOTES]' ? 'text-sm text-slate-500 italic border-l-2 border-white/5 pl-8 py-2' : ''}
+                      ${art.type === '[BRANCHING]' ? 'font-mono text-[13px] bg-black/40 p-8 rounded-3xl border border-white/5 text-[#A7DADB]/80' : ''}
                     `}>
-                      {art.content}
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                        {art.content}
+                      </ReactMarkdown>
                     </div>
 
                     {art.type === '[ACTIVITY]' && (
-                      <button className="mt-12 w-full py-5 bg-[#4F46E5] text-white rounded-[1.5rem] flex items-center justify-center gap-4 text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-indigo-500/20 hover:bg-[#4F46E5] hover:scale-[1.02] active:scale-[0.98] transition-all group/btn">
-                        <Play size={14} fill="currentColor" className="group-hover/btn:translate-x-0.5 transition-transform" /> 
-                        Deploy Simulation
+                      <button className="mt-12 w-full py-5 bg-[#4F46E5] text-white rounded-2xl flex items-center justify-center gap-4 text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-indigo-500/30 hover:bg-[#4F46E5]/90 transition-all group/btn">
+                        <Play size={14} fill="currentColor" /> Deploy Simulation
                       </button>
                     )}
                   </div>
 
-                  {/* Corner Accent Branding */}
-                  <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:rotate-12 duration-1000">
-                    <Workflow size={60} className="text-[#A7DADB]" />
+                  {/* Corner Branding */}
+                  <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Workflow size={80} className="text-[#A7DADB]" />
                   </div>
                 </motion.div>
               ))}
@@ -353,7 +350,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
             width: '95%', maxWidth: '800px', maxHeight: '85vh',
             bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px',
-            p: 10, outline: 'none', overflowY: 'auto', boxShadow: '0 0 100px rgba(0,0,0,0.8)'
+            p: 10, outline: 'none', overflowY: 'auto'
           }}>
             <div className="flex justify-between items-center mb-20">
                <div className="flex items-center gap-8">
@@ -374,11 +371,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   <History size={16} className="text-[#A7DADB]" />
                   <h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4>
                 </div>
-                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl shadow-inner">
+                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl">
                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" />
-                   <p className="text-lg text-slate-300 leading-relaxed font-light italic">
-                      {semanticDelta || "Synthesizing truth anchors..."}
-                   </p>
+                   <div className="text-lg text-slate-300 leading-relaxed font-light italic">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                        {semanticDelta || "Synthesizing truth anchors..."}
+                      </ReactMarkdown>
+                   </div>
                 </div>
               </section>
 
@@ -389,10 +388,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                 </div>
                 <div className="grid grid-cols-1 gap-5">
                    {citations.map((cite, i) => (
-                     <div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 hover:bg-white/[0.02] transition-all group/cite shadow-sm">
-                        <div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 shadow-xl transition-all group-hover/cite:scale-110 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black">{i + 1}</div>
-                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate group-hover:text-white transition-colors">{cite}</span>
-                        <div className="ml-auto w-1 h-1 rounded-full bg-[#A7DADB]/20 group-hover:bg-[#A7DADB] transition-all" />
+                     <div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite">
+                        <div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div>
+                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span>
                      </div>
                    ))}
                 </div>
