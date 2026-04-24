@@ -86,12 +86,17 @@ export class InstructionalArchitectService {
       // --- PASS 4: ADVERSARIAL INTEGRITY SENTINEL ---
       const audit = await this.performAdversarialAudit(draft, factLedger);
 
+      // More nuanced hallucination flag: 
+      // 1. Definite audit failure
+      // 2. Or absolute zero data but AI wrote a factual script
+      const isHallucinated = audit.hallucinated || (isDataSparse && draft.length > 200 && !draft.includes('INSUFFICIENT_DOCUMENTATION'));
+
       return {
         script: draft,
         citations: sourceChunks.map((c: any) => c.metadata?.source_name || 'Source'),
         groundingScore: audit.groundingScore,
         cognitiveLoadScore: audit.cognitiveLoad,
-        hallucinationFlag: audit.hallucinated || (isDataSparse && draft.length > 300),
+        hallucinationFlag: isHallucinated,
         semanticDelta: audit.critique,
         groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
       };
@@ -104,8 +109,10 @@ export class InstructionalArchitectService {
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
     if (!rawContext.trim()) return '';
     const { text } = await generateText({
-      model: google('gemini-3-flash-preview'),
-      system: `Extract every unique, verifiable fact or procedure related to "${nodeTitle}" from the provided chunks. Output as a numbered list of Atomic Facts. Strip all fluff.`,
+      model: google('gemini-3.1-pro-preview'), // Use Pro for better extraction
+      system: `You are an Atomic Fact Distiller. 
+      Analyze the raw document chunks and extract every unique, verifiable fact, procedure, advice, or context related to "${nodeTitle}".
+      Output only a numbered list of Atomic Facts. Do not summarize; capture the granular detail.`,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
     return text;
