@@ -140,18 +140,32 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             </div>
           ) : (
             <article className="max-w-3xl mx-auto selection:bg-indigo-500/40">
+              {content.includes('!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!') && (
+                <div className="mb-12 p-6 rounded-2xl bg-amber-500/[0.03] border border-amber-500/20 flex gap-4 items-center animate-in fade-in slide-in-from-top-4 duration-700">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Search size={20} className="text-amber-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-amber-400 mb-1">Substantial Gaps Detected</h4>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">The Knowledge Vault contains insufficient data for this specific module. Please upload relevant SOPs or documentation to ground this script.</p>
+                  </div>
+                </div>
+              )}
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
                 components={{
-                  h1: ({children}) => (
-                    <motion.h1 
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="text-5xl font-black mb-12 text-white tracking-tighter leading-tight bg-gradient-to-br from-white to-slate-500 bg-clip-text text-transparent pb-2"
-                    >
-                      {children}
-                    </motion.h1>
-                  ),
+                  h1: ({children}) => {
+                    const titleText = children?.toString() || '';
+                    return (
+                      <motion.h1 
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        className="text-5xl font-black mb-12 text-white tracking-tighter leading-tight bg-gradient-to-br from-white to-slate-500 bg-clip-text text-transparent pb-2"
+                      >
+                        {titleText.replace('!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!', '')}
+                      </motion.h1>
+                    );
+                  },
                   h2: ({children}) => (
                     <h2 className="text-[10px] font-black mt-20 mb-8 text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-4">
                       <span className="w-12 h-px bg-indigo-500/40" /> {children}
