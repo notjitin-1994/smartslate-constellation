@@ -133,6 +133,7 @@ export class InstructionalArchitectService {
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
+    console.log(`[Architect] Generating query embedding for: ${node.title} (Strict: ${strictModule})`);
     const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
 
     const { embedding } = await embed({
@@ -141,13 +142,31 @@ export class InstructionalArchitectService {
       providerOptions: { google: { outputDimensionality: 3072 } }
     });
 
+    // Tier 1: Try exact module ID match
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
-      match_threshold: strictModule ? 0.4 : 0.9, // 0.9 is near-perfect match for fallback
+      match_threshold: strictModule ? 0.3 : 0.85, 
       match_count: 5,
       p_blueprint_id: node.blueprintId,
       p_module_id: strictModule ? node.id : null
     });
+
+    // Tier 2: If strict failed, try source-name proximity (e.g., M1 matches NODE_01)
+    if (strictModule && (!data || data.length < 2)) {
+      console.log(`[Architect] [RETRY] No exact module match. Trying source-name proximity for ${node.id}...`);
+      const moduleNum = node.id.split('_')[1]?.replace(/^0+/, ''); // '01' -> '1'
+      
+      const { data: sourceData, error: sourceError } = await supabase
+        .from('knowledge_vault')
+        .select('id, content_type, raw_content, media_url, metadata')
+        .eq('blueprint_id', node.blueprintId)
+        .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%`)
+        .limit(5);
+        
+      if (!sourceError && sourceData && sourceData.length > 0) {
+        return sourceData;
+      }
+    }
 
     if (error) {
       console.error('[Architect DB Error]:', error);
