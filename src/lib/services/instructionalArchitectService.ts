@@ -25,26 +25,25 @@ export interface ScriptOutput {
 
 export class InstructionalArchitectService {
   /**
-   * Generates a "Grounded Conversationalist" instructional script.
-   * Logic: Fluent instructional voice + Deterministic Factual Anchoring.
+   * Generates a grounded conversational instructional script.
+   * Implementation: Structured Fact-Verification (0% Hallucination Target).
    */
   async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
-    console.log(`[Architect] [HYBRID_INIT] Drafting grounded conversational script: ${node.title}`);
+    console.log(`[Architect] [VERIFY_INIT] Drafting script: ${node.title}`);
 
     try {
-      // --- PASS 1: TIERED RETRIEVAL (Physical Lock) ---
+      // --- PASS 1: TIERED RETRIEVAL ---
       let sourceChunks = await this.retrieveGroundingContext(node, true);
       let isDataSparse = false;
 
       if (sourceChunks.length === 0) {
-        console.log('[Architect] [LOCK] No specific module data. FallbackBroad (0.85)...');
         sourceChunks = await this.retrieveGroundingContext(node, false);
         if (sourceChunks.length === 0) isDataSparse = true;
       }
 
-      // --- PASS 2: ATOMIC FACT EXTRACTION (The Truth Ledger) ---
+      // --- PASS 2: STRUCTURED FACT DISTILLATION ---
       const contextText = sourceChunks
-        .map((c: any, i: number) => `[SOURCE ${i + 1} - ${c.metadata?.source_name || 'Doc'}]: ${c.raw_content}`)
+        .map((c: any, i: number) => `[SOURCE ${i + 1}]: ${c.raw_content}`)
         .join('\n\n');
 
       const factLedger = await this.extractAtomicFacts(contextText, node.title);
@@ -54,42 +53,29 @@ export class InstructionalArchitectService {
       let strategicContext = 'N/A';
       if (bp) {
         strategicContext = `
-        - Target Audience: ${bp.target_audience?.demographics?.roles?.join(', ')}
-        - Tone/Level: ${bp.target_audience?.demographics?.experience_levels?.join(', ')}
-        - Strategy: ${bp.assessment_strategy?.overview}
+        - Audience: ${bp.target_audience?.demographics?.roles?.join(', ')}
+        - Level: ${bp.target_audience?.demographics?.experience_levels?.join(', ')}
+        - Goal: ${bp.executive_summary?.content}
         `;
       }
 
-      // --- PASS 3: GROUNDED CONVERSATIONAL SYNTHESIS ---
+      // --- PASS 3: CONSTRAINED SYNTHESIS ---
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
-        temperature: 0.1, // Near-deterministic
-        system: `You are a World-Class Instructional Designer. Your goal is to draft a high-fidelity production script.
+        temperature: 0.1, 
+        system: `You are a Deterministic Instructional Designer. Your goal is to draft a script using ONLY the [FACT_LEDGER].
         
-        --- THE GROUNDED CONVERSATIONALIST PROTOCOL ---
-        1. EXCLUSIVE SOURCES: The [FACT_LEDGER] contains data from TWO sources: User-Uploaded Documents and the Strategic Polaris Blueprint. These are your ONLY allowed sources.
-        2. KNOWLEDGE: You are strictly forbidden from inventing factual details, durations, or metrics not in the [FACT_LEDGER].
-        3. VOICE: Use a professional, engaging instructional voice for framing and transitions.
-        4. GAPS: If an instructional step is required but missing from the [FACT_LEDGER], you MUST use: "[MISSING_DATA: category]".
-        5. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
-        
-        --- FORMATTING ---
-        - H1 for Title.
-        - [VISUAL] tags for screen cues.
-        - **Instructor:** for dialogue.
-        - Every factual claim MUST conclude with a Fact ID from the ledger (e.g., [Fact 4]).`,
-        prompt: `Strategic Node: ${node.title}
-        Description: ${node.description}
-        [STRATEGIC_CONTEXT]: ${strategicContext}
-        [FACT_LEDGER]: ${factLedger || 'EMPTY: NO DATA FOUND.'}`,
+        --- MANDATORY PROTOCOLS ---
+        1. CLAM-ONLY GROUNDING: Every sentence that conveys a fact, step, or rule MUST end with its specific Fact ID (e.g., [Fact 4]).
+        2. SCAFFOLDING: You may use professional instructional framing and greetings, but never invent new factual details.
+        3. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
+        4. GAPS: Use "[MISSING_DATA: category]" for required but undocumented info.`,
+        prompt: `Strategic Context: ${strategicContext}\nStrategic Node: ${node.title}\n[FACT_LEDGER]:\n${factLedger || 'EMPTY.'}`,
       });
 
-      // --- PASS 4: ADVERSARIAL INTEGRITY SENTINEL ---
+      // --- PASS 4: ADVERSARIAL SENTINEL ---
       const audit = await this.performAdversarialAudit(draft, factLedger);
 
-      // More nuanced hallucination flag: 
-      // 1. Definite audit failure
-      // 2. Or absolute zero data but AI wrote a factual script
       const isHallucinated = audit.hallucinated || (isDataSparse && draft.length > 200 && !draft.includes('INSUFFICIENT_DOCUMENTATION'));
 
       return {
@@ -102,7 +88,7 @@ export class InstructionalArchitectService {
         groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
       };
     } catch (err) {
-      console.error(`[Architect Error] Drafting failed:`, err);
+      console.error(`[Architect Error]:`, err);
       throw err;
     }
   }
@@ -110,17 +96,15 @@ export class InstructionalArchitectService {
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
     if (!rawContext.trim()) return '';
     const { text } = await generateText({
-      model: google('gemini-3.1-pro-preview'), 
-      system: `You are an Atomic Fact Distiller. 
-      Analyze the raw document chunks and extract every unique, verifiable fact, procedure, advice, context, or pedagogical nuance related to "${nodeTitle}".
-      Do not summarize. Extract granular details so they can be cited individually.`,
+      model: google('gemini-3.1-pro-preview'),
+      system: `Distill the provided chunks into a numbered list of UNIQUE Atomic Facts related to "${nodeTitle}". Capture granular details, advice, and metrics.`,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
     return text;
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
-    const queryText = `Instructional design grounding and procedural knowledge for: ${node.title}. ${node.description}`;
+    const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
     const { embedding } = await embed({
       model: google.textEmbeddingModel('gemini-embedding-2'),
       value: queryText,
@@ -129,8 +113,8 @@ export class InstructionalArchitectService {
 
     const { data, error } = await supabase.rpc('match_knowledge', {
       query_embedding: embedding,
-      match_threshold: strictModule ? 0.35 : 0.85, 
-      match_count: 8,
+      match_threshold: strictModule ? 0.3 : 0.85, 
+      match_count: 10,
       p_blueprint_id: node.blueprintId,
       p_module_id: strictModule ? node.id : null
     });
@@ -142,7 +126,7 @@ export class InstructionalArchitectService {
         .select('id, content_type, raw_content, media_url, metadata')
         .eq('blueprint_id', node.blueprintId)
         .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%,metadata->>source_name.eq.POLARIS_BLUEPRINT`)
-        .limit(10); // Increase limit to catch blueprint facts
+        .limit(10);
       if (sourceData && sourceData.length > 0) return sourceData;
     }
 
@@ -153,19 +137,15 @@ export class InstructionalArchitectService {
   private async performAdversarialAudit(draft: string, factLedger: string) {
     const { text } = await generateText({
       model: google('gemini-3-flash-preview'),
-      system: `You are a Claim-Only Integrity Sentinel. Your job is to verify the AUTHENTICITY of instructional content while ignoring CONVERSATIONAL VOICE.
-
-      --- THE AUDIT PROTOCOL ---
-      1. IGNORE (The Scaffolding): Do not flag greetings, pedagogical transitions (e.g. "Now we will move to..."), structural framing (e.g. "There are three pillars"), or empathetic context.
-      2. EXTRACT (The Payload): Identify every specific Factual Claim, Technical Step, Metric, or Named Procedure.
-      3. VERIFY: Check each Payload against the [FACT_LEDGER]. 
-      4. FLAG (Hallucination): Only set HALLUCINATED: YES if you find a specific factual payload that contradicts or is absent from the [FACT_LEDGER].
-
+      system: `You are an Adversarial Integrity Sentinel. 
+      Verify that every factual claim in the DRAFT is explicitly supported by a Fact in the [FACT_LEDGER].
+      Ignore conversational framing (greetings, transitions). 
+      Only flag actual KNOWLEDGE hallucinations.
       Output format: 
       SCORE: [0-10]
       COGNITIVE_LOAD: [0-10]
       HALLUCINATED: [YES/NO]
-      CRITIQUE: [List only the specific FACTUAL PAYLOADS that failed verification. Ignore voice/tone.]`,
+      CRITIQUE: [List unsupported factual claims only.]`,
       prompt: `DRAFT:\n${draft}\n\n[FACT_LEDGER]:\n${factLedger}`,
     });
 
