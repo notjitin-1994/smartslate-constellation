@@ -57,33 +57,28 @@
     background: transparent;
   }
 
-  /* Prevent Autofill from changing background colors - Brand Preservation */
+  /* Prevent Autofill from changing background colors - Brand Preservation (Polaris V4 Protocol) */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
-    -webkit-text-fill-color: #F8FAFC !important;
-    caret-color: #FFFFFF !important;
+    -webkit-box-shadow: 0 0 0 1000px #0d1b2a inset !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    caret-color: #ffffff !important;
     transition: background-color 5000s ease-in-out 0s;
     border-radius: inherit;
   }
 }
 
 @layer components {
-  .glass-sidebar {
-    background: rgba(13, 27, 42, 0.75);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  }
-
+  /* Premium Glass Card System - Polaris V4 Port */
   .glass-card {
     position: relative;
     border-radius: 1rem;
-    background: rgba(13, 27, 42, 0.55);
-    border: none;
+    background:
+      linear-gradient(rgba(13, 27, 42, 0.55), rgba(13, 27, 42, 0.55)) padding-box,
+      linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06)) border-box;
+    border: 1px solid transparent;
     box-shadow:
       0 8px 40px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -92,11 +87,19 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .glass-card:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 12px 48px rgba(0, 0, 0, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  .premium-input {
+    @apply w-full rounded-xl border bg-white/5 py-2.5 px-4 text-sm text-white backdrop-blur-sm transition-all duration-200 placeholder:text-white/30 focus:ring-2 focus:outline-none;
+    background:
+      linear-gradient(rgba(13, 27, 42, 0.4), rgba(13, 27, 42, 0.4)) padding-box,
+      linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)) border-box;
+    border: 1px solid transparent;
+  }
+
+  .premium-input:focus {
+    background:
+      linear-gradient(rgba(13, 27, 42, 0.6), rgba(13, 27, 42, 0.6)) padding-box,
+      linear-gradient(135deg, rgba(167, 218, 219, 0.4), rgba(167, 218, 219, 0.1)) border-box;
+    @apply ring-[#a7dadb]/20;
   }
 }
 
