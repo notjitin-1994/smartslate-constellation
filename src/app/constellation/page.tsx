@@ -17,7 +17,9 @@ import {
   X,
   Lightbulb,
   ShieldCheck,
-  Workflow
+  Workflow,
+  AlertOctagon,
+  Fingerprint
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
@@ -52,7 +54,7 @@ function ArchitectureCanvasContent() {
   // --- PERSISTENCE HOOK ---
   const { state, updateState, isSyncing } = useConstellationPersistence(blueprintId);
 
-  // --- DATA NORMALIZATION (Polaris V4 to Constellation Standard) ---
+  // --- DATA NORMALIZATION ---
   const modules = useMemo(() => {
     const rawModules = blueprint?.blueprint_json?.content_outline?.modules || [];
     return rawModules.map((m: any) => ({
@@ -65,6 +67,7 @@ function ArchitectureCanvasContent() {
 
   const activeIdx = Math.min(Math.max(0, state.activeNodeIdx), Math.max(0, modules.length - 1));
   const currentModule = modules[activeIdx] || null;
+  const activeScript = state.scriptOutputs[state.activeNodeIdx];
 
   useEffect(() => {
     async function loadBlueprint() {
@@ -75,7 +78,6 @@ function ArchitectureCanvasContent() {
         if (bpError) throw bpError;
         setBlueprint(data as Blueprint);
 
-        // --- AUTO-HARVEST BLUEPRINT DATA ---
         fetch('/api/ingest/harvest-blueprint', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -92,7 +94,6 @@ function ArchitectureCanvasContent() {
     loadBlueprint();
   }, [blueprintId]);
 
-  // Sync state to Sidebar via Custom Event
   useEffect(() => {
     if (!modules.length) return;
     window.dispatchEvent(new CustomEvent('constellation-sidebar-sync', {
@@ -100,7 +101,6 @@ function ArchitectureCanvasContent() {
     }));
   }, [modules, activeIdx]);
 
-  // Listen for Sidebar Node Selection
   useEffect(() => {
     const handleNodeSelect = (e: any) => {
       const idx = typeof e.detail.idx === 'number' ? e.detail.idx : 0;
@@ -111,10 +111,7 @@ function ArchitectureCanvasContent() {
   }, [updateState]);
 
   const handleDraftScript = async () => {
-    if (!currentModule || !blueprintId) {
-      console.error('[Draft Error] Missing context:', { currentModule, blueprintId });
-      return;
-    }
+    if (!currentModule || !blueprintId) return;
     setIsDrafting(true);
     try {
       const response = await fetch('/api/architect/draft', {
@@ -139,20 +136,28 @@ function ArchitectureCanvasContent() {
         throw new Error(result.error);
       }
     } catch (err: unknown) {
-      console.error('[Drafting Error]:', err);
       alert(`Map Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
     } finally { setIsDrafting(false); }
   };
 
   const formatText = (txt: string) => txt.replace(/_/g, ' ');
 
+  const TooltipContent = ({ title, body }: { title: string, body: string }) => (
+    <Box sx={{ p: 1.5, maxWidth: 280 }}>
+      <Typography variant="caption" sx={{ fontWeight: 900, color: '#A7DADB', textTransform: 'uppercase', display: 'block', mb: 1, letterSpacing: '0.1em' }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', lineHeight: 1.6, fontWeight: 500 }}>
+        {body}
+      </Typography>
+    </Box>
+  );
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617]">
       <CircularProgress sx={{ color: COLORS.primary }} size={40} thickness={2} />
     </div>
   );
-
-  const activeScript = state.scriptOutputs[state.activeNodeIdx];
 
   return (
     <Box sx={{ flex: 1, minHeight: '100vh', bgcolor: '#020617', color: '#F8FAFC', overflow: 'hidden', position: 'relative', selection: 'rgba(167, 218, 219, 0.2)' }}>
@@ -166,7 +171,7 @@ function ArchitectureCanvasContent() {
       {/* --- MAIN WORKSPACE --- */}
       <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10, position: 'relative', overflow: 'hidden' }}>
         {/* Global HUD Header */}
-        <header className="h-20 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03]">
+        <header className="h-24 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
           <div className="flex items-center gap-8">
             <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex flex-col">
               <h2 className="text-lg font-bold text-white tracking-tight leading-none mb-1">{formatText(currentModule?.title || 'Instructional Node')}</h2>
@@ -175,6 +180,74 @@ function ArchitectureCanvasContent() {
                 <div className="w-1 h-1 rounded-full bg-slate-800" />
                 <span className="text-[10px] text-[#A7DADB] font-black uppercase tracking-widest">{formatText(currentModule?.targetModality || 'UNMAPPED')}</span>
               </div>
+            </div>
+          </div>
+
+          {/* --- INTEGRATED INTEGRITY SUITE (The Shield) --- */}
+          <div className="flex items-center gap-12 px-10 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.05] shadow-2xl relative overflow-hidden group/hud">
+            <div className="absolute inset-0 bg-[#A7DADB]/[0.02] group-hover/hud:bg-[#A7DADB]/[0.05] transition-colors" />
+            
+            <div className="flex items-center gap-10 relative z-10">
+                {/* Hallucination Guardian */}
+                <Tooltip 
+                  enterTouchDelay={0}
+                  title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. Verified means every factual claim is anchored to source documents." />}
+                >
+                  <div className="flex items-center gap-3 cursor-help">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${activeScript?.hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${activeScript?.hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'}`}>
+                      {activeScript?.hallucinationFlag ? <AlertOctagon size={16} className="animate-pulse" /> : <Fingerprint size={16} />}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Integrity</span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${activeScript?.hallucinationFlag ? 'text-rose-500' : 'text-[#A7DADB]'}`}>
+                        {activeScript?.hallucinationFlag ? 'Flagged' : 'Verified'}
+                      </span>
+                    </div>
+                  </div>
+                </Tooltip>
+
+                <div className="h-6 w-[1px] bg-white/10" />
+
+                {/* Grounding Density */}
+                <Tooltip 
+                  enterTouchDelay={0}
+                  title={<TooltipContent title="Grounding Density" body="Measures document coverage. High scores indicate successful utilization of Knowledge Vault requirements." />}
+                >
+                  <div className="flex flex-col gap-1 cursor-help group/item">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Grounding</span>
+                      <span className="text-[9px] font-mono font-black text-white">{activeScript?.groundingScore || 0}/10</span>
+                    </div>
+                    <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${(activeScript?.groundingScore || 0) * 10}%` }} className="h-full bg-[#A7DADB]" />
+                    </div>
+                  </div>
+                </Tooltip>
+
+                {/* Cognitive Velocity */}
+                <Tooltip 
+                  enterTouchDelay={0}
+                  title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}
+                >
+                  <div className="flex flex-col gap-1 cursor-help">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Cognitive</span>
+                      <span className="text-[9px] font-mono font-black text-white">{activeScript?.cognitiveLoadScore || 0}/10</span>
+                    </div>
+                    <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${(activeScript?.cognitiveLoadScore || 0) * 10}%` }} className="h-full bg-indigo-500" />
+                    </div>
+                  </div>
+                </Tooltip>
+
+                <div className="h-6 w-[1px] bg-white/10" />
+
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('constellation-open-verification'))}
+                  className="px-4 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[8px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB]/10 hover:text-white transition-all shadow-xl"
+                >
+                  Verification
+                </button>
             </div>
           </div>
 
@@ -205,15 +278,12 @@ function ArchitectureCanvasContent() {
           </div>
         </header>
 
-        {/* ZEN EDITOR AREA (Dissolved Container) */}
+        {/* ZEN EDITOR AREA */}
         <div className="flex-1 overflow-y-auto px-12 lg:px-24 pb-20 pt-10 custom-scrollbar relative z-10">
             <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
                 <ScriptDraftingWorkspace 
                   content={activeScript?.script || ""}
-                  groundingScore={activeScript?.groundingScore || 0}
-                  cognitiveLoadScore={activeScript?.cognitiveLoadScore || 0}
-                  hallucinationFlag={activeScript?.hallucinationFlag || false}
                   semanticDelta={activeScript?.semanticDelta}
                   citations={activeScript?.citations || []}
                   isLoading={isDrafting}

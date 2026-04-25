@@ -1,30 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BookOpen, 
   Activity, 
   History, 
   X, 
-  AlertOctagon, 
-  Fingerprint, 
-  Mic2, 
-  ChevronRight, 
-  Workflow, 
-  Eye, 
-  MousePointer2, 
-  GitBranch, 
-  StickyNote, 
-  Maximize2, 
-  Sparkles, 
+  Mic2,
+  Workflow,
+  Eye,
+  MousePointer2,
+  GitBranch,
+  StickyNote,
+  Maximize2,
+  Sparkles,
   Layers
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IconButton, Modal, Backdrop, Fade, Box, Tooltip, Typography } from '@mui/material';
+import { IconButton, Modal, Backdrop, Fade, Box } from '@mui/material';
 
 // --- SUB-COMPONENT: PROCEDURAL GENERATIVE LENS ---
 const GenerativeLens = ({ content }: { content: string }) => {
@@ -80,22 +77,16 @@ interface Artifact {
 
 interface ScriptDraftingWorkspaceProps {
   content: string;
-  groundingScore: number;
-  cognitiveLoadScore: number;
-  hallucinationFlag: boolean;
+  isLoading: boolean;
   semanticDelta?: string;
   citations: string[];
-  isLoading: boolean;
 }
 
 const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   content,
-  groundingScore,
-  cognitiveLoadScore,
-  hallucinationFlag,
+  isLoading,
   semanticDelta,
-  citations,
-  isLoading
+  citations
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
 
@@ -155,17 +146,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     return others;
   }, [content]);
 
-  const TooltipContent = ({ title, body }: { title: string, body: string }) => (
-    <Box sx={{ p: 1.5, maxWidth: 280 }}>
-      <Typography variant="caption" sx={{ fontStyle: 'normal', fontWeight: 900, color: '#A7DADB', textTransform: 'uppercase', display: 'block', mb: 1, letterSpacing: '0.1em' }}>
-        {title}
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', lineHeight: 1.6, fontWeight: 500 }}>
-        {body}
-      </Typography>
-    </Box>
-  );
-
   const getTypeIcon = (type: Artifact['type']) => {
     switch (type) {
       case '[VISUAL]': return <Eye size={18} className="text-[#A7DADB]" />;
@@ -178,7 +158,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     }
   };
 
-  // --- FLUID 2:1 BENTO STYLE ENGINE ---
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
       case '[HEADER]': 
@@ -186,73 +165,25 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       case '[VISUAL]': 
       case '[NARRATION]':
       case '[BRANCHING]':
-        // flex-grow: 2 ensures it takes 2/3 of a row if shared.
-        // min-width is lowered to 400px to allow side-by-side.
         return "flex-[2] min-w-[min(100%,450px)] border-[#A7DADB]/20 bg-white/[0.01]";
       case '[ACTIVITY]':
       case '[SPEAKER_NOTES]':
-        // flex-grow: 1 ensures it takes 1/3 of a row if shared.
         return "flex-1 min-w-[min(100%,300px)] border-white/10 bg-white/[0.005]";
       default: 
         return "flex-1 min-w-[300px] border-white/10";
     }
   };
 
+  // Expose the insight trigger to the parent via event
+  useEffect(() => {
+    const handleTrigger = () => setIsInsightOpen(true);
+    window.addEventListener('constellation-open-verification', handleTrigger);
+    return () => window.removeEventListener('constellation-open-verification', handleTrigger);
+  }, []);
+
   return (
-    <div className="flex flex-col w-full relative">
+    <div className="flex flex-col w-full relative pt-12">
       
-      {/* --- FLOATING METRIC HUD --- */}
-      <div className="sticky top-0 py-6 mb-12 z-40">
-        <div className="max-w-fit mx-auto px-10 py-4 rounded-[2rem] border border-[#A7DADB]/20 bg-[#020617]/80 backdrop-blur-3xl shadow-2xl flex items-center gap-12 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
-          
-          <div className="flex items-center gap-10 relative z-10">
-            <Tooltip enterTouchDelay={0} title={<TooltipContent title="Integrity Guardian" body="Deterministic verification via semantic truth-anchoring." />}>
-              <div className="flex items-center gap-4 group cursor-help">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-2xl ${hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'} shadow-lg`}>
-                  {hallucinationFlag ? <AlertOctagon size={18} className="animate-pulse" /> : <Fingerprint size={18} />}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#A7DADB]/50 mb-1">Integrity</span>
-                  <span className={`text-xs font-black uppercase tracking-widest ${hallucinationFlag ? 'text-rose-500' : 'text-[#A7DADB]'}`}>
-                    {hallucinationFlag ? 'Flagged' : 'Verified'}
-                  </span>
-                </div>
-              </div>
-            </Tooltip>
-
-            <div className="h-8 w-px bg-white/[0.05]" />
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Grounding</span>
-                <span className="text-[10px] font-mono font-black text-white">{groundingScore}/10</span>
-              </div>
-              <div className="w-24 h-1 rounded-full bg-white/[0.03] overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${groundingScore * 10}%` }} className="h-full bg-emerald-500" />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/50">Cognitive</span>
-                <span className="text-[10px] font-mono font-black text-white">{cognitiveLoadScore}/10</span>
-              </div>
-              <div className="w-24 h-1 rounded-full bg-white/[0.03] overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${cognitiveLoadScore * 10}%` }} className="h-full bg-[#4F46E5]" />
-              </div>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => setIsInsightOpen(true)}
-            className="px-6 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB] hover:text-black transition-all"
-          >
-            Verification Ledger
-          </button>
-        </div>
-      </div>
-
       {/* --- FLUID BENTO ARTIFACTS --- */}
       <div className="w-full max-w-[98%] mx-auto px-6">
         <AnimatePresence mode="wait">
@@ -365,7 +296,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                 </div>
                 <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl">
                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" />
-                   <div className="text-lg text-slate-300 leading-relaxed font-light italic">
+                   <div className="text-lg text-slate-300 leading-relaxed font-light italic text-slate-400">
                       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                         {semanticDelta || "Synthesizing truth anchors..."}
                       </ReactMarkdown>
@@ -391,13 +322,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           </Box>
         </Fade>
       </Modal>
-
-      <button 
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-12 right-12 w-20 h-20 rounded-full bg-[#020617] border border-[#A7DADB]/30 flex items-center justify-center text-[#A7DADB] hover:bg-[#A7DADB] hover:text-black transition-all shadow-2xl backdrop-blur-3xl group z-50 hover:scale-110"
-      >
-        <ChevronRight size={32} className="-rotate-90 group-hover:-translate-y-1 transition-transform" />
-      </button>
     </div>
   );
 };
