@@ -15,7 +15,6 @@ import {
   MousePointer2,
   GitBranch,
   StickyNote,
-  Maximize2,
   Sparkles,
   Layers,
   AlertCircle
@@ -28,107 +27,55 @@ import { IconButton, Modal, Backdrop, Fade, Box } from '@mui/material';
 import { supabase } from '@/lib/supabase';
 import { useSidebar } from '@/lib/SidebarContext';
 
-// --- SUB-COMPONENT: ADVANCED GENERATIVE PLACEHOLDER ---
-const GenerativePlaceholder = ({ 
-  status, 
-  error, 
-  scale 
-}: { 
-  status: string, 
-  error?: string, 
-  scale: number 
-}) => {
-  const [fakeProgress, setFakeProgress] = useState(0);
+// --- SUB-COMPONENTS ---
 
+const GenerativePlaceholder = ({ status, error, scale }: { status: string, error?: string, scale: number }) => {
+  const [fakeProgress, setFakeProgress] = useState(0);
   useEffect(() => {
     let interval: any;
     if (status === 'pending') setFakeProgress(15);
     if (status === 'processing') {
       setFakeProgress(20);
-      interval = setInterval(() => {
-        setFakeProgress(prev => {
-          if (prev >= 92) return prev;
-          return prev + 1;
-        });
-      }, 350); 
+      interval = setInterval(() => { setFakeProgress(prev => prev >= 92 ? prev : prev + 1); }, 350);
     }
     if (status === 'completed') setFakeProgress(100);
     return () => clearInterval(interval);
   }, [status]);
 
-  if (status === 'failed') {
-    return (
-      <div className="absolute inset-0 bg-rose-950/20 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center">
-         <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-6">
-            <AlertCircle size={32} className="text-rose-500" />
-         </div>
-         <h4 className="text-white font-black uppercase tracking-tighter text-lg mb-2">Synthesis Failed</h4>
-         <div className="p-4 rounded-xl bg-black/40 border border-white/5 max-w-xs">
-            <p className="text-[10px] font-mono text-rose-400/80 leading-relaxed uppercase">
-              Error: {error || "Unknown Neural Interruption"}
-            </p>
-         </div>
-      </div>
-    );
-  }
+  if (status === 'failed') return (
+    <div className="absolute inset-0 bg-rose-950/20 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center">
+       <AlertCircle size={24 * scale} className="text-rose-500 mb-4" />
+       <h4 className="text-white font-bold uppercase tracking-tighter text-sm mb-2">Synthesis Failed</h4>
+       <p className="text-[8px] font-mono text-rose-400/60 uppercase">Error: {error || "Neural Interruption"}</p>
+    </div>
+  );
 
   return (
-    <div className="relative w-full h-full bg-[#020617] overflow-hidden flex items-center justify-center group/viz">
-      <div className="absolute inset-0 opacity-20 group-hover/viz:opacity-40 transition-opacity duration-1000"
-        style={{
-          backgroundImage: `radial-gradient(circle at 50% 50%, #A7DADB15 0%, transparent 70%), 
-                            linear-gradient(45deg, #4F46E505 0%, transparent 100%)`
-        }}
-      />
-      
-      <div className="relative z-10 flex flex-col items-center w-full max-w-xs text-center" style={{ gap: `${32 * scale}px` }}>
-         <motion.div 
-           animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
-           transition={{ duration: 6, repeat: Infinity }}
-           className="rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center backdrop-blur-xl shadow-2xl"
-           style={{ width: `${80 * scale}px`, height: `${80 * scale}px` }}
-         >
-            <Sparkles size={32 * scale} className="text-[#A7DADB]" />
-         </motion.div>
-         
-         <div className="space-y-4 w-full">
-            <div className="flex flex-col gap-1">
-              <div className="font-black text-[#A7DADB] uppercase tracking-[0.4em]" style={{ fontSize: `${10 * scale}px` }}>
-                {status === 'pending' ? 'Establishing Neural Link' : 'Nano Banana Synthesis'}
-              </div>
-              <div className="font-mono text-slate-500 uppercase tracking-widest" style={{ fontSize: `${9 * scale}px` }}>
-                4K Instructional Architecture
-              </div>
-            </div>
-            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
-               <motion.div 
-                 initial={{ width: 0 }}
-                 animate={{ width: `${fakeProgress}%` }}
-                 className="h-full bg-gradient-to-r from-[#4F46E5] to-[#A7DADB] rounded-full shadow-[0_0_10px_#A7DADB40]"
-               />
-            </div>
-            <div className="flex justify-between items-center px-1">
-               <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">Engine Alpha</span>
-               <span className="text-[10px] font-mono font-bold text-[#A7DADB]">{fakeProgress}%</span>
-            </div>
+    <div className="relative w-full h-full bg-[#020617] flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_#A7DADB_0%,_transparent_70%)]" />
+      <div className="relative z-10 flex flex-col items-center gap-4 w-full max-w-[80%] text-center">
+         <Sparkles size={24 * scale} className="text-[#A7DADB] animate-pulse" />
+         <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+            <motion.div animate={{ width: `${fakeProgress}%` }} className="h-full bg-[#A7DADB]" />
          </div>
+         <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">{status === 'pending' ? 'Syncing' : 'Synthesizing'} {fakeProgress}%</span>
       </div>
     </div>
   );
 };
 
+// --- TYPES ---
+
 interface Artifact {
-  id: string;
-  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[SPEAKER_NOTES]' | '[HEADER]';
+  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[NOTES]';
   content: string;
-  title?: string;
   visualId?: string;
 }
 
-interface VisualState {
-  url?: string;
-  status: string;
-  error?: string;
+interface SceneGroup {
+  id: string;
+  title: string;
+  artifacts: Artifact[];
 }
 
 interface ScriptDraftingWorkspaceProps {
@@ -147,121 +94,110 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   nodeId
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
-  const [visualStates, setVisualStates] = useState<Record<string, VisualState>>({}); 
+  const [visualUrls, setVisualUrls] = useState<Record<string, string>>({}); 
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- PARSE MARKDOWN INTO BENTO ARTIFACTS ---
-  const artifacts = useMemo(() => {
-    if (!content) return [];
-    const normalized = content.replace(/---/g, '').replace(/###\s+\*\*Scene/gi, '[HEADER] Scene').replace(/\*\*(Storyboard Constellation.*?)\*\*/i, '[HEADER] $1');
-    const lines = normalized.split('\n');
-    const tempResults: Artifact[] = [];
-    let currentArtifact: Partial<Artifact> | null = null;
-    const typeRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|HEADER|VISUAL_PROMPT)\]/;
+  // --- HARDENED SCENE-BASED PARSER ---
+  const { scenes, moduleTitle } = useMemo(() => {
+    if (!content) return { scenes: [] as SceneGroup[], moduleTitle: 'Instructional Trace' };
+    
+    const lines = content.split('\n');
+    let mTitle = 'Instructional Trace';
+    const sceneGroups: SceneGroup[] = [];
+    let currentScene: SceneGroup | null = null;
+    let currentArtifact: Artifact | null = null;
+
+    const typeRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]/;
 
     lines.forEach((line, index) => {
       const trimmed = line.trim();
       if (!trimmed) return;
+
+      if (trimmed.includes('Storyboard Constellation:')) {
+        mTitle = trimmed.replace(/^[#*\s]*Storyboard Constellation:?\s*/i, '').replace(/\*+$/, '').trim();
+        return;
+      }
+
+      if (trimmed.toLowerCase().includes('scene ') || (trimmed.startsWith('###') && trimmed.toLowerCase().includes('scene'))) {
+        if (currentScene) {
+           if (currentArtifact) currentScene.artifacts.push(currentArtifact);
+           sceneGroups.push(currentScene);
+        }
+        currentScene = {
+          id: `scene-${index}`,
+          title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
+          artifacts: []
+        };
+        currentArtifact = null;
+        return;
+      }
+
       const typeMatch = trimmed.match(typeRegex);
       if (typeMatch) {
         const typeStr = typeMatch[1];
         if (typeStr === 'VISUAL_PROMPT') return;
-        if (currentArtifact) tempResults.push(currentArtifact as Artifact);
+
+        if (currentArtifact && currentScene) {
+          currentScene.artifacts.push(currentArtifact);
+        }
+
         const isVisualWithId = typeStr.startsWith('VISUAL:');
-        const visualId = isVisualWithId ? typeStr.split(':')[1] : undefined;
-        const type = `[${isVisualWithId ? 'VISUAL' : typeStr}]` as Artifact['type'];
+        const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
+        
+        let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
+        if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
+        const typeVal = `[${typeValStr}]` as Artifact['type'];
+
         currentArtifact = {
-          id: `artifact-${index}`,
-          type,
-          visualId,
+          type: typeVal,
+          visualId: vId,
           content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
         };
       } else if (currentArtifact) {
         currentArtifact.content += `\n${trimmed}`;
       } else {
-        tempResults.push({ id: `intro-${index}`, type: '[HEADER]', content: trimmed, title: 'System Initiation' });
+        // Explicit non-null check to satisfy TS inference
+        if (!currentScene) {
+          currentScene = { id: 'intro', title: 'Institutional Initiation', artifacts: [] };
+        }
+        
+        const introScene = currentScene as SceneGroup;
+        introScene.artifacts.push({ type: '[NARRATION]', content: trimmed });
       }
     });
-    if (currentArtifact) tempResults.push(currentArtifact as Artifact);
 
-    const headers = tempResults.filter(a => a.type === '[HEADER]');
-    const others = tempResults.filter(a => a.type !== '[HEADER]');
-    if (headers.length > 0) {
-      const mainHeader: Artifact = {
-        id: 'main-constellation-header',
-        type: '[HEADER]',
-        title: 'Core Architecture Initiation',
-        content: headers.map(h => h.content).join('\n\n')
-      };
-      return [mainHeader, ...others];
+    if (currentScene) {
+      const finalScene = currentScene as SceneGroup;
+      if (currentArtifact) finalScene.artifacts.push(currentArtifact);
+      sceneGroups.push(finalScene);
     }
-    return others;
+
+    return { scenes: sceneGroups, moduleTitle: mTitle };
   }, [content]);
 
-  // --- DETERMINISTIC REAL-TIME SYNC ---
+  // --- REAL-TIME SYNC ---
   useEffect(() => {
-    const visualIds = artifacts.filter(a => a.visualId).map(a => a.visualId!);
-    if (visualIds.length === 0) return;
+    const allVisualIds = scenes.flatMap(s => s.artifacts).filter(a => a.visualId).map(a => a.visualId!);
+    if (allVisualIds.length === 0) return;
 
     const fetchExisting = async () => {
-      const { data } = await supabase
-        .from('visual_generations')
-        .select('id, image_url, status, error_message')
-        .in('id', visualIds);
-      
+      const { data } = await supabase.from('visual_generations').select('id, image_url, status').in('id', allVisualIds).eq('status', 'completed');
       if (data) {
-        const map: Record<string, VisualState> = {};
-        data.forEach(g => { 
-          map[g.id] = { url: g.image_url, status: g.status, error: g.error_message }; 
-        });
-        setVisualStates(prev => ({ ...prev, ...map }));
+        const map: Record<string, string> = {};
+        data.forEach(g => { if(g.image_url) map[g.id] = g.image_url; });
+        setVisualUrls(prev => ({ ...prev, ...map }));
       }
     };
     fetchExisting();
 
-    const channel = supabase
-      .channel(`visual-trace-sync-${nodeId}`)
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'visual_generations' },
-        (payload) => {
-          if (visualIds.includes(payload.new.id)) {
-            setVisualStates(prev => ({
-              ...prev,
-              [payload.new.id]: { 
-                url: payload.new.image_url, 
-                status: payload.new.status, 
-                error: payload.new.error_message 
-              }
-            }));
-          }
-        }
-      )
-      .subscribe();
-
+    const channel = supabase.channel(`visual-trace-${nodeId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'visual_generations' }, (payload) => {
+      if (allVisualIds.includes(payload.new.id) && payload.new.status === 'completed') {
+        setVisualUrls(prev => ({ ...prev, [payload.new.id]: payload.new.image_url }));
+      }
+    }).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [artifacts, nodeId]); 
-
-  const getTypeIcon = (type: Artifact['type']) => {
-    switch (type) {
-      case '[VISUAL]': return <Eye size={18 * scale} className="text-[#A7DADB]" />;
-      case '[NARRATION]': return <Mic2 size={18 * scale} className="text-[#A7DADB]" />;
-      case '[ACTIVITY]': return <MousePointer2 size={18 * scale} className="text-[#A7DADB]" />;
-      case '[BRANCHING]': return <GitBranch size={18 * scale} className="text-[#A7DADB]" />;
-      case '[SPEAKER_NOTES]': return <StickyNote size={18 * scale} className="text-[#64748B]" />;
-      case '[HEADER]': return <Layers size={18 * scale} className="text-[#A7DADB]" />;
-      default: return <Workflow size={18 * scale} className="text-[#A7DADB]" />;
-    }
-  };
-
-  const getCardStyle = (type: Artifact['type']) => {
-    switch (type) {
-      case '[HEADER]': return "w-full border-[#A7DADB]/20 bg-white/[0.005] mb-8";
-      case '[VISUAL]': case '[NARRATION]': case '[BRANCHING]': return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/20 bg-white/[0.01]";
-      case '[ACTIVITY]': case '[SPEAKER_NOTES]': return "flex-1 min-w-[min(100%,320px)] border-white/10 bg-white/[0.005]";
-      default: return "flex-1 min-w-[300px] border-white/10";
-    }
-  };
+  }, [scenes, nodeId]);
 
   useEffect(() => {
     const handleTrigger = () => setIsInsightOpen(true);
@@ -270,98 +206,142 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   }, []);
 
   return (
-    <div className="flex flex-col w-full relative pt-12" style={{ transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-      <div className="w-full max-w-full mx-auto px-2 overflow-x-hidden">
+    <div className="flex flex-col w-full relative space-y-12">
+      
+      {/* --- MODULE ARCHITECTURE HEADER --- */}
+      {!isLoading && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-full mx-auto px-2">
+           <div className="p-12 rounded-[4rem] bg-white/[0.01] border border-[#A7DADB]/20 backdrop-blur-3xl relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#A7DADB]/40 to-transparent" />
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 relative z-10">
+                 <div className="flex items-center gap-8">
+                    <div className="w-20 h-20 rounded-[2rem] bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center shadow-2xl">
+                       <Workflow size={32} className="text-[#A7DADB]" />
+                    </div>
+                    <div className="space-y-2">
+                       <h1 className="text-4xl font-black text-white tracking-tighter uppercase font-heading">{moduleTitle}</h1>
+                       <div className="flex items-center gap-4">
+                          <div className="px-4 py-1.5 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 flex items-center gap-3">
+                             <Layers size={14} className="text-[#A7DADB]" />
+                             <span className="text-[10px] font-black text-white uppercase tracking-widest">{scenes.length} Strategic Sections</span>
+                          </div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                          <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Instructional Architecture v1.0</span>
+                       </div>
+                    </div>
+                 </div>
+                 <button onClick={() => setIsInsightOpen(true)} className="px-10 py-4 rounded-2xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[11px] font-black text-[#A7DADB] uppercase tracking-[0.3em] hover:bg-[#A7DADB] hover:text-black transition-all">Verification Ledger</button>
+              </div>
+
+              <div className="mt-12 pt-10 border-t border-white/5 flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                 {scenes.map((s, i) => (
+                   <div key={s.id} className="flex-shrink-0 px-6 py-3 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-4 group cursor-default hover:border-[#A7DADB]/20 transition-all">
+                      <span className="text-[10px] font-mono font-bold text-[#A7DADB]/40 group-hover:text-[#A7DADB] transition-colors">{String(i+1).padStart(2, '0')}</span>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">{s.title.split(':')[0]}</span>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        </motion.div>
+      )}
+
+      {/* --- SCENE BENTO GRID --- */}
+      <div className="w-full max-w-full mx-auto px-2 space-y-32 pb-60">
         <AnimatePresence mode="wait">
           {isLoading ? (
-            <div className="flex flex-wrap gap-8 py-12" style={{ gap: `${32 * scale}px` }}>
-               {[1,2,3,4].map(i => (
-                 <div key={i} className={`h-64 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] animate-pulse ${i === 1 ? 'w-full' : 'flex-1 min-w-[400px]'}`} />
-               ))}
-            </div>
+             <div className="space-y-12 py-20">
+                {[1,2].map(i => (
+                  <div key={i} className="p-16 rounded-[4rem] bg-white/[0.01] border border-white/5 animate-pulse space-y-10">
+                     <div className="h-8 w-1/3 bg-white/5 rounded-full" />
+                     <div className="grid grid-cols-3 gap-8">
+                        <div className="col-span-2 h-64 bg-white/5 rounded-[2.5rem]" />
+                        <div className="h-64 bg-white/5 rounded-[2.5rem]" />
+                     </div>
+                  </div>
+                ))}
+             </div>
           ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap pb-40" style={{ gap: `${32 * scale}px` }}>
-              {artifacts.map((art, idx) => {
-                const isVisual = art.type === '[VISUAL]';
-                const vState = isVisual && art.visualId ? visualStates[art.visualId] : null;
-                const imageUrl = vState?.url;
+            scenes.map((scene, sIdx) => (
+              <motion.section 
+                key={scene.id} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: sIdx * 0.1 }}
+                className="space-y-12"
+              >
+                 <div className="flex items-center gap-8 px-10">
+                    <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-white/10" />
+                    <h2 className="text-xl font-black text-white uppercase tracking-[0.6em] font-heading opacity-60 italic">{scene.title}</h2>
+                    <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/10" />
+                 </div>
 
-                return (
-                  <motion.div
-                    key={art.id}
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: idx * 0.05 }}
-                    whileHover={{ y: -8, scale: 1.005, transition: { duration: 0.3 } }}
-                    className={`relative overflow-hidden group rounded-[3rem] backdrop-blur-3xl border ${getCardStyle(art.type)} transition-all duration-700 hover:bg-white/[0.02] shadow-[0_20px_80px_rgba(0,0,0,0.5)]`}
-                    style={{ padding: `${48 * scale}px` }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                    <div className="flex items-center justify-between mb-10 relative z-10" style={{ marginBottom: `${40 * scale}px` }}>
-                      <div className="flex items-center gap-6" style={{ gap: `${24 * scale}px` }}>
-                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all shadow-inner" style={{ padding: `${16 * scale}px` }}>
-                          {getTypeIcon(art.type)}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-black uppercase tracking-[0.4em] text-[#A7DADB]/30" style={{ fontSize: `${10 * scale}px` }}>{art.type.replace('[', '').replace(']', '')}</span>
-                          {art.title && <span className="font-bold text-white tracking-widest uppercase" style={{ fontSize: `${14 * scale}px` }}>{art.title}</span>}
-                        </div>
-                      </div>
-                      <IconButton size="small" sx={{ color: 'white/[0.05]', '&:hover': { color: '#A7DADB' } }}><Maximize2 size={14 * scale} /></IconButton>
-                    </div>
-
-                    <div className="relative z-10">
-                      {isVisual && (
-                        <div className="aspect-video w-full rounded-[2.5rem] bg-black/60 border border-white/5 flex items-center justify-center relative overflow-hidden shadow-2xl" style={{ marginBottom: `${48 * scale}px` }}>
-                           <AnimatePresence mode="wait">
-                             {imageUrl ? (
-                               <motion.div key="image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
-                                 <Image src={imageUrl} alt="Generated Mockup" fill className="object-cover" unoptimized />
-                               </motion.div>
+                 <div className="flex flex-wrap gap-8">
+                    <div className="w-full flex flex-wrap gap-8">
+                       <div className="flex-[2.5] min-w-[min(100%,600px)] p-14 rounded-[3.5rem] bg-white/[0.015] border border-white/[0.05] shadow-2xl relative overflow-hidden group/nar">
+                          <div className="absolute top-8 left-10 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/nar:text-[#A7DADB]/60 transition-colors">
+                             <Mic2 size={14} /> Spoken Payload
+                          </div>
+                          <div className="mt-10 prose prose-invert max-w-none text-[1.2rem] font-medium leading-[1.7] text-white/90 italic tracking-tight">
+                             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                               {scene.artifacts.find(a => a.type === '[NARRATION]')?.content || "No narration defined."}
+                             </ReactMarkdown>
+                          </div>
+                       </div>
+                       <div className="flex-1 min-w-[min(100%,350px)] aspect-[4/5] md:aspect-auto rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden relative shadow-2xl group/viz">
+                          <div className="absolute top-8 left-10 z-20 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/viz:text-[#A7DADB] transition-colors">
+                             <Eye size={14} /> Art Direction
+                          </div>
+                          {(() => {
+                             const vis = scene.artifacts.find(a => a.type === '[VISUAL]');
+                             const url = vis?.visualId ? visualUrls[vis.visualId] : null;
+                             return url ? (
+                               <Image src={url} alt="Scene Mockup" fill className="object-cover" unoptimized />
                              ) : (
-                               <motion.div key="loader" exit={{ opacity: 0 }} className="absolute inset-0">
-                                 <GenerativePlaceholder 
-                                   status={vState?.status || 'pending'} 
-                                   error={vState?.error} 
-                                   scale={scale} 
-                                 />
-                               </motion.div>
-                             )}
-                           </AnimatePresence>
-                        </div>
-                      )}
-
-                      <div className={`prose prose-invert max-w-none ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''} ${art.type === '[NARRATION]' ? 'font-medium text-white/90 tracking-[-0.01em] italic' : ''} ${art.type === '[ACTIVITY]' ? 'font-bold text-[#A7DADB]' : ''} ${art.type === '[SPEAKER_NOTES]' ? 'text-slate-500 italic border-l-4 border-white/10 font-medium' : ''} ${art.type === '[BRANCHING]' ? 'font-mono bg-black/40 rounded-[2rem] border border-white/5 text-[#A7DADB]/80 leading-relaxed' : ''}`}
-                           style={{ 
-                              fontSize: art.type === '[HEADER]' ? `${48 * scale}px` : art.type === '[NARRATION]' ? `${18 * scale}px` : art.type === '[SPEAKER_NOTES]' ? `${15 * scale}px` : `${16 * scale}px`,
-                              lineHeight: 1.65,
-                              padding: art.type === '[BRANCHING]' ? `${40 * scale}px` : '0',
-                              paddingLeft: art.type === '[SPEAKER_NOTES]' ? `${40 * scale}px` : undefined,
-                              paddingTop: art.type === '[HEADER]' ? `${48 * scale}px` : undefined,
-                              paddingBottom: art.type === '[HEADER]' ? `${48 * scale}px` : undefined
-                           }}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{art.content}</ReactMarkdown>
-                      </div>
+                               <GenerativePlaceholder status={vis?.visualId ? 'processing' : 'pending'} scale={scale} />
+                             );
+                          })()}
+                       </div>
                     </div>
-                    <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-10 transition-opacity"><Workflow size={100 * scale} className="text-[#A7DADB]" /></div>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
+
+                    <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-8">
+                       <div className="p-10 rounded-[3rem] bg-indigo-500/[0.02] border border-indigo-500/20 shadow-xl space-y-6 group/act">
+                          <div className="flex items-center gap-4 text-indigo-400/50 uppercase tracking-[0.3em] text-[9px] font-black group-hover/act:text-indigo-400 transition-colors">
+                             <MousePointer2 size={14} /> Engagement Protocol
+                          </div>
+                          <div className="text-[1rem] font-bold text-indigo-100/80 leading-relaxed">
+                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                               {scene.artifacts.find(a => a.type === '[ACTIVITY]')?.content || "Passive Consumption"}
+                             </ReactMarkdown>
+                          </div>
+                       </div>
+                       <div className="p-10 rounded-[3rem] bg-black/40 border border-[#A7DADB]/20 shadow-xl space-y-6 group/log">
+                          <div className="flex items-center gap-4 text-[#A7DADB]/40 uppercase tracking-[0.3em] text-[9px] font-black group-hover/log:text-[#A7DADB] transition-colors">
+                             <GitBranch size={14} /> Architectural Logic
+                          </div>
+                          <div className="text-[0.9rem] font-mono text-[#A7DADB]/70 leading-relaxed bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                               {scene.artifacts.find(a => a.type === '[BRANCHING]')?.content || "Linear Logic Flow"}
+                             </ReactMarkdown>
+                          </div>
+                       </div>
+                       <div className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/5 shadow-xl space-y-6 group/not">
+                          <div className="flex items-center gap-4 text-slate-600 uppercase tracking-[0.3em] text-[9px] font-black group-hover/not:text-slate-400 transition-colors">
+                             <StickyNote size={14} /> Institutional Notes
+                          </div>
+                          <div className="text-[0.95rem] text-slate-500 italic leading-relaxed border-l-2 border-white/10 pl-6">
+                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                               {scene.artifacts.find(a => a.type === '[NOTES]')?.content || "Standard operational guidelines apply."}
+                             </ReactMarkdown>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </motion.section>
+            ))
           )}
         </AnimatePresence>
       </div>
 
-      {/* --- KNOWLEDGE VERIFICATION MODAL --- */}
       <Modal open={isInsightOpen} onClose={() => setIsInsightOpen(false)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(40px)', bgcolor: 'rgba(2, 6, 23, 0.98)' } }}>
         <Fade in={isInsightOpen}>
-          <Box sx={{ 
-            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', 
-            width: '95%', maxWidth: '800px', maxHeight: '85vh', 
-            bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', 
-            p: { xs: 6, md: 10 }, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 0 100px rgba(0,0,0,0.8)' 
-          }}>
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '95%', maxWidth: '800px', maxHeight: '85vh', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', p: { xs: 6, md: 10 }, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
             <div className="flex justify-between items-center mb-20 shrink-0">
                <div className="flex items-center gap-8">
                   <div className="p-5 rounded-[2rem] bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-2xl"><Activity size={32} className="text-[#A7DADB]" /></div>
@@ -372,7 +352,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             <div className="space-y-24 overflow-y-auto custom-scrollbar pr-4 flex-1">
               <section className="space-y-8">
                 <div className="flex items-center gap-4"><History size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4></div>
-                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-300 leading-relaxed font-light italic text-slate-400"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
+                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-400 leading-relaxed font-light italic"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
               </section>
               <section className="space-y-8">
                 <div className="flex items-center gap-4"><BookOpen size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4></div>
