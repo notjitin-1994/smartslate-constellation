@@ -9,6 +9,7 @@ export type ContentType = 'text' | 'image' | 'video' | 'pdf' | 'docx';
 
 export interface IngestAsset {
   blueprintId: string | null;
+  userId?: string | null; // Track ownership for global assets
   contentType: ContentType;
   content: string; // Base64 for media/docs or raw text
   fileName: string;
@@ -162,6 +163,7 @@ export class KnowledgeIngestService {
 
         const chunkRows = chunks.map((chunk: string, i: number) => ({
           blueprint_id: asset.blueprintId,
+          user_id: asset.userId,
           content_type: asset.contentType,
           raw_content: chunk,
           contextual_header: object.contextHeader,
@@ -191,6 +193,7 @@ export class KnowledgeIngestService {
         
         const chunkRows = chunks.map((chunk: string, i: number) => ({
           blueprint_id: asset.blueprintId,
+          user_id: asset.userId,
           content_type: asset.contentType,
           raw_content: chunk,
           contextual_header: object.contextHeader,
@@ -262,6 +265,7 @@ export class KnowledgeIngestService {
         .from('knowledge_vault')
         .insert({
           blueprint_id: asset.blueprintId,
+          user_id: asset.userId,
           content_type: asset.contentType,
           raw_content: description,
           embedding,

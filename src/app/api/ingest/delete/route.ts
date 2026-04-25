@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function DELETE(req: NextRequest) {
   try {
+    const cookieStore = await cookies();
+
+    const supabaseServer = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
+
+    const { data: { user } } = await supabaseServer.auth.getUser();
+
     const { searchParams } = new URL(req.url);
     const blueprintId = searchParams.get('blueprintId'); // can be null
     const fileName = searchParams.get('fileName');
@@ -16,11 +34,15 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Delete all chunks for this specific file
+    // Delete all chunks for this specific file owned by the user
     let query = supabase
       .from('knowledge_vault')
       .delete()
       .eq('metadata->>source_name', fileName);
+
+    if (user) {
+      query = query.eq('user_id', user.id);
+    }
 
     if (blueprintId) {
       query = query.eq('blueprint_id', blueprintId);
