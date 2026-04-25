@@ -91,11 +91,29 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const scale = collapsed ? 1.0 : 0.88;
 
   useEffect(() => {
+    // 1. Initial Fetch for already completed visuals in this session
+    const fetchExisting = async () => {
+      const { data } = await supabase
+        .from('visual_generations')
+        .select('prompt, image_url')
+        .eq('status', 'completed')
+        .not('image_url', 'is', null);
+      
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach(g => { if(g.image_url) map[g.prompt] = g.image_url; });
+        setGeneratedImages(map);
+      }
+    };
+    fetchExisting();
+
+    // 2. Subscribe to new completions
     const channel = supabase
-      .channel('visual-updates')
+      .channel('visual-updates-global')
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'visual_generations' },
         (payload) => {
+          console.log('[ScriptWorkspace] Neural Pulse Received:', payload.new.status);
           if (payload.new.status === 'completed' && payload.new.image_url) {
             setGeneratedImages(prev => ({
               ...prev,

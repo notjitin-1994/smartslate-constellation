@@ -24,19 +24,33 @@ export async function POST(req: NextRequest) {
       blueprintContext
     });
 
-    // --- ASYNCHRONOUS VISUAL DISPATCHER (Hardened Semantic Sniffer) ---
+    // --- ASYNCHRONOUS VISUAL DISPATCHER (Hardened Semantic Sniffer V2) ---
     const script = result.script;
-    const promptRegex = /\[VISUAL_PROMPT\][*: ]*(.*?)(?=\n|\[|$)/gi;
+    
+    /**
+     * INDESTRUCTIBLE REGEX:
+     * - Matches [VISUAL_PROMPT] in any case.
+     * - Handles any amount of markdown wrapping (*, #, _, :)
+     * - Captures everything until the next tag or double newline.
+     */
+    const promptRegex = /\[VISUAL_PROMPT\][*: ]*([\s\S]*?)(?=\n\n|\[|$)/gi;
     const matches = [...script.matchAll(promptRegex)];
 
+    console.log(`[Architect] Parser Sniffer result: Found ${matches.length} prompt candidates.`);
+
     if (matches.length > 0) {
-      console.log(`[Architect] Parser found ${matches.length} prompt candidates.`);
       const supabase = createAdminClient();
 
-      // Sequentially trigger (Ensures handshake completion within Vercel's 10s window)
       for (const match of matches) {
-        const visualPrompt = match[1].trim().replace(/\*+$/, '');
-        if (!visualPrompt || visualPrompt.length < 5) continue;
+        // Clean the captured prompt: strip markdown, extra colons, and internal asterisks
+        const visualPrompt = match[1]
+          .replace(/[#*]/g, '')
+          .replace(/^[:\s]*/, '')
+          .trim();
+
+        if (!visualPrompt || visualPrompt.length < 10) continue;
+
+        console.log(`[Architect] Dispatching verified prompt: ${visualPrompt.substring(0, 40)}...`);
 
         try {
           const { data: gen, error: genErr } = await supabase
@@ -52,7 +66,7 @@ export async function POST(req: NextRequest) {
 
           if (genErr) throw genErr;
 
-          // Await the trigger call. This is now SAFE because the Edge function returns instantly.
+          // Trigger the Edge Function (Fast Handshake)
           await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-visual`, {
             method: 'POST',
             headers: {
@@ -64,11 +78,11 @@ export async function POST(req: NextRequest) {
               prompt: visualPrompt,
               blueprintId: blueprintId
             })
-          }).catch(err => console.error('[Architect] Dispatch Error:', err));
+          });
 
-          console.log(`[Architect] Successfully dispatched visual task: ${gen.id}`);
+          console.log(`[Architect] Success: Background task queued for ${gen.id}`);
         } catch (dispatchErr) {
-          console.error('[Architect] Failed to dispatch visual task:', dispatchErr);
+          console.error('[Architect] Dispatch Loop Failure:', dispatchErr);
         }
       }
     }
@@ -79,11 +93,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const err = error as Error;
-    console.error('[Architect API CRASH]:', {
-      message: err.message,
-      stack: err.stack,
-      name: err.name
-    });
+    console.error('[Architect API CRASH]:', err);
     
     return NextResponse.json(
       { 
