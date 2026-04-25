@@ -184,7 +184,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     <div className="flex flex-col w-full relative pt-12">
       
       {/* --- FLUID BENTO ARTIFACTS --- */}
-      <div className="w-full max-w-[98%] mx-auto px-6">
+      <div className="w-full max-w-full mx-auto px-2 overflow-x-hidden">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <div className="flex flex-wrap gap-8 py-12">

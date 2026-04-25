@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type SidebarContextType = {
   collapsed: boolean;
@@ -14,9 +14,38 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [isConstellationMode, setIsConstellationMode] = useState(false);
+  const [isInitialized, setIsMounted] = useState(false);
+
+  // Load from storage on mount
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem('sidebar-collapsed');
+    const savedMode = localStorage.getItem('sidebar-mode');
+    
+    if (savedCollapsed !== null) setCollapsed(savedCollapsed === 'true');
+    if (savedMode !== null) setIsConstellationMode(savedMode === 'true');
+    
+    setIsMounted(true);
+  }, []);
+
+  // Sync to storage
+  const handleSetCollapsed = (val: boolean) => {
+    setCollapsed(val);
+    localStorage.setItem('sidebar-collapsed', val.toString());
+  };
+
+  const handleSetMode = (val: boolean) => {
+    setIsConstellationMode(val);
+    localStorage.setItem('sidebar-mode', val.toString());
+  };
+
   return (
-    <SidebarContext.Provider value={{ collapsed, setCollapsed, isConstellationMode, setIsConstellationMode }}>
-      {children}
+    <SidebarContext.Provider value={{ 
+      collapsed, 
+      setCollapsed: handleSetCollapsed, 
+      isConstellationMode, 
+      setIsConstellationMode: handleSetMode 
+    }}>
+      {isInitialized ? children : <div className="bg-[#020617] min-h-screen" />}
     </SidebarContext.Provider>
   );
 }

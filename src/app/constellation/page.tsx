@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
+import { useSidebar } from '@/lib/SidebarContext';
 import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
 import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,6 +51,12 @@ function ArchitectureCanvasContent() {
   const [isDrafting, setIsDrafting] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [showUlsPreview, setShowUlsPreview] = useState(false);
+  const { setIsConstellationMode } = useSidebar();
+
+  // Initialize sidebar to Neural Trace on mount
+  useEffect(() => {
+    setIsConstellationMode(true);
+  }, [setIsConstellationMode]);
 
   // --- PERSISTENCE HOOK ---
   const { state, updateState, isSyncing } = useConstellationPersistence(blueprintId);
@@ -275,14 +282,14 @@ function ArchitectureCanvasContent() {
         </header>
 
         {/* ZEN EDITOR AREA */}
-        <div className="flex-1 overflow-y-auto px-12 lg:px-24 pb-20 pt-10 custom-scrollbar relative z-10">
+        <div className="flex-1 overflow-y-auto px-6 md:px-12 lg:px-20 pb-20 pt-10 custom-scrollbar relative z-10 w-full max-w-full">
             <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
-                <div className="space-y-12">
+                <div className="space-y-12 w-full max-w-full">
                    {/* MODULAR NODE IDENTIFICATION (Moved from Header) */}
                    <motion.div 
                      initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-                     className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] backdrop-blur-xl relative overflow-hidden"
+                     className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] backdrop-blur-xl relative overflow-hidden w-full max-w-full"
                    >
                       <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/40" />
                       <div className="flex flex-col gap-4">

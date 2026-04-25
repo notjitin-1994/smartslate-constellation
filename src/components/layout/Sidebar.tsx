@@ -358,8 +358,8 @@ export default function Sidebar() {
         ) : (
           <div className="flex flex-col items-center gap-6 py-4">
              <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
-             <button onClick={() => setCollapsed(false)} className="text-slate-500 hover:text-[#A7DADB] transition-colors">
-               <ChevronRight size={20} />
+             <button onClick={signOut} className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all" title="Log Out">
+               <Icons.Logout size={18} />
              </button>
           </div>
         )}
