@@ -60,6 +60,10 @@ export default function Sidebar() {
   const [modules, setModules] = useState<any[]>([]);
   const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
 
+  // --- SECTION EXPANSION STATE ---
+  const [platformExpanded, setPlatformExpanded] = useState(true);
+  const [solaraSuiteExpanded, setSolaraSuiteExpanded] = useState(false);
+
   useEffect(() => {
     if (pathname === '/constellation') {
       const savedMode = localStorage.getItem('sidebar-mode');
@@ -78,7 +82,6 @@ export default function Sidebar() {
       if (!user?.id) return;
       
       try {
-        // 1. Fetch from user_profiles table (Mirrored from Polaris schema)
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('first_name, last_name, avatar_url')
@@ -87,10 +90,7 @@ export default function Sidebar() {
 
         if (profile) {
           if (profile.first_name) setDbName(`${profile.first_name} ${profile.last_name || ''}`.trim());
-          
-          // 2. Resolve Avatar (Tiered Strategy)
           if (profile.avatar_url) {
-            // If it's a full URL, use it; if it's a path, resolve from bucket
             if (profile.avatar_url.startsWith('http')) {
               setDbAvatarUrl(profile.avatar_url);
             } else {
@@ -100,13 +100,11 @@ export default function Sidebar() {
           }
         }
 
-        // 3. Fallback to User Metadata (OAuth/Manual metadata)
         if (!dbAvatarUrl) {
           const meta = user.user_metadata || {};
           const metaUrl = meta.avatar_url || meta.picture || meta.avatarURL;
           if (metaUrl) setDbAvatarUrl(metaUrl);
           else if (meta.avatar_path) {
-             // Support the legacy Polaris path logic
              const { data } = supabase.storage.from('public-assets').getPublicUrl(meta.avatar_path);
              setDbAvatarUrl(data?.publicUrl || null);
           }
@@ -197,73 +195,93 @@ export default function Sidebar() {
               variants={variants}
               initial="initial" animate="animate" exit="exit"
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className={`px-4 py-4 space-y-8 ${collapsed ? 'flex flex-col items-center' : ''}`}
+              className={`px-4 py-4 space-y-6 ${collapsed ? 'flex flex-col items-center' : ''}`}
             >
+              {/* PLATFORM SECTION (Expanded by default) */}
               <div className="space-y-3">
-                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Platform</h2>}
-                <div className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : ''}`}>
-                  {quickAccessItems.map((item) => {
-                    const isActive = pathname === item.path;
-                    return (
-                      <button
-                        key={item.title}
-                        onClick={() => router.push(item.path)}
-                        title={collapsed ? item.title : ''}
-                        className={`group flex items-center transition-all duration-300 ${
-                          collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl'
-                        } ${
-                          isActive ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'
-                        }`}
-                      >
-                        <item.icon size={collapsed ? 20 : 18} className="shrink-0" />
-                        {!collapsed && <span className="text-[13px] font-bold tracking-tight">{item.title}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
+                {!collapsed && (
+                  <button 
+                    onClick={() => setPlatformExpanded(!platformExpanded)}
+                    className="w-full px-3 flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] group/head"
+                  >
+                    Platform
+                    <ChevronRight size={12} className={`transition-transform duration-300 ${platformExpanded ? 'rotate-90' : ''} group-hover/head:text-[#A7DADB]`} />
+                  </button>
+                )}
+                <AnimatePresence>
+                  {(platformExpanded || collapsed) && (
+                    <motion.div 
+                      initial={collapsed ? { opacity: 1 } : { height: 0, opacity: 0 }}
+                      animate={collapsed ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : 'overflow-hidden'}`}
+                    >
+                      {quickAccessItems.map((item) => {
+                        const isActive = pathname === item.path;
+                        return (
+                          <button
+                            key={item.title}
+                            onClick={() => router.push(item.path)}
+                            title={collapsed ? item.title : ''}
+                            className={`group flex items-center transition-all duration-300 ${
+                              collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl'
+                            } ${
+                              isActive ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'
+                            }`}
+                          >
+                            <item.icon size={collapsed ? 20 : 18} className="shrink-0" />
+                            {!collapsed && <span className="text-[13px] font-bold tracking-tight">{item.title}</span>}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              {!collapsed && pathname === '/constellation' && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-3">
-                   <button
-                     onClick={() => setIsConstellationMode(true)}
-                     className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-[#A7DADB]/10 hover:border-[#A7DADB]/30 transition-all group relative"
-                   >
-                     <Brain size={18} className="text-[#A7DADB] group-hover:scale-110 transition-transform" />
-                     <div className="flex flex-col text-left">
-                        <span className="text-[9px] font-black text-[#A7DADB]/60 uppercase tracking-widest">Active Canvas</span>
-                        <span className="text-[11px] font-bold text-white uppercase">Neural Trace</span>
-                     </div>
-                     <ArrowRight size={14} className="ml-auto text-[#A7DADB]/40 group-hover:translate-x-1 transition-transform" />
-                   </button>
-                </motion.div>
-              )}
-
+              {/* SOLARA SUITE SECTION (Collapsed by default) */}
               <div className="space-y-3">
-                {!collapsed && <h2 className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Solara Suite</h2>}
-                <div className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : ''}`}>
-                  {solaraSuiteLinks.map((item) => (
-                    <button
-                      key={item.name}
-                      onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
-                      disabled={item.badgeType === 'soon'}
-                      className={`group flex items-center transition-all duration-300 ${
-                        collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl justify-between'
-                      } ${collapsed ? 'text-slate-600' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'}`}
+                {!collapsed && (
+                  <button 
+                    onClick={() => setSolaraSuiteExpanded(!solaraSuiteExpanded)}
+                    className="w-full px-3 flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] group/head"
+                  >
+                    Solara Suite
+                    <ChevronRight size={12} className={`transition-transform duration-300 ${solaraSuiteExpanded ? 'rotate-90' : ''} group-hover/head:text-[#A7DADB]`} />
+                  </button>
+                )}
+                <AnimatePresence>
+                  {(solaraSuiteExpanded || collapsed) && (
+                    <motion.div 
+                      initial={collapsed ? { opacity: 1 } : { height: 0, opacity: 0 }}
+                      animate={collapsed ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : 'overflow-hidden'}`}
                     >
-                      {collapsed ? (
-                        <Monitor size={18} />
-                      ) : (
-                        <>
-                          <span className="text-[13px] font-bold">{item.name}</span>
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
-                            item.badgeType === 'active' ? 'border-[#A7DADB]/20 bg-[#A7DADB]/5 text-[#A7DADB]' : 'border-slate-800 bg-slate-900 text-slate-600'
-                          }`}>{item.badge}</span>
-                        </>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                      {solaraSuiteLinks.map((item) => (
+                        <button
+                          key={item.name}
+                          onClick={() => item.isExternal ? window.open(item.path, '_blank') : (item.path !== '#' && router.push(item.path))}
+                          disabled={item.badgeType === 'soon'}
+                          className={`group flex items-center transition-all duration-300 ${
+                            collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl justify-between'
+                          } ${collapsed ? 'text-slate-600' : 'text-slate-500 hover:bg-white/[0.03] hover:text-[#A7DADB]'}`}
+                        >
+                          {collapsed ? (
+                            <Monitor size={18} />
+                          ) : (
+                            <>
+                              <span className="text-[13px] font-bold">{item.name}</span>
+                              <span className={`text-[9px] px-2 py-0.5 rounded-full border ${
+                                item.badgeType === 'active' ? 'border-[#A7DADB]/20 bg-[#A7DADB]/5 text-[#A7DADB]' : 'border-slate-800 bg-slate-900 text-slate-600'
+                              }`}>{item.badge}</span>
+                            </>
+                          )}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.nav>
           ) : (
@@ -374,7 +392,33 @@ export default function Sidebar() {
         )}
       </div>
 
-      <div className="mt-auto p-4 border-t border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
+      <div className="mt-auto p-4 border-t border-white/[0.03] bg-[#020617]/50 backdrop-blur-md space-y-4">
+        {/* ACTIVE CANVAS TRIGGER (Relocated above Profile) */}
+        {!collapsed && !isConstellationMode && pathname === '/constellation' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-2">
+              <button
+                onClick={() => setIsConstellationMode(true)}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-[#A7DADB]/5 border border-[#A7DADB]/20 hover:border-[#A7DADB]/40 transition-all group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-[#A7DADB]/[0.02] group-hover:bg-[#A7DADB]/[0.05] transition-colors" />
+                <Brain size={18} className="text-[#A7DADB] group-hover:scale-110 transition-transform relative z-10" />
+                <div className="flex flex-col text-left relative z-10">
+                  <span className="text-[9px] font-black text-[#A7DADB]/60 uppercase tracking-widest">Active Canvas</span>
+                  <span className="text-[11px] font-bold text-white uppercase">Neural Trace</span>
+                </div>
+                <ArrowRight size={14} className="ml-auto text-[#A7DADB]/40 group-hover:translate-x-1 transition-transform relative z-10" />
+              </button>
+          </motion.div>
+        )}
+
+        {collapsed && !isConstellationMode && pathname === '/constellation' && (
+          <div className="flex flex-col items-center mb-2">
+             <button onClick={() => setIsConstellationMode(true)} className="w-10 h-10 rounded-xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center text-[#A7DADB] hover:bg-[#A7DADB]/20 transition-all shadow-[0_0_15px_rgba(167,218,219,0.1)]" title="Active Canvas">
+                <Brain size={18} />
+             </button>
+          </div>
+        )}
+
         {!collapsed ? (
           <div className="space-y-4">
             <button className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] transition-all group">
