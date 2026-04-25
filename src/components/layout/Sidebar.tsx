@@ -272,7 +272,6 @@ export default function Sidebar() {
                           <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
                         </div>
                       )}
-                      {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-2 bottom-2 w-1 bg-[#4F46E5] rounded-full" />}     
                     </button>
                   );
                 })}
