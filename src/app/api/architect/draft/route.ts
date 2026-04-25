@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { instructionalArchitectService } from '@/lib/services/instructionalArchitectService';
+import { createAdminClient } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,14 +14,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // --- PROBE: Verify Google Key Presence without logging the value ---
-    const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    console.log(`[Architect API Probe] Google Key Diagnostic:`, {
-      isDefined: !!rawKey,
-      length: rawKey?.length || 0,
-      startsWith: rawKey?.substring(0, 3) + '...'
-    });
-
     const result = await instructionalArchitectService.draftNodeScript({
       id,
       title,
@@ -31,13 +24,59 @@ export async function POST(req: NextRequest) {
       blueprintContext
     });
 
+    // --- ASYNCHRONOUS VISUAL DISPATCHER ---
+    const script = result.script;
+    const promptRegex = /\[VISUAL_PROMPT\]:?\s*(.*?)(?=\n|\[|$)/g;
+    const matches = [...script.matchAll(promptRegex)];
+
+    if (matches.length > 0) {
+      console.log(`[Architect] Dispatching ${matches.length} visual tasks...`);
+      const supabase = createAdminClient();
+
+      // Fire-and-forget triggers
+      matches.forEach(async (match) => {
+        const visualPrompt = match[1].trim();
+        if (!visualPrompt) return;
+
+        try {
+          const { data: gen, error: genErr } = await supabase
+            .from('visual_generations')
+            .insert({
+              blueprint_id: blueprintId,
+              node_id: id,
+              prompt: visualPrompt,
+              status: 'pending'
+            })
+            .select()
+            .single();
+
+          if (genErr) throw genErr;
+
+          fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-visual`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            },
+            body: JSON.stringify({
+              generationId: gen.id,
+              prompt: visualPrompt,
+              blueprintId: blueprintId
+            })
+          }).catch(err => console.error('[Architect] Dispatch Error:', err));
+
+        } catch (dispatchErr) {
+          console.error('[Architect] Failed to dispatch visual task:', dispatchErr);
+        }
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: result,
     });
   } catch (error: unknown) {
     const err = error as Error;
-    // CRITICAL: Capture full error trace for Vercel logs
     console.error('[Architect API CRASH]:', {
       message: err.message,
       stack: err.stack,

@@ -2,12 +2,14 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   BookOpen, 
   Activity, 
   History, 
   X, 
   Mic2,
+  ChevronRight,
   Workflow,
   Eye,
   MousePointer2,
@@ -22,9 +24,10 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconButton, Modal, Backdrop, Fade, Box } from '@mui/material';
+import { supabase } from '@/lib/supabase';
 
-// --- SUB-COMPONENT: PROCEDURAL GENERATIVE LENS ---
-const GenerativeLens = ({ content }: { content: string }) => {
+// --- SUB-COMPONENT: PROCEDURAL GENERATIVE LENS (As Loader) ---
+const GenerativeLens = ({ content, status }: { content: string, status?: string }) => {
   const [seed] = useState(Math.floor(Math.random() * 1000));
   
   return (
@@ -35,16 +38,6 @@ const GenerativeLens = ({ content }: { content: string }) => {
                             linear-gradient(${seed % 360}deg, #4F46E505 0%, transparent 100%)`
         }}
       />
-      
-      <svg className="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#A7DADB" strokeWidth="0.5"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
-
       <div className="relative z-10 flex flex-col items-center gap-6 px-12 text-center">
          <motion.div 
            animate={{ scale: [1, 1.05, 1], rotate: [0, 2, -2, 0] }}
@@ -55,14 +48,13 @@ const GenerativeLens = ({ content }: { content: string }) => {
          </motion.div>
          
          <div className="space-y-2">
-            <div className="text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em] opacity-40">Procedural Gen Alpha</div>
+            <div className="text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em] opacity-40">
+              {status === 'processing' ? 'Synthesizing 4K Assets' : 'Nano Banana Pro Active'}
+            </div>
             <div className="text-lg font-bold text-white/80 tracking-tight leading-tight max-w-xs truncate-2-lines italic">
                &quot;{content.split(' ').slice(0, 8).join(' ')}...&quot;
             </div>
          </div>
-      </div>
-      <div className="absolute bottom-4 left-6 text-[8px] font-mono text-[#A7DADB]/30 tracking-widest uppercase">
-         Instructional Frame ID: {seed}-CONST
       </div>
     </div>
   );
@@ -73,6 +65,7 @@ interface Artifact {
   type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[SPEAKER_NOTES]' | '[HEADER]';
   content: string;
   title?: string;
+  visualPrompt?: string;
 }
 
 interface ScriptDraftingWorkspaceProps {
@@ -89,8 +82,29 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   citations
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<Record<string, string>>({}); // Maps prompt to image_url
 
-  // --- CONSOLIDATED SEMANTIC PARSER ---
+  // --- REAL-TIME SUBSCRIPTION ---
+  useEffect(() => {
+    const channel = supabase
+      .channel('visual-updates')
+      .on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'visual_generations' },
+        (payload) => {
+          if (payload.new.status === 'completed' && payload.new.image_url) {
+            setGeneratedImages(prev => ({
+              ...prev,
+              [payload.new.prompt]: payload.new.image_url
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // --- PARSE MARKDOWN INTO BENTO ARTIFACTS ---
   const artifacts = useMemo(() => {
     if (!content) return [];
     
@@ -102,7 +116,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const lines = normalized.split('\n');
     const tempResults: Artifact[] = [];
     let currentArtifact: Partial<Artifact> | null = null;
-    const typeRegex = /\[(VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|HEADER)\]/;
+    const typeRegex = /\[(VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|HEADER|VISUAL_PROMPT)\]/;
 
     lines.forEach((line, index) => {
       const trimmed = line.trim();
@@ -110,8 +124,16 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const typeMatch = trimmed.match(typeRegex);
       
       if (typeMatch) {
+        const typeStr = typeMatch[1];
+        
+        // Handle Visual Prompt as a property of the previous VISUAL artifact
+        if (typeStr === 'VISUAL_PROMPT' && currentArtifact?.type === '[VISUAL]') {
+          currentArtifact.visualPrompt = trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').trim();
+          return;
+        }
+
         if (currentArtifact) tempResults.push(currentArtifact as Artifact);
-        const type = `[${typeMatch[1]}]` as Artifact['type'];
+        const type = `[${typeStr}]` as Artifact['type'];
         currentArtifact = {
           id: `artifact-${index}`,
           type,
@@ -160,17 +182,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
-      case '[HEADER]': 
-        return "w-full border-[#A7DADB]/20 bg-white/[0.005] py-16 px-20 mb-8";
-      case '[VISUAL]': 
-      case '[NARRATION]':
-      case '[BRANCHING]':
-        return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/20 bg-white/[0.01]";
+      case '[HEADER]': return "w-full border-[#A7DADB]/20 bg-white/[0.005] py-16 px-20 mb-8";
+      case '[VISUAL]': return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/20 bg-white/[0.01]";
+      case '[NARRATION]': return "flex-[2] min-w-[min(100%,480px)] border-white/10 bg-white/[0.01]";
+      case '[BRANCHING]': return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/40 font-mono";
       case '[ACTIVITY]':
-      case '[SPEAKER_NOTES]':
-        return "flex-1 min-w-[min(100%,320px)] border-white/10 bg-white/[0.005]";
-      default: 
-        return "flex-1 min-w-[300px] border-white/10";
+      case '[SPEAKER_NOTES]': return "flex-1 min-w-[min(100%,320px)] border-white/10 bg-white/[0.005]";
+      default: return "flex-1 min-w-[300px] border-white/10";
     }
   };
 
@@ -182,9 +200,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
   return (
     <div className="flex flex-col w-full relative pt-12">
-      
-      {/* --- FLUID BENTO ARTIFACTS --- */}
-      <div className="w-full max-w-full mx-auto px-2 overflow-x-hidden">
+      <div className="w-full max-w-[98%] mx-auto px-6">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <div className="flex flex-wrap gap-8 py-12">
@@ -193,24 +209,15 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                ))}
             </div>
           ) : (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="flex flex-wrap gap-8 pb-40"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap gap-8 pb-40">
               {artifacts.map((art, idx) => (
                 <motion.div
                   key={art.id}
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.05 }}
-                  whileHover={{ y: -8, transition: { duration: 0.3 } }}
-                  className={`
-                    relative overflow-hidden group rounded-[3rem] p-12
-                    backdrop-blur-3xl border
-                    ${getCardStyle(art.type)}
-                    transition-all duration-700 hover:bg-white/[0.02]
-                    shadow-[0_20px_80px_rgba(0,0,0,0.5)]
-                  `}
+                  whileHover={{ y: -8, scale: 1.005, transition: { duration: 0.3 } }}
+                  className={`relative overflow-hidden group rounded-[3rem] p-12 backdrop-blur-3xl border ${getCardStyle(art.type)} transition-all duration-700 hover:bg-white/[0.02] shadow-[0_20px_80px_rgba(0,0,0,0.5)]`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
@@ -232,19 +239,26 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   <div className="relative z-10">
                     {art.type === '[VISUAL]' && (
                       <div className="aspect-video w-full rounded-[2.5rem] bg-black/60 border border-white/5 flex items-center justify-center mb-12 relative overflow-hidden shadow-2xl">
-                         <GenerativeLens content={art.content} />
+                         <AnimatePresence mode="wait">
+                           {generatedImages[art.visualPrompt || ''] ? (
+                             <motion.div key="image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
+                               <Image 
+                                 src={generatedImages[art.visualPrompt || '']} 
+                                 alt="Generated Mockup" 
+                                 fill 
+                                 className="object-cover" 
+                               />
+                             </motion.div>
+                           ) : (
+                             <motion.div key="loader" exit={{ opacity: 0 }} className="absolute inset-0">
+                               <GenerativeLens content={art.content} status={art.visualPrompt ? 'processing' : undefined} />
+                             </motion.div>
+                           )}
+                         </AnimatePresence>
                       </div>
                     )}
 
-                    <div className={`
-                      prose prose-invert max-w-none
-                      ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''}
-                      ${art.type === '[NARRATION]' ? 'text-[1.125rem] font-medium leading-[1.65] text-white/90 tracking-[-0.01em] italic' : ''}
-                      ${art.type === '[ACTIVITY]' ? 'text-[1.05rem] font-bold text-[#A7DADB] leading-relaxed' : ''}
-                      ${art.type === '[SPEAKER_NOTES]' ? 'text-[0.95rem] text-slate-500 italic border-l-4 border-white/10 pl-10 py-4 font-medium' : ''}
-                      ${art.type === '[BRANCHING]' ? 'font-mono text-[0.9rem] bg-black/40 p-10 rounded-[2rem] border border-white/5 text-[#A7DADB]/80 leading-relaxed' : ''}
-                      ${!['[HEADER]', '[NARRATION]', '[ACTIVITY]', '[SPEAKER_NOTES]', '[BRANCHING]'].includes(art.type) ? 'text-[1.1rem] text-slate-400 font-light leading-relaxed' : ''}
-                    `}>
+                    <div className={`prose prose-invert max-w-none ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''} ${art.type === '[NARRATION]' ? 'text-[1.125rem] font-medium leading-[1.65] text-white/90 tracking-[-0.01em] italic' : ''} ${art.type === '[ACTIVITY]' ? 'text-[1.05rem] font-bold text-[#A7DADB] leading-relaxed' : ''} ${art.type === '[SPEAKER_NOTES]' ? 'text-[0.95rem] text-slate-500 italic border-l-4 border-white/10 pl-10 py-4 font-medium' : ''} ${art.type === '[BRANCHING]' ? 'font-mono text-[0.9rem] bg-black/40 p-10 rounded-[2rem] border border-white/5 text-[#A7DADB]/80 leading-relaxed' : ''}`}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                         {art.content}
                       </ReactMarkdown>
@@ -261,68 +275,32 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* --- KNOWLEDGE VERIFICATION MODAL --- */}
-      <Modal
-        open={isInsightOpen}
-        onClose={() => setIsInsightOpen(false)}
-        closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(40px)', bgcolor: 'rgba(2, 6, 23, 0.98)' } }}
-      >
+      {/* Verification Modal remains the same */}
+      <Modal open={isInsightOpen} onClose={() => setIsInsightOpen(false)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(40px)', bgcolor: 'rgba(2, 6, 23, 0.98)' } }}>
         <Fade in={isInsightOpen}>
-          <Box sx={{ 
-            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '95%', maxWidth: '800px', maxHeight: '85vh',
-            bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px',
-            p: 10, outline: 'none', overflowY: 'auto'
-          }}>
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '95%', maxWidth: '800px', maxHeight: '85vh', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', p: 10, outline: 'none', overflowY: 'auto' }}>
             <div className="flex justify-between items-center mb-20">
                <div className="flex items-center gap-8">
-                  <div className="p-5 rounded-[2rem] bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-2xl">
-                    <Activity size={32} className="text-[#A7DADB]" />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-bold text-white tracking-tighter uppercase mb-2">Knowledge Verification</h2>
-                    <p className="text-[11px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Strategic Integrity Protocol</p>
-                  </div>
+                  <div className="p-5 rounded-[2rem] bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-2xl"><Activity size={32} className="text-[#A7DADB]" /></div>
+                  <div><h2 className="text-3xl font-bold text-white tracking-tighter uppercase mb-2">Knowledge Verification</h2><p className="text-[11px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Strategic Integrity Protocol</p></div>
                </div>
                <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', p: 3, borderRadius: '24px' }}><X size={28} /></IconButton>
             </div>
-
             <div className="space-y-24">
               <section className="space-y-8">
-                <div className="flex items-center gap-4">
-                  <History size={16} className="text-[#A7DADB]" />
-                  <h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4>
-                </div>
-                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl">
-                   <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" />
-                   <div className="text-lg text-slate-300 leading-relaxed font-light italic text-slate-400">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                        {semanticDelta || "Synthesizing truth anchors..."}
-                      </ReactMarkdown>
-                   </div>
-                </div>
+                <div className="flex items-center gap-4"><History size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4></div>
+                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-300 leading-relaxed font-light italic text-slate-400"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
               </section>
-
               <section className="space-y-8">
-                <div className="flex items-center gap-4">
-                  <BookOpen size={16} className="text-[#A7DADB]" />
-                  <h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4>
-                </div>
-                <div className="grid grid-cols-1 gap-5">
-                   {citations.map((cite, i) => (
-                     <div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite">
-                        <div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div>
-                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span>
-                     </div>
-                   ))}
-                </div>
+                <div className="flex items-center gap-4"><BookOpen size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4></div>
+                <div className="grid grid-cols-1 gap-5">{citations.map((cite, i) => (<div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite"><div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div><span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span></div>))}</div>
               </section>
             </div>
           </Box>
         </Fade>
       </Modal>
+
+      <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="fixed bottom-12 right-12 w-20 h-20 rounded-full bg-[#020617] border border-[#A7DADB]/30 flex items-center justify-center text-[#A7DADB] hover:bg-[#A7DADB] hover:text-black transition-all shadow-2xl backdrop-blur-3xl group z-50 hover:scale-110"><ChevronRight size={32} className="-rotate-90 group-hover:-translate-y-1 transition-transform" /></button>
     </div>
   );
 };

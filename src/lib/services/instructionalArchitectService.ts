@@ -105,11 +105,12 @@ export class InstructionalArchitectService {
         
         --- PRODUCTION ARTIFACT STANDARDS ---
         You MUST use the following tags to categorize all instructional content:
-        1. [VISUAL]: Describe what appears on screen (graphics, text, layout). Use a director's tone.
-        2. [NARRATION]: The verbatim spoken dialogue for the instructor/voiceover.
-        3. [ACTIVITY]: Describe a specific learner interaction (e.g. "Drag and drop the correct pillar").
-        4. [BRANCHING]: Define a decision point and its outcomes (e.g. "If User picks A, show B").
-        5. [SPEAKER_NOTES]: Technical tips for the final content producer.
+        1. [VISUAL]: A director's description of what appears on screen.
+        2. [VISUAL_PROMPT]: A highly detailed, descriptive image generation prompt for Nano Banana Pro. Focus on textures, lighting (cinematic, deep space), and technical accuracy.
+        3. [NARRATION]: The verbatim spoken dialogue for the instructor/voiceover.
+        4. [ACTIVITY]: Describe a specific learner interaction.
+        5. [BRANCHING]: Define a decision point and its outcomes.
+        6. [SPEAKER_NOTES]: Technical tips for the final content producer.
 
         --- MANDATORY PROTOCOLS ---
         1. CLAIM-ONLY GROUNDING: Every sentence that conveys a fact, step, or rule MUST end with its specific Fact ID (e.g., [Fact 4]).
