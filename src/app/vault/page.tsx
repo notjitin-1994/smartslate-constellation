@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   UploadCloud, 
@@ -18,7 +19,8 @@ import {
   Play,
   FileCode,
   FileUp,
-  ExternalLink
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -56,6 +58,7 @@ const StatCard = ({ label, value, icon: Icon, subValue }: { label: string, value
 );
 
 function VaultContent() {
+  const router = useRouter();
   const [vaultedFiles, setVaultedFiles] = useState<any[]>([]);
   const [facts, setFacts] = useState<any[]>([]);
   const [fileQueue, setFileQueue] = useState<QueuedFile[]>([]);
@@ -177,7 +180,15 @@ function VaultContent() {
                <Database size={16} />
                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Neural Trace Repository</span>
             </div>
-            <h1 className="text-5xl font-black tracking-tighter uppercase text-white">Knowledge Vault</h1>
+            <div className="flex items-center gap-6">
+               <button 
+                 onClick={() => router.back()}
+                 className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all group"
+               >
+                 <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+               </button>
+               <h1 className="text-5xl font-black tracking-tighter uppercase text-white">Knowledge Vault</h1>
+            </div>
             <p className="text-slate-500 text-lg max-w-2xl font-medium">Global grounding ledger for institutional technical protocols.</p>
           </div>
           <div className="flex items-center gap-4">

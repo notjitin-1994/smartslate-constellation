@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   CircularProgress, 
   Box,
@@ -45,6 +45,7 @@ const COLORS = {
 
 function ArchitectureCanvasContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const blueprintId = searchParams.get('blueprintId');
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,7 +238,13 @@ function ArchitectureCanvasContent() {
              <Tooltip title="View Handover Schema">
                 <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', border: '1px solid rgba(167, 218, 219, 0.1)', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.15)', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
              </Tooltip>
-             <button onClick={() => setIsVaultOpen(true)} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"><Database size={20} /></button>
+             <button 
+               onClick={() => router.push('/vault')} 
+               title="Knowledge Vault"
+               className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"
+             >
+               <Database size={20} />
+             </button>
              <button onClick={handleDraftScript} disabled={isDrafting} className="px-8 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50 flex items-center gap-3">{isDrafting ? <CircularProgress size={14} color="inherit" /> : <Workflow size={14} />}{isDrafting ? 'Mapping...' : 'Map Constellation'}</button>
           </div>
         </header>
