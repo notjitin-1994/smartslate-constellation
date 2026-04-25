@@ -56,10 +56,10 @@ export default function Sidebar() {
   const { collapsed, setCollapsed, isConstellationMode, setIsConstellationMode } = useSidebar();
   const [isMounted, setIsMounted] = useState(false);
   const [dbName, setDbName] = useState<string | null>(null);
+  const [dbAvatarUrl, setDbAvatarUrl] = useState<string | null>(null);
   const [modules, setModules] = useState<any[]>([]);
   const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
 
-  // Sync mode to context on mount if it's explicitly constellation path
   useEffect(() => {
     if (pathname === '/constellation') {
       const savedMode = localStorage.getItem('sidebar-mode');
@@ -69,20 +69,50 @@ export default function Sidebar() {
     }
   }, [pathname, setIsConstellationMode]);
 
-  // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
 
   useEffect(() => {
     setIsMounted(true);
     const fetchProfile = async () => {
-      if (user?.id) {
-        const { data } = await supabase
+      if (!user?.id) return;
+      
+      try {
+        // 1. Fetch from user_profiles table (Mirrored from Polaris schema)
+        const { data: profile } = await supabase
           .from('user_profiles')
-          .select('first_name, last_name')
+          .select('first_name, last_name, avatar_url')
           .eq('user_id', user.id)
-          .single();
-        if (data?.first_name) setDbName(`${data.first_name} ${data.last_name || ''}`.trim());
+          .maybeSingle();
+
+        if (profile) {
+          if (profile.first_name) setDbName(`${profile.first_name} ${profile.last_name || ''}`.trim());
+          
+          // 2. Resolve Avatar (Tiered Strategy)
+          if (profile.avatar_url) {
+            // If it's a full URL, use it; if it's a path, resolve from bucket
+            if (profile.avatar_url.startsWith('http')) {
+              setDbAvatarUrl(profile.avatar_url);
+            } else {
+              const { data } = supabase.storage.from('avatars').getPublicUrl(profile.avatar_url);
+              setDbAvatarUrl(data?.publicUrl || null);
+            }
+          }
+        }
+
+        // 3. Fallback to User Metadata (OAuth/Manual metadata)
+        if (!dbAvatarUrl) {
+          const meta = user.user_metadata || {};
+          const metaUrl = meta.avatar_url || meta.picture || meta.avatarURL;
+          if (metaUrl) setDbAvatarUrl(metaUrl);
+          else if (meta.avatar_path) {
+             // Support the legacy Polaris path logic
+             const { data } = supabase.storage.from('public-assets').getPublicUrl(meta.avatar_path);
+             setDbAvatarUrl(data?.publicUrl || null);
+          }
+        }
+      } catch (err) {
+        console.error('[Sidebar] Profile Sync Error:', err);
       }
     };
     fetchProfile();
@@ -91,14 +121,13 @@ export default function Sidebar() {
       if (e.detail?.modules) setModules(e.detail.modules);
       if (typeof e.detail?.activeIdx === 'number') {
         setActiveNodeIdx(e.detail.activeIdx);
-        // Automatically jump to the page containing the active node
         const pageOfNode = Math.floor(e.detail.activeIdx / itemsPerPage) + 1;
         setCurrentPage(pageOfNode);
       }
     };
     window.addEventListener('constellation-sidebar-sync', handleConstellationData);
     return () => window.removeEventListener('constellation-sidebar-sync', handleConstellationData);
-  }, [user?.id]);
+  }, [user?.id, user?.user_metadata, dbAvatarUrl]);
 
   if (!isMounted) return null;
 
@@ -114,7 +143,6 @@ export default function Sidebar() {
     exit: (direction: number) => ({ x: direction > 0 ? -100 : 100, opacity: 0 })
   };
 
-  // --- PAGINATION CALCULATIONS ---
   const totalPages = Math.ceil(modules.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentModulesSlice = modules.slice(startIndex, startIndex + itemsPerPage);
@@ -277,7 +305,6 @@ export default function Sidebar() {
                 })}
               </div>
 
-              {/* --- SIDEBAR PAGINATION SYSTEM --- */}
               {totalPages > 1 && (
                 <div className={`mt-auto pt-6 border-t border-white/[0.03] flex items-center gap-2 ${collapsed ? 'flex-col' : 'justify-center'}`}>
                    {!collapsed && (
@@ -352,7 +379,7 @@ export default function Sidebar() {
           <div className="space-y-4">
             <button className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] transition-all group">
               <div className="relative">
-                <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-10 h-10" />
+                <UserAvatar avatarUrl={dbAvatarUrl} sizeClass="w-10 h-10" />
                 <div className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-4 border-[#020617]" />
               </div>
               <div className="flex-1 text-left overflow-hidden">
@@ -366,7 +393,7 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-6 py-4">
-             <UserAvatar avatarUrl={user?.user_metadata?.avatar_url} sizeClass="w-9 h-9" />
+             <UserAvatar avatarUrl={dbAvatarUrl} sizeClass="w-9 h-9" />
              <button onClick={signOut} className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all" title="Log Out">
                <Icons.Logout size={18} />
              </button>
