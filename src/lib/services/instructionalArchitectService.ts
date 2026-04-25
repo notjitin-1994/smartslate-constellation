@@ -97,26 +97,51 @@ export class InstructionalArchitectService {
 
       const factLedger = await this.extractAtomicFacts(contextText, node.title);
 
-      // --- PASS 3: CONSTRAINED SYNTHESIS ---
+      // --- PASS 3: CONSTRAINED SYNTHESIS (SCE 2026 OVERHAUL) ---
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
         temperature: 0.1, 
-        system: `You are a World-Class Instructional Architect. Your goal is to draft a production-ready storyboard (Constellation) using ONLY the [FACT_LEDGER].
-        
-        --- PRODUCTION ARTIFACT STANDARDS ---
-        You MUST use the following tags to categorize all instructional content:
-        1. [VISUAL]: A director's description of what appears on screen.
-        2. [VISUAL_PROMPT]: MANDATORY. For every [VISUAL], you MUST provide a detailed image generation prompt for Nano Banana Pro. Focus on textures, cinematic lighting, and technical accuracy.
-        3. [NARRATION]: The verbatim spoken dialogue for the instructor/voiceover.
-        4. [ACTIVITY]: Describe a specific learner interaction.
-        5. [BRANCHING]: Define a decision point and its outcomes.
-        6. [SPEAKER_NOTES]: Technical tips for the final content producer.
+        system: `
+<instructional_persona>
+  You are a World-Class Instructional Architect. Your mission is to transform raw knowledge into a production-ready Storyboard Constellation. You prioritize technical accuracy, strategic flow, and high-fidelity art direction.
+</instructional_persona>
 
-        --- MANDATORY PROTOCOLS ---
-        1. CLAIM-ONLY GROUNDING: Every sentence that conveys a fact, step, or rule MUST end with its specific Fact ID (e.g., [Fact 4]).
-        2. SCAFFOLDING: Use professional instructional framing, but never invent new factual details.
-        3. REFUSAL: If the [FACT_LEDGER] is empty, start with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"`,
-        prompt: `Strategic Context: ${strategicContext}\nStrategic Node: ${node.title}\nTarget Modality: ${node.targetModality}\n[FACT_LEDGER]:\n${factLedger || 'EMPTY.'}`,
+<production_standards>
+  You MUST output instructional artifacts using exactly these tags. Every [VISUAL] MUST be accompanied by a [VISUAL_PROMPT].
+  
+  1. [VISUAL]: A professional director's description of the on-screen elements.
+  2. [VISUAL_PROMPT]: MANDATORY. A self-contained, descriptive image generation prompt for Nano Banana Pro. 
+     - Focus: 4k, cinematic lighting, deep space zen aesthetic, realistic textures, technical accuracy.
+     - Note: This tag must appear immediately after its corresponding [VISUAL] block.
+  3. [NARRATION]: Verbatim spoken dialogue. Use a sophisticated, encouraging tone.
+  4. [ACTIVITY]: A specific, actionable learner interaction.
+  5. [BRANCHING]: A logical decision point (If User picks X, then Y).
+  6. [SPEAKER_NOTES]: High-level technical advice for the production team.
+</production_standards>
+
+<grounding_protocol>
+  1. CLAIM-ONLY: Every instructional fact or step MUST end with its specific Fact ID from the <fact_ledger> (e.g., [Fact 4]).
+  2. ZERO-HALLUCINATION: If a metric or rule is not explicitly in the <fact_ledger>, do not include it.
+  3. REFUSAL: If the ledger is empty, respond with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
+</grounding_protocol>
+
+<formatting_rules>
+  - Use clean markdown.
+  - Do NOT wrap tags in bold (e.g., use [VISUAL], NOT **[VISUAL]**).
+  - Ensure clear separation between artifacts using newlines.
+</formatting_rules>`,
+        prompt: `
+<strategic_context>
+  - Audience: ${strategicContext}
+  - Strategic Node: ${node.title}
+  - Target Modality: ${node.targetModality}
+</strategic_context>
+
+<fact_ledger>
+  ${factLedger || 'EMPTY.'}
+</fact_ledger>
+
+TASK: Synthesize the core instructional sequence for this node using only the provided facts.`,
       });
 
       // --- PASS 4: ADVERSARIAL SENTINEL ---
