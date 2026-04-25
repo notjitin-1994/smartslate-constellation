@@ -1,137 +1,75 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  FileText, 
-  Video, 
-  Image as ImageIcon, 
   UploadCloud, 
   X, 
   FileCode,
   Trash2,
-  Cloud
+  Cloud,
+  Database,
+  FileUp
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { 
+  IconButton, 
+  Modal, 
+  Backdrop, 
+  Fade, 
+  Box 
+} from '@mui/material';
 import { supabase } from '@/lib/supabase';
 
-interface VaultFile {
-  id: string;
-  name: string;
-  type: string;
-  status: 'pending' | 'uploading' | 'complete';
-  isExisting?: boolean;
-  file?: File;
-}
-
-export const KnowledgeVaultModal = ({ 
-  isOpen, 
-  onClose, 
-  blueprintId,
-  blueprintContext
-}: { 
-  isOpen: boolean; 
+interface KnowledgeVaultModalProps {
+  isOpen: boolean;
   onClose: () => void;
   blueprintId: string;
-  blueprintContext?: Record<string, unknown> | null;
+  blueprintContext: any;
+}
+
+export const KnowledgeVaultModal: React.FC<KnowledgeVaultModalProps> = ({
+  isOpen,
+  onClose,
+  blueprintId,
+  blueprintContext
 }) => {
-  const [files, setFiles] = useState<VaultFile[]>([]);
-  const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [files, setFiles] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchExistingFiles = useCallback(async () => {
-    if (!blueprintId) return;
-    
-    const { data, error } = await supabase
+  const fetchFiles = useCallback(async () => {
+    const { data } = await supabase
       .from('knowledge_vault')
-      .select('metadata, content_type')
+      .select('metadata, content_type, created_at')
       .eq('blueprint_id', blueprintId);
-
-    if (error) {
-      console.error('Error fetching vault files:', error);
-      return;
+    
+    if (data) {
+      const uniqueFiles = Array.from(new Set(data.map(d => d.metadata.source_name))).map(name => {
+        return data.find(d => d.metadata.source_name === name);
+      });
+      setFiles(uniqueFiles);
     }
-
-    const uniqueFiles = new Map<string, VaultFile>();
-    data?.forEach((row: { metadata: Record<string, unknown> | null, content_type: string }) => {
-      const metadata = row.metadata as any;
-      const name = (metadata?.source_name || 'Unknown File').replace(/_/g, ' ');
-      if (!uniqueFiles.has(name)) {
-        uniqueFiles.set(name, {
-          id: name,
-          name: name,
-          type: row.content_type,
-          status: 'complete',
-          isExisting: true
-        });
-      }
-    });
-
-    setFiles(Array.from(uniqueFiles.values()));
   }, [blueprintId]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchExistingFiles();
-    }
-  }, [isOpen, fetchExistingFiles]);
+    if (isOpen) fetchFiles();
+  }, [isOpen, fetchFiles]);
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    const newFiles: VaultFile[] = droppedFiles.map(f => ({
-      id: Math.random().toString(36).substr(2, 9),
-      name: f.name.replace(/_/g, ' '),
-      file: f,
-      type: f.type,
-      status: 'pending'
-    }));
-    setFiles(prev => {
-      const existingNames = new Set(prev.map(f => f.name));
-      const filtered = newFiles.filter(f => !existingNames.has(f.name));
-      return [...prev, ...filtered];
-    });
-  }, []);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !blueprintId) return;
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  const handleIngest = async () => {
-    const pendingFiles = files.filter(f => f.status === 'pending' && f.file);
-    if (pendingFiles.length === 0) return;
-    
-    setIsSynthesizing(true);
+    setIsUploading(true);
     setProgress(10);
-    
-    try {
-      for (const fileItem of pendingFiles) {
-        const file = fileItem.file!;
-        const base64 = await fileToBase64(file);
-        
-        const fileType = file.type.toLowerCase();
-        const fileName = file.name.toLowerCase();
-        
-        let contentType = 'text';
-        if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
-          contentType = 'pdf';
-        } else if (fileType.includes('officedocument.wordprocessingml.document') || fileName.endsWith('.docx')) {
-          contentType = 'docx';
-        } else if (fileType.includes('video') || fileName.endsWith('.mp4') || fileName.endsWith('.mov')) {
-          contentType = 'video';
-        } else if (fileType.includes('image') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-          contentType = 'image';
-        }
 
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = (event.target?.result as string).split(',')[1];
+      const contentType = file.name.endsWith('.docx') ? 'docx' : file.name.endsWith('.pdf') ? 'pdf' : 'text';
+
+      try {
+        setProgress(30);
         const response = await fetch('/api/ingest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -144,157 +82,135 @@ export const KnowledgeVaultModal = ({
           }),
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Ingestion failed');
-        }
-        
-        setProgress(p => Math.min(p + (100 / pendingFiles.length), 100));
+        if (!response.ok) throw new Error('Ingestion failed');
+        setProgress(100);
+        setTimeout(() => {
+          setIsUploading(false);
+          fetchFiles();
+        }, 1000);
+      } catch (err) {
+        console.error('Ingestion Error:', err);
+        setIsUploading(false);
       }
-      await fetchExistingFiles();
-    } catch (error: unknown) {
-      console.error('Ingestion Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to ingest knowledge: ${errorMessage}`);
-    } finally {
-      setIsSynthesizing(false);
-      setProgress(0);
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDelete = async (fileName: string) => {
-    if (!confirm(`Are you sure you want to remove ${fileName} from the Knowledge Vault?`)) return;
-    
     try {
-      const response = await fetch(`/api/ingest/delete?blueprintId=${blueprintId}&fileName=${encodeURIComponent(fileName)}`, {
-        method: 'DELETE'
-      });
-      if (!response.ok) throw new Error('Delete failed');
-      setFiles(prev => prev.filter(f => f.name !== fileName));
-    } catch (error: unknown) {
-      alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      await fetch(`/api/ingest/delete?blueprintId=${blueprintId}&fileName=${fileName}`, { method: 'DELETE' });
+      fetchFiles();
+    } catch (err) {
+      console.error('Delete failed:', err);
     }
   };
 
-  const getFileIcon = (type: string) => {
-    if (type.includes('pdf') || type.includes('word') || type.includes('text') || type === 'pdf' || type === 'docx' || type === 'text') return <FileText size={18} className="text-[#A7DADB]" />;
-    if (type.includes('video') || type === 'video') return <Video size={18} className="text-[#A7DADB]/60" />;
-    if (type.includes('image') || type === 'image') return <ImageIcon size={18} className="text-[#A7DADB]/40" />;
-    return <FileCode size={18} className="text-[#A7DADB]/20" />;
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div onClick={onClose} className="absolute inset-0 bg-[#020617]/90 backdrop-blur-2xl" />
-
-      <motion.div
-        initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] border border-[#A7DADB]/10 bg-[#020617] shadow-2xl"
-      >
-        <div className="flex items-center justify-between border-b border-white/[0.03] p-8">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tighter text-white">Knowledge Vault</h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/60 mt-1">Institutional Fact Repository</p>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      closeAfterTransition
+      BackdropComponent={Backdrop}
+      BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(30px)', bgcolor: 'rgba(2, 6, 23, 0.95)' } }}
+    >
+      <Fade in={isOpen}>
+        <Box sx={{ 
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: '95%', maxWidth: '900px', maxHeight: '85vh',
+          bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px',
+          p: { xs: 6, md: 10 }, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 0 120px rgba(0,0,0,0.9)'
+        }}>
+          <div className="flex justify-between items-center mb-12 shrink-0">
+             <div className="flex items-center gap-6">
+                <div className="p-4 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-lg">
+                  <Database size={28} className="text-[#A7DADB]" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-1 font-heading">Knowledge Vault</h2>
+                  <p className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Master Institutional Ledger</p>
+                </div>
+             </div>
+             <IconButton onClick={onClose} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', p: 2, borderRadius: '20px', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.1)' } }}>
+               <X size={24} />
+             </IconButton>
           </div>
-          <button onClick={onClose} className="rounded-xl p-2 bg-white/[0.03] text-slate-500 hover:text-white transition-all">
-            <X size={20} />
-          </button>
-        </div>
 
-        <div className="p-8">
-          {!isSynthesizing ? (
-            <div className="space-y-8">
-              <label 
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={onDrop}
-                className="group relative flex cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#A7DADB]/20 bg-white/[0.01] p-12 transition-all hover:border-[#A7DADB]/40 hover:bg-[#A7DADB]/5"
-              >
-                <input type="file" className="hidden" ref={fileInputRef} multiple onChange={(e) => {
-                    const selected = Array.from(e.target.files || []);
-                    setFiles(prev => {
-                       const existingNames = new Set(prev.map(f => f.name));
-                       const filtered: VaultFile[] = selected.filter(f => !existingNames.has(f.name)).map(f => ({
-                        id: Math.random().toString(36).substr(2, 9),
-                        name: f.name.replace(/_/g, ' '),
-                        file: f,
-                        type: f.type,
-                        status: 'pending'
-                      }));
-                      return [...prev, ...filtered];
-                    });
-                }} />
-                <UploadCloud className="mb-6 text-[#A7DADB]/40 group-hover:text-[#A7DADB] transition-all" size={48} />
-                <p className="text-center text-slate-200 font-bold uppercase tracking-widest text-[11px]">
-                  Deposit Instructional Assets
-                </p>
-                <p className="mt-2 text-[10px] text-slate-600 font-black uppercase tracking-tighter">PDF, DOCX, Video, or Images</p>
-              </label>
-
-              <div className="max-h-[300px] space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-                {files.map((fileItem) => (
-                  <div key={fileItem.id} className="group flex items-center justify-between rounded-2xl border border-white/[0.03] bg-white/[0.01] p-4 hover:border-[#A7DADB]/20 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.05]">{getFileIcon(fileItem.type)}</div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-white truncate max-w-[300px]">{fileItem.name}</span>
-                        {fileItem.isExisting && <span className="text-[9px] text-[#A7DADB] font-black uppercase tracking-widest mt-0.5">Verified Asset</span>}
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
+            {!isUploading ? (
+              <div className="space-y-12">
+                <div className="relative group">
+                   <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-20" accept=".pdf,.docx,.txt" />
+                   <div className="p-12 rounded-[3rem] border-2 border-dashed border-[#A7DADB]/20 bg-white/[0.01] group-hover:bg-[#A7DADB]/5 group-hover:border-[#A7DADB]/40 transition-all flex flex-col items-center text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-[#A7DADB]/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                         <UploadCloud size={32} className="text-[#A7DADB]" />
                       </div>
-                    </div>
-                    <button 
-                      onClick={() => fileItem.isExisting ? handleDelete(fileItem.name) : setFiles(prev => prev.filter(f => f.id !== fileItem.id))} 
-                      className="text-slate-600 hover:text-rose-500 transition-colors p-2"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-                {files.length === 0 && (
-                  <div className="text-center py-10 border border-dashed border-white/[0.03] rounded-3xl">
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Repository Empty</p>
-                  </div>
-                )}
-              </div>
+                      <h3 className="text-white font-bold text-lg mb-2">Ingest Institutional Knowledge</h3>
+                      <p className="text-slate-500 text-xs uppercase tracking-widest font-medium">Drop PDF or DOCX to anchor the truth ledger</p>
+                   </div>
+                </div>
 
-              <div className="flex justify-end pt-4">
-                <button
-                  disabled={files.filter(f => f.status === 'pending').length === 0}
-                  onClick={handleIngest}
-                  className="px-10 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50"
-                >
-                  Start Ingestion
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 px-10">
-              <div className="p-16 rounded-[4rem] bg-white/[0.01] border border-[#A7DADB]/10 relative overflow-hidden flex flex-col items-center w-full max-w-md shadow-2xl">
-                <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
-                <div className="relative mb-12">
-                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }} className="w-32 h-32 rounded-full border-2 border-[#A7DADB]/10 border-t-[#A7DADB] shadow-[0_0_30px_rgba(167,218,219,0.1)]" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Cloud size={32} className="text-[#A7DADB] animate-pulse" />
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4 text-slate-500 mb-4 px-4">
+                     <FileUp size={14} className="text-[#A7DADB]" />
+                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Currently Vaulted Assets</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    {files.map((file, i) => (
+                      <motion.div 
+                        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                        key={i} 
+                        className="flex items-center justify-between p-6 rounded-[2rem] bg-white/[0.02] border border-white/[0.05] hover:border-[#A7DADB]/20 transition-all group"
+                      >
+                        <div className="flex items-center gap-6">
+                           <div className="w-12 h-12 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center text-[#A7DADB]">
+                              <FileCode size={20} />
+                           </div>
+                           <div className="flex flex-col">
+                              <span className="text-sm font-bold text-white truncate max-w-[200px]">{file.metadata.source_name}</span>
+                              <span className="text-[9px] font-black text-slate-600 uppercase tracking-tighter">{new Date(file.created_at).toLocaleDateString()} • {file.content_type}</span>
+                           </div>
+                        </div>
+                        <IconButton onClick={() => handleDelete(file.metadata.source_name)} sx={{ color: '#F43F5E', opacity: 0.2, '&:hover': { opacity: 1, bgcolor: 'rgba(244, 63, 94, 0.1)' } }} className="group-hover:opacity-100 transition-opacity">
+                          <Trash2 size={18} />
+                        </IconButton>
+                      </motion.div>
+                    ))}
+                    {files.length === 0 && (
+                      <div className="py-20 text-center">
+                         <p className="text-xs text-slate-600 font-bold uppercase tracking-[0.3em]">No knowledge assets detected</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <h3 className="mb-3 text-2xl font-bold text-white tracking-tighter uppercase">Architectural Synthesis</h3>
-                <p className="mb-10 text-[10px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/40 text-center leading-relaxed">
-                  Mapping institutional knowledge<br/>into neural constellations
-                </p>
-                <div className="w-full">
-                  <div className="h-1 w-full rounded-full bg-white/[0.03] overflow-hidden border border-white/5">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-gradient-to-r from-[#4F46E5] to-[#A7DADB]" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 px-10">
+                <div className="p-16 rounded-[4rem] bg-white/[0.01] border border-[#A7DADB]/10 relative overflow-hidden flex flex-col items-center w-full max-w-md shadow-2xl">
+                  <div className="absolute inset-0 bg-[#A7DADB]/5 pointer-events-none" />
+                  <div className="relative mb-12">
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }} className="w-32 h-32 rounded-full border-2 border-[#A7DADB]/10 border-t-[#A7DADB] shadow-[0_0_30px_rgba(167,218,219,0.1)]" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Cloud size={32} className="text-[#A7DADB] animate-pulse" />
+                    </div>
                   </div>
-                  <div className="mt-4 flex justify-between items-center">
-                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Progress</span>
-                     <span className="text-[10px] font-mono font-bold text-[#A7DADB]">{Math.round(progress)}%</span>
+                  <h3 className="mb-3 text-2xl font-bold text-white tracking-tighter uppercase">Architectural Synthesis</h3>
+                  <p className="mb-10 text-[10px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/40 text-center leading-relaxed">Mapping institutional knowledge<br/>into neural constellations</p>
+                  <div className="w-full">
+                    <div className="h-1.5 w-full rounded-full bg-white/[0.03] overflow-hidden border border-white/5 p-[1px]">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-gradient-to-r from-[#4F46E5] to-[#A7DADB] rounded-full" />
+                    </div>
+                    <div className="mt-4 flex justify-between items-center">
+                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Progress</span>
+                       <span className="text-[10px] font-mono font-bold text-[#A7DADB]">{Math.round(progress)}%</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </div>
+            )}
+          </div>
+        </Box>
+      </Fade>
+    </Modal>
   );
 };

@@ -92,7 +92,6 @@ function ArchitectureCanvasContent() {
         fetch('/api/ingest/harvest-blueprint', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           body: JSON.stringify({ blueprintId, blueprintJson: (data as any).blueprint_json })
         }).catch(err => console.error('Auto-Harvest Failed:', err));
 
@@ -187,16 +186,7 @@ function ArchitectureCanvasContent() {
              <div className="w-10 h-10 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
                 <Workflow size={20} className="text-[#A7DADB]" />
              </div>
-             <Typography variant="h6" sx={{ 
-               fontFamily: 'var(--font-quicksand)', 
-               fontWeight: 900, 
-               textTransform: 'uppercase', 
-               letterSpacing: '0.3em', 
-               color: 'white', 
-               fontSize: '13px' 
-             }}>
-               Architecture Hub
-             </Typography>
+             <Typography variant="h6" sx={{ fontFamily: 'var(--font-quicksand)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.3em', color: 'white', fontSize: '13px' }}>Architecture Hub</Typography>
           </div>
 
           {/* --- INTEGRATED INTEGRITY SUITE (The Shield) --- */}
@@ -204,11 +194,7 @@ function ArchitectureCanvasContent() {
             <div className="absolute inset-0 bg-[#A7DADB]/[0.02] group-hover/hud:bg-[#A7DADB]/[0.05] transition-colors" />
             
             <div className="flex items-center gap-10 relative z-10">
-                {/* Hallucination Guardian */}
-                <Tooltip 
-                  enterTouchDelay={0}
-                  title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. Verified means every factual claim is anchored to source documents." />}
-                >
+                <Tooltip enterTouchDelay={0} title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. Verified means every factual claim is anchored to source documents." />}>
                   <div className="flex items-center gap-3 cursor-help">
                     <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${activeScript?.hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${activeScript?.hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'}`}>
                       {activeScript?.hallucinationFlag ? <AlertOctagon size={16} className="animate-pulse" /> : <Fingerprint size={16} />}
@@ -221,14 +207,8 @@ function ArchitectureCanvasContent() {
                     </div>
                   </div>
                 </Tooltip>
-
                 <div className="h-6 w-[1px] bg-white/10" />
-
-                {/* Grounding Density */}
-                <Tooltip 
-                  enterTouchDelay={0}
-                  title={<TooltipContent title="Grounding Density" body="Measures document coverage. High scores indicate successful utilization of Knowledge Vault requirements." />}
-                >
+                <Tooltip enterTouchDelay={0} title={<TooltipContent title="Grounding Density" body="Measures document coverage. High scores indicate successful utilization of Knowledge Vault requirements." />}>
                   <div className="flex flex-col gap-1 cursor-help group/item">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Grounding</span>
@@ -239,12 +219,7 @@ function ArchitectureCanvasContent() {
                     </div>
                   </div>
                 </Tooltip>
-
-                {/* Cognitive Velocity */}
-                <Tooltip 
-                  enterTouchDelay={0}
-                  title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}
-                >
+                <Tooltip enterTouchDelay={0} title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}>
                   <div className="flex flex-col gap-1 cursor-help">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Cognitive</span>
@@ -255,15 +230,8 @@ function ArchitectureCanvasContent() {
                     </div>
                   </div>
                 </Tooltip>
-
                 <div className="h-6 w-[1px] bg-white/10" />
-
-                <button 
-                  onClick={() => window.dispatchEvent(new CustomEvent('constellation-open-verification'))}
-                  className="px-4 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[8px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB]/10 hover:text-white transition-all shadow-xl"
-                >
-                  Verification
-                </button>
+                <button onClick={() => window.dispatchEvent(new CustomEvent('constellation-open-verification'))} className="px-4 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[8px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB]/10 hover:text-white transition-all shadow-xl">Verification</button>
             </div>
           </div>
 
@@ -275,35 +243,18 @@ function ArchitectureCanvasContent() {
                </div>
              )}
              <Tooltip title="View Handover Schema">
-                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', border: '1px solid rgba(255,255,255,0.05)', '&:hover': { bgcolor: 'white/[0.08]', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
+                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', border: '1px solid rgba(167, 218, 219, 0.1)', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.15)', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
              </Tooltip>
-             <button 
-               onClick={() => setIsVaultOpen(true)}
-               className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"
-             >
-               <Database size={20} />
-             </button>
-             <button 
-                onClick={handleDraftScript} 
-                disabled={isDrafting}
-                className="px-8 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50 flex items-center gap-3"
-              >
-                {isDrafting ? <CircularProgress size={14} color="inherit" /> : <Workflow size={14} />}
-                {isDrafting ? 'Mapping...' : 'Map Constellation'}
-              </button>
+             <button onClick={() => setIsVaultOpen(true)} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"><Database size={20} /></button>
+             <button onClick={handleDraftScript} disabled={isDrafting} className="px-8 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50 flex items-center gap-3">{isDrafting ? <CircularProgress size={14} color="inherit" /> : <Workflow size={14} />}{isDrafting ? 'Mapping...' : 'Map Constellation'}</button>
           </div>
         </header>
 
-        {/* ZEN EDITOR AREA */}
         <div className="flex-1 overflow-y-auto px-6 md:px-12 lg:px-20 pb-20 pt-10 custom-scrollbar relative z-10 w-full max-w-full">
             <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
                 <div className="space-y-12 w-full max-w-full">
-                   {/* MODULAR NODE IDENTIFICATION (Moved from Header) */}
-                   <motion.div 
-                     initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-                     className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] backdrop-blur-xl relative overflow-hidden w-full max-w-full"
-                   >
+                   <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] backdrop-blur-xl relative overflow-hidden w-full max-w-full">
                       <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/40" />
                       <div className="flex flex-col gap-4">
                         <h2 className="text-4xl font-black text-white tracking-tighter leading-none">{formatText(currentModule?.title || 'Instructional Node')}</h2>
@@ -313,33 +264,19 @@ function ArchitectureCanvasContent() {
                         </div>
                       </div>
                    </motion.div>
-
-                   <ScriptDraftingWorkspace 
-                     content={activeScript?.script || ""}
-                     semanticDelta={activeScript?.semanticDelta}
-                     citations={activeScript?.citations || []}
-                     isLoading={isDrafting}
-                     nodeId={currentModule?.id || ""}
-                   />
+                   <ScriptDraftingWorkspace content={activeScript?.script || ""} semanticDelta={activeScript?.semanticDelta} citations={activeScript?.citations || []} isLoading={isDrafting} nodeId={currentModule?.id || ""} />
                 </div>
               ) : (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-center justify-center text-center py-40"
-                >
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center text-center py-40">
                    <div className="w-20 h-20 rounded-[2rem] bg-[#A7DADB]/5 flex items-center justify-center mb-10 border border-[#A7DADB]/10 relative group">
                      <Lightbulb size={32} className="text-[#A7DADB] relative z-10 group-hover:scale-110 transition-transform" />
                    </div>
                    <div className="p-10 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] backdrop-blur-xl mb-8">
                      <h3 className="text-4xl font-black text-white mb-6 tracking-tighter uppercase font-heading">Architecture Canvas</h3>
-                     <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">
-                       Select a node from the neural trace to begin orchestration.
-                     </p>
+                     <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">Select a node from the neural trace to begin orchestration.</p>
                    </div>
                    <div className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 text-left max-w-lg backdrop-blur-3xl shadow-2xl">
-                      <div className="p-4 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB]">
-                        <ShieldCheck size={28} />
-                      </div>
+                      <div className="p-4 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB]"><ShieldCheck size={28} /></div>
                       <div>
                         <h4 className="text-[11px] font-black text-white uppercase tracking-[0.2em] mb-1">Claim-Only Verification</h4>
                         <p className="text-xs text-slate-500 leading-relaxed font-medium">Instructional payloads are verified against the truth ledger using deterministic semantic anchors.</p>
@@ -356,50 +293,34 @@ function ArchitectureCanvasContent() {
       {/* ULS OVERLAY */}
       <AnimatePresence>
         {showUlsPreview && (
-          <Box component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} sx={{ position: 'fixed', inset: 0, zIndex: 1000, bgcolor: 'rgba(2, 6, 23, 0.98)', backdropFilter: 'blur(40px)', p: 8, display: 'flex', justifyContent: 'center' }}>
-            <Box sx={{ maxWidth: '900px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} sx={{ position: 'fixed', inset: 0, zIndex: 1000, bgcolor: 'rgba(2, 6, 23, 0.98)', backdropFilter: 'blur(40px)', p: { xs: 4, md: 8 }, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <Box sx={{ maxWidth: '1000px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', p: 10, overflow: 'hidden', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 8 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div className="w-14 h-14 rounded-2xl bg-[#4F46E5]/10 flex items-center justify-center border border-[#4F46E5]/20">
-                    <Code2 size={28} className="text-[#4F46E5]" />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="w-16 h-16 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
+                    <Code2 size={32} className="text-[#A7DADB]" />
                   </div>
                   <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'white', tracking: '-0.02em' }}>Universal Learning Schema</Typography>
-                    <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase' }}>V.1.0-GLA HANDOVER PACKET</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'white', tracking: '-0.02em', fontFamily: 'var(--font-quicksand)' }}>Universal Learning Schema</Typography>
+                    <Typography variant="caption" sx={{ color: '#A7DADB', fontWeight: 800, letterSpacing: '0.4em', textTransform: 'uppercase', opacity: 0.5 }}>V.1.0-GLA HANDOVER PACKET</Typography>
                   </Box>
                 </Box>
-                <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: 'white', bgcolor: 'white/[0.05]', '&:hover': { bgcolor: 'white/[0.1]' } }}><X size={24} /></IconButton>
+                <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', p: 3, borderRadius: '24px', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.1)' } }}><X size={32} /></IconButton>
               </Box>
-              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.3)', borderRadius: '48px', border: '1px solid rgba(167, 218, 219, 0.05)', p: 8, overflow: 'auto', position: 'relative' }}>
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#4F46E5]/40 to-transparent" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] space-y-4">
-                      <span className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-widest">Core Metadata</span>
-                      <pre className="text-[#A7DADB] text-xs font-mono">
-                        {JSON.stringify({
-                          uls_version: "1.0-GLA",
-                          meta: { polaris_id: blueprintId, status: "READY" }
-                        }, null, 2)}
-                      </pre>
+              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: '48px', border: '1px solid rgba(167, 218, 219, 0.05)', p: 8, overflow: 'auto' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.03] space-y-6">
+                      <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Core Metadata</span>
+                      <pre className="text-[#A7DADB] text-[13px] font-mono leading-relaxed">{JSON.stringify({ uls_version: "1.0-GLA", meta: { polaris_id: blueprintId, status: "READY" } }, null, 2)}</pre>
                    </div>
-                   <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] space-y-4">
-                      <span className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-widest">Active Node</span>
-                      <pre className="text-[#A7DADB] text-xs font-mono">
-                        {JSON.stringify(currentModule ? {
-                          node_id: currentModule.id,
-                          modality: currentModule.targetModality,
-                          grounding: activeScript?.groundingScore
-                        } : null, null, 2)}
-                      </pre>
+                   <div className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.03] space-y-6">
+                      <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Active Node</span>
+                      <pre className="text-[#A7DADB] text-[13px] font-mono leading-relaxed">{JSON.stringify(currentModule ? { node_id: currentModule.id, modality: currentModule.targetModality, grounding: activeScript?.groundingScore } : null, null, 2)}</pre>
                    </div>
-                   <div className="md:col-span-2 p-8 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] space-y-4">
-                      <span className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-widest">Full Sequence Trace</span>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {modules.map((m: any) => (
-                          <div key={m.id} className="p-3 rounded-xl bg-black/40 border border-white/5 text-[10px] font-mono text-slate-400">
-                             {m.id}: {m.title}
-                          </div>
-                        ))}
+                   <div className="md:col-span-2 p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.03] space-y-8">
+                      <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Full Sequence Trace</span>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {modules.map((m: any) => (<div key={m.id} className="p-4 rounded-2xl bg-black/40 border border-white/5 text-[11px] font-mono text-slate-400">{m.id}: {m.title}</div>))}
                       </div>
                    </div>
                 </div>

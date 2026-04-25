@@ -331,7 +331,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                         </div>
                       )}
 
-                      <div className={`prose prose-invert max-w-none ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''} ${art.type === '[NARRATION]' ? 'font-medium text-white/90 tracking-[-0.01em] italic' : ''} ${art.type === '[ACTIVITY]' ? 'font-bold text-[#A7DADB]' : ''} ${art.type === '[SPEAKER_NOTES]' ? 'text-slate-500 italic border-l-4 border-white/10 font-medium' : ''} ${art.type === '[BRANCHING]' ? 'font-mono bg-black/40 rounded-[2rem] border border-white/5 text-[#A7DADB]/80' : ''}`}
+                      <div className={`prose prose-invert max-w-none ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''} ${art.type === '[NARRATION]' ? 'font-medium text-white/90 tracking-[-0.01em] italic' : ''} ${art.type === '[ACTIVITY]' ? 'font-bold text-[#A7DADB]' : ''} ${art.type === '[SPEAKER_NOTES]' ? 'text-slate-500 italic border-l-4 border-white/10 font-medium' : ''} ${art.type === '[BRANCHING]' ? 'font-mono bg-black/40 rounded-[2rem] border border-white/5 text-[#A7DADB]/80 leading-relaxed' : ''}`}
                            style={{ 
                               fontSize: art.type === '[HEADER]' ? `${48 * scale}px` : art.type === '[NARRATION]' ? `${18 * scale}px` : art.type === '[SPEAKER_NOTES]' ? `${15 * scale}px` : `${16 * scale}px`,
                               lineHeight: 1.65,
@@ -352,17 +352,24 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         </AnimatePresence>
       </div>
 
+      {/* --- KNOWLEDGE VERIFICATION MODAL --- */}
       <Modal open={isInsightOpen} onClose={() => setIsInsightOpen(false)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(40px)', bgcolor: 'rgba(2, 6, 23, 0.98)' } }}>
         <Fade in={isInsightOpen}>
-          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '95%', maxWidth: '800px', maxHeight: '85vh', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', p: 10, outline: 'none', overflowY: 'auto' }}>
-            <div className="flex justify-between items-center mb-20">
+          <Box sx={{ 
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', 
+            width: '95%', maxWidth: '800px', maxHeight: '85vh', 
+            bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', 
+            p: { xs: 6, md: 10 }, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 0 100px rgba(0,0,0,0.8)' 
+          }}>
+            <div className="flex justify-between items-center mb-20 shrink-0">
                <div className="flex items-center gap-8">
                   <div className="p-5 rounded-[2rem] bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-2xl"><Activity size={32} className="text-[#A7DADB]" /></div>
-                  <div><h2 className="text-3xl font-bold text-white tracking-tighter uppercase mb-2">Knowledge Verification</h2><p className="text-[11px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Strategic Integrity Protocol</p></div>
+                  <div><h2 className="text-3xl font-bold text-white tracking-tighter uppercase mb-2 font-heading">Knowledge Verification</h2><p className="text-[11px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Strategic Integrity Protocol</p></div>
                </div>
-               <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: 'slate.500', bgcolor: 'white/[0.03]', p: 3, borderRadius: '24px' }}><X size={28} /></IconButton>
+               <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', p: 2, borderRadius: '20px', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.1)' } }}><X size={28} /></IconButton>
             </div>
-            <div className="space-y-24">
+            <div className="space-y-24 overflow-y-auto custom-scrollbar pr-4 flex-1">
               <section className="space-y-8">
                 <div className="flex items-center gap-4"><History size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4></div>
                 <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-300 leading-relaxed font-light italic text-slate-400"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
