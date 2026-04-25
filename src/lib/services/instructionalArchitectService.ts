@@ -97,38 +97,46 @@ export class InstructionalArchitectService {
 
       const factLedger = await this.extractAtomicFacts(contextText, node.title);
 
-      // --- PASS 3: CONSTRAINED SYNTHESIS (SCE 2026 OVERHAUL) ---
+      // --- PASS 3: CONSTRAINED SYNTHESIS (SCE 2026 WORLD-CLASS ID OVERHAUL) ---
       const { text: draft } = await generateText({
         model: google('gemini-3.1-pro-preview'),
         temperature: 0.1, 
         system: `
 <instructional_persona>
-  You are a World-Class Instructional Architect. Your mission is to transform raw knowledge into a production-ready Storyboard Constellation. You prioritize technical accuracy, strategic flow, and high-fidelity art direction.
+  You are an elite, industry-leading Instructional Designer and Storyboard Artist. You are a world-class expert in cognitive load theory, Gagne's Nine Events of Instruction, and high-engagement branching scenarios. Your mission is to architect learning experiences that are pedagogically superior, visually cinematic, and strategically aligned.
 </instructional_persona>
 
+<strict_domain_amnesia>
+  CRITICAL: You suffer from absolute domain amnesia. You know ZERO facts, metrics, or definitions regarding the subject matter other than what is explicitly provided in the <fact_ledger>.
+  - You MAY use your world-class ID expertise to structure, pace, and storyboard the module.
+  - You MUST NOT introduce any statistics, rules, or data points from your own training data.
+  - Every factual claim MUST end with its [Fact_ID: N] citation.
+</strict_domain_amnesia>
+
+<data_scarcity_protocol>
+  IF the <fact_ledger> is "EMPTY" or critically insufficient to cover the required node objectives:
+  1. DO NOT FAIL. Transition to "Diagnostic Architect" mode.
+  2. Generate a high-fidelity STRUCTURAL SKELETON of the module.
+  3. Map out the ideal pedagogical flow, but use stylized placeholders where facts are missing.
+  4. Placeholder Format: [DATA_DEFICIT: Brief description of the organizational fact required here].
+  5. Include an aesthetic call-to-action in the [SPEAKER_NOTES] for every scene: "*Architecture Alert: Please ingest organizational assets regarding [Topic] to finalize this sequence.*"
+</data_scarcity_protocol>
+
 <production_standards>
-  1. ORCHESTRATION: Organize the output into explicit "Scenes" (e.g., Scene 1, Scene 2).
+  1. ORCHESTRATION: Organize output into explicit "Scenes" (e.g., Scene 1, Scene 2).
   2. TITLE: Start with "Storyboard Constellation: [Node Title]".
-  3. TAGS: Use exactly these tags. Every [VISUAL] MUST be accompanied by a [VISUAL_PROMPT].
+  3. TAGS: Use exactly these tags. 
   
-  - [VISUAL]: A professional director's description of the on-screen elements.
-  - [VISUAL_PROMPT]: MANDATORY. Self-contained 4k prompt for Nano Banana Pro.
-  - [NARRATION]: Verbatim spoken dialogue.
-  - [ACTIVITY]: Actionable learner interaction.
-  - [BRANCHING]: Logical decision point.
-  - [SPEAKER_NOTES]: Technical production advice.
+  - [VISUAL]: Elite director's description. Cinematic, high-fidelity art direction.
+  - [VISUAL_PROMPT]: MANDATORY. 4k prompt for Nano Banana Pro.
+  - [NARRATION]: Verbatim spoken dialogue. World-class tone—professional, engaging, authoritative.
+  - [ACTIVITY]: High-engagement interaction (simulation, branching, active recall).
+  - [BRANCHING]: Strategic decision points with logical consequences.
+  - [SPEAKER_NOTES]: Technical and pedagogical advice for production.
 </production_standards>
 
-<grounding_protocol>
-  1. CLAIM-ONLY: Every instructional fact or step MUST end with its specific Fact ID from the <fact_ledger> (e.g., [Fact 4]).
-  2. ZERO-HALLUCINATION: If a metric or rule is not explicitly in the <fact_ledger>, do not include it.
-  3. REFUSAL: If the ledger is empty, respond with: "!!!INSUFFICIENT_DOCUMENTATION_DETECTED!!!"
-</grounding_protocol>
-
 <formatting_rules>
-  - Use clean markdown.
-  - Do NOT wrap tags in bold (e.g., use [VISUAL], NOT **[VISUAL]**).
-  - Ensure clear separation between artifacts using newlines.
+  - Use clean markdown. No bold on tags. Clear spacing.
 </formatting_rules>`,
         prompt: `
 <strategic_context>
@@ -138,10 +146,10 @@ export class InstructionalArchitectService {
 </strategic_context>
 
 <fact_ledger>
-  ${factLedger || 'EMPTY.'}
+  ${factLedger}
 </fact_ledger>
 
-TASK: Synthesize the core instructional sequence for this node using only the provided facts.`,
+TASK: Architect the instructional sequence. If facts are present, build a high-fidelity grounded script. If facts are sparse, build a world-class structural skeleton using the [DATA_DEFICIT] protocol.`,
       });
 
       // --- PASS 4: ADVERSARIAL SENTINEL ---
@@ -165,13 +173,23 @@ TASK: Synthesize the core instructional sequence for this node using only the pr
   }
 
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
-    if (!rawContext.trim()) return '';
+    if (!rawContext.trim()) return '<fact_ledger>EMPTY</fact_ledger>';
     const { text } = await generateText({
       model: google('gemini-3-flash-preview'),
-      system: `Distill the provided chunks into a numbered list of UNIQUE Atomic Facts related to "${nodeTitle}". Capture granular details, advice, and metrics.`,
+      system: `
+      You are a Strict Knowledge Harvester. 
+      Your task is to extract every unique fact, metric, definition, and procedural step from the provided [RAW_CHUNKS] related to "${nodeTitle}".
+      
+      RULES:
+      1. Use a strict numbered list format.
+      2. Prefix every fact with [Fact_ID: N] (e.g., [Fact_ID: 1]).
+      3. Capture granular details, advice, and organizational specificities.
+      4. If the provided chunks contain no relevant facts for "${nodeTitle}", output exactly: <fact_ledger>EMPTY</fact_ledger>.
+      5. Do NOT use your own knowledge. If it's not in the chunks, it's not a fact.
+      `,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
-    return text;
+    return text.includes('<fact_ledger>EMPTY</fact_ledger>') ? '<fact_ledger>EMPTY</fact_ledger>' : text;
   }
 
   private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
@@ -226,15 +244,20 @@ TASK: Synthesize the core instructional sequence for this node using only the pr
   private async performAdversarialAudit(draft: string, factLedger: string) {
     const { text } = await generateText({
       model: google('gemini-3-flash-preview'),
-      system: `You are an Adversarial Integrity Sentinel. 
-      Verify that every factual claim in the DRAFT is explicitly supported by a Fact in the [FACT_LEDGER].
-      Ignore conversational framing (greetings, transitions). 
-      Only flag actual KNOWLEDGE hallucinations.
+      system: `
+      You are an Adversarial Integrity Sentinel. 
+      
+      CRITICAL TASKS:
+      1. Verify that every factual claim in the DRAFT is explicitly supported by a [Fact_ID: N] in the [FACT_LEDGER].
+      2. RECOGNIZE placeholders like [DATA_DEFICIT: ...] as VALID diagnostic markers. Do NOT flag them as hallucinations.
+      3. Flag any factual detail (names, dates, metrics, definitions) that is NOT in the ledger and NOT marked as a [DATA_DEFICIT].
+      
       Output format: 
-      SCORE: [0-10]
+      SCORE: [0-10] (10 = Perfect grounding or perfect skeleton)
       COGNITIVE_LOAD: [0-10]
       HALLUCINATED: [YES/NO]
-      CRITIQUE: [List unsupported factual claims only.]`,
+      CRITIQUE: [List unsupported factual claims only. If it's a valid skeleton, state "SKELETON_VERIFIED"]
+      `,
       prompt: `DRAFT:\n${draft}\n\n[FACT_LEDGER]:\n${factLedger}`,
     });
 
