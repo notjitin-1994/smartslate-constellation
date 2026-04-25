@@ -97,7 +97,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- INDESTRUCTIBLE SCENE-BASED PARSER ---
+  // --- DETERMINISTIC MULTI-PASS PARSER ---
   const { scenes, moduleTitle } = useMemo(() => {
     const sceneGroups: SceneGroup[] = [];
     if (!content) return { scenes: sceneGroups, moduleTitle: 'Instructional Trace' };
@@ -105,9 +105,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const lines = content.split('\n');
     let mTitle = 'Instructional Trace';
     
-    let currentScene: SceneGroup = { id: 'initial-trace', title: 'Core Instructional sequence', artifacts: [] };
+    // Initial State: Buffer for content before the first scene
+    let currentScene: SceneGroup | null = null;
     let currentArtifact: Artifact | null = null;
-    let hasExplicitScenes = false;
 
     const typeRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]/;
 
@@ -115,63 +115,72 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const trimmed = line.trim();
       if (!trimmed) return;
 
+      // 1. Identify Global Title
       if (trimmed.toLowerCase().includes('storyboard constellation:')) {
         mTitle = trimmed.replace(/^[#*\s]*Storyboard Constellation:?\s*/i, '').replace(/\*+$/, '').trim();
         return;
       }
 
-      const isSceneHeader = trimmed.toLowerCase().includes('scene ') || (trimmed.startsWith('###') && trimmed.toLowerCase().includes('scene'));
-      if (isSceneHeader) {
-        if (!hasExplicitScenes && currentScene.artifacts.length === 0) {
-           currentScene.title = trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim();
-        } else {
-           if (currentArtifact) currentScene.artifacts.push(currentArtifact);
-           sceneGroups.push(currentScene);
-           currentScene = {
-             id: `scene-${index}`,
-             title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
-             artifacts: []
-           };
-        }
+      // 2. Strict Scene Detection (Anchored)
+      const isExplicitSceneHeader = /^(Scene\s+\d+|###\s+Scene\s+\d+|Scene:)/i.test(trimmed);
+      
+      if (isExplicitSceneHeader) {
+        // Close previous artifact and scene
+        if (currentArtifact && currentScene) currentScene.artifacts.push(currentArtifact);
+        if (currentScene) sceneGroups.push(currentScene);
+
+        // Open new scene
+        currentScene = {
+          id: `scene-${index}`,
+          title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
+          artifacts: []
+        };
         currentArtifact = null;
-        hasExplicitScenes = true;
         return;
       }
 
+      // 3. Artifact Routing
       const typeMatch = trimmed.match(typeRegex);
       if (typeMatch) {
         const typeStr = typeMatch[1];
-        if (typeStr === 'VISUAL_PROMPT') return;
+        if (typeStr === 'VISUAL_PROMPT') return; // Handled by backend dispatcher
 
-        if (currentArtifact) currentScene.artifacts.push(currentArtifact);
+        // If an artifact was already open, push it to current scene
+        if (currentArtifact && currentScene) currentScene.artifacts.push(currentArtifact);
 
+        // Prepare new artifact
         const isVisualWithId = typeStr.startsWith('VISUAL:');
         const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
-        
         let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
         if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
         const typeVal = `[${typeValStr}]` as Artifact['type'];
+
+        // If no scene is open, create a fallback container
+        if (!currentScene) {
+          currentScene = { id: 'auto-scene-init', title: 'Sequence Opening', artifacts: [] };
+        }
 
         currentArtifact = {
           type: typeVal,
           visualId: vId,
           content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
         };
-      } else if (currentArtifact) {
-        currentArtifact.content += `\n${trimmed}`;
       } else {
-        if (!currentScene) {
-          currentScene = { id: 'intro', title: 'Institutional Initiation', artifacts: [] };
+        // Append text to the current open artifact or create a fallback narration if text exists but no tag
+        if (currentArtifact) {
+          currentArtifact.content += `\n${trimmed}`;
+        } else if (trimmed.length > 0) {
+          if (!currentScene) {
+            currentScene = { id: 'intro-buffer', title: 'Instructional Initiation', artifacts: [] };
+          }
+          currentArtifact = { type: '[NARRATION]', content: trimmed };
         }
-        const introScene = currentScene as SceneGroup;
-        introScene.artifacts.push({ type: '[NARRATION]', content: trimmed });
       }
     });
 
-    if (currentArtifact) currentScene.artifacts.push(currentArtifact);
-    if (currentScene.artifacts.length > 0 || hasExplicitScenes) {
-      sceneGroups.push(currentScene);
-    }
+    // Final Closure
+    if (currentArtifact && currentScene) (currentScene as SceneGroup).artifacts.push(currentArtifact);
+    if (currentScene) sceneGroups.push(currentScene as SceneGroup);
 
     return { scenes: sceneGroups, moduleTitle: mTitle };
   }, [content]);
