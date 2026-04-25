@@ -187,7 +187,16 @@ function ArchitectureCanvasContent() {
              <div className="w-10 h-10 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
                 <Workflow size={20} className="text-[#A7DADB]" />
              </div>
-             <Typography variant="h6" sx={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'white', fontSize: '14px' }}>Architecture Hub</Typography>
+             <Typography variant="h6" sx={{ 
+               fontFamily: 'var(--font-quicksand)', 
+               fontWeight: 900, 
+               textTransform: 'uppercase', 
+               letterSpacing: '0.3em', 
+               color: 'white', 
+               fontSize: '13px' 
+             }}>
+               Architecture Hub
+             </Typography>
           </div>
 
           {/* --- INTEGRATED INTEGRITY SUITE (The Shield) --- */}
@@ -321,7 +330,7 @@ function ArchitectureCanvasContent() {
                      <Lightbulb size={32} className="text-[#A7DADB] relative z-10 group-hover:scale-110 transition-transform" />
                    </div>
                    <div className="p-10 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] backdrop-blur-xl mb-8">
-                     <h3 className="text-4xl font-bold text-white mb-6 tracking-tighter uppercase">Architecture Canvas</h3>
+                     <h3 className="text-4xl font-black text-white mb-6 tracking-tighter uppercase font-heading">Architecture Canvas</h3>
                      <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">
                        Select a node from the neural trace to begin orchestration.
                      </p>
