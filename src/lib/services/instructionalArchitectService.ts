@@ -129,11 +129,12 @@ export class InstructionalArchitectService {
   
   - [VISUAL]: Elite director's description. Focus on composition (e.g., "Medium shot," "POV"), focal point, and instructional purpose. 
   - [VISUAL_PROMPT]: MANDATORY. Self-contained 4k prompt for Nano Banana Pro. 
-    *   SUBJECT: Accurate to the scene content (e.g., "A diverse team in a corporate boardroom," "A hand holding a mobile device with a banking app").
-    *   ENVIRONMENT: Strictly contextual to the course domain (e.g., "Modern hospital laboratory," "Industrial manufacturing floor," "Minimalist home office").
-    *   LIGHTING: Professional cinematic lighting (e.g., "3-point studio lighting," "Soft natural window light," "Clean high-key lighting").
+    *   SUBJECT: Accurate to the scene content. CRITICAL: Inject specific terminology, text snippets, and data points from the <fact_ledger> that should be visible on-screen or in the environment (e.g., "A screen displaying the [Fact_ID: N] process flow," "A document titled [Fact_ID: N] being reviewed").
+    *   ENVIRONMENT: Strictly contextual to the course domain. Use specific names of labs, offices, or settings if mentioned in the facts.
+    *   LIGHTING: Professional cinematic lighting.
     *   TECHNICAL: "Photorealistic, 8k, sharp focus, cinematic depth of field, professional color grading."
-    *   CRITICAL NEGATIVE CONSTRAINT: DO NOT use any terms from this application's UI identity (e.g., "Deep Space," "Zen," "Obsidian," "Neural Network," "Glow," "Constellation," "Teal accents"). The mockup MUST reflect the real-world setting of the COURSE CONTENT, not the tool it was built in.
+    *   CONTENT FIDELITY: Ensure all text mentioned in the prompt is spelled correctly and reflects the exact instructional content of this node.
+    *   CRITICAL NEGATIVE CONSTRAINT: DO NOT use any terms from this application's UI identity (e.g., "Deep Space," "Zen," "Obsidian," "Neural Network," "Glow," "Constellation," "Teal accents").
   
   - [NARRATION]: Verbatim spoken dialogue. World-class tone—professional, engaging, authoritative.
   - [ACTIVITY]: High-engagement interaction (simulation, branching, active recall).
