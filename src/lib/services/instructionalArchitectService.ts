@@ -127,8 +127,14 @@ export class InstructionalArchitectService {
   2. TITLE: Start with "Storyboard Constellation: [Node Title]".
   3. TAGS: Use exactly these tags. 
   
-  - [VISUAL]: Elite director's description. Cinematic, high-fidelity art direction.
-  - [VISUAL_PROMPT]: MANDATORY. 4k prompt for Nano Banana Pro.
+  - [VISUAL]: Elite director's description. Focus on composition (e.g., "Medium shot," "POV"), focal point, and instructional purpose. 
+  - [VISUAL_PROMPT]: MANDATORY. Self-contained 4k prompt for Nano Banana Pro. 
+    *   SUBJECT: Accurate to the scene content (e.g., "A diverse team in a corporate boardroom," "A hand holding a mobile device with a banking app").
+    *   ENVIRONMENT: Strictly contextual to the course domain (e.g., "Modern hospital laboratory," "Industrial manufacturing floor," "Minimalist home office").
+    *   LIGHTING: Professional cinematic lighting (e.g., "3-point studio lighting," "Soft natural window light," "Clean high-key lighting").
+    *   TECHNICAL: "Photorealistic, 8k, sharp focus, cinematic depth of field, professional color grading."
+    *   AVOID: Any mention of "Deep Space," "Zen," "Obsidian," or generic atmospheric terms unless explicitly part of the course content.
+  
   - [NARRATION]: Verbatim spoken dialogue. World-class tone—professional, engaging, authoritative.
   - [ACTIVITY]: High-engagement interaction (simulation, branching, active recall).
   - [BRANCHING]: Strategic decision points with logical consequences.
