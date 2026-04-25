@@ -24,8 +24,6 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import Sidebar from '@/components/layout/Sidebar';
-import { SidebarProvider } from '@/lib/SidebarContext';
 import { supabase } from '@/lib/supabase';
 import { IconButton } from '@mui/material';
 
@@ -415,12 +413,5 @@ function VaultContent() {
 }
 
 export default function KnowledgeVault() {
-  return (
-    <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar />
-        <VaultContent />
-      </div>
-    </SidebarProvider>
-  );
+  return <VaultContent />;
 }
