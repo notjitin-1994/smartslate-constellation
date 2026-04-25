@@ -59,6 +59,16 @@ export default function Sidebar() {
   const [modules, setModules] = useState<any[]>([]);
   const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
 
+  // Sync mode to context on mount if it's explicitly constellation path
+  useEffect(() => {
+    if (pathname === '/constellation') {
+      const savedMode = localStorage.getItem('sidebar-mode');
+      if (savedMode === null) {
+        setIsConstellationMode(true);
+      }
+    }
+  }, [pathname, setIsConstellationMode]);
+
   // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;

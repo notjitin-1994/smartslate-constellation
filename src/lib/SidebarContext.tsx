@@ -29,12 +29,16 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   const handleSetCollapsed = (val: boolean) => {
     setCollapsed(val);
-    localStorage.setItem('sidebar-collapsed', val.toString());
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar-collapsed', val.toString());
+    }
   };
 
   const handleSetMode = (val: boolean) => {
     setIsConstellationMode(val);
-    localStorage.setItem('sidebar-mode', val.toString());
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar-mode', val.toString());
+    }
   };
 
   return (
