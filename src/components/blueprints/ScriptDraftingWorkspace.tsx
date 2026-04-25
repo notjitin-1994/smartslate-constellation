@@ -105,7 +105,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const lines = content.split('\n');
     let mTitle = 'Instructional Trace';
     
-    // We start with a fallback scene to catch everything if the AI forgets "Scene X"
     let currentScene: SceneGroup = { id: 'initial-trace', title: 'Core Instructional sequence', artifacts: [] };
     let currentArtifact: Artifact | null = null;
     let hasExplicitScenes = false;
@@ -116,20 +115,16 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const trimmed = line.trim();
       if (!trimmed) return;
 
-      // 1. Detect Module Title
       if (trimmed.toLowerCase().includes('storyboard constellation:')) {
         mTitle = trimmed.replace(/^[#*\s]*Storyboard Constellation:?\s*/i, '').replace(/\*+$/, '').trim();
         return;
       }
 
-      // 2. Detect New Scene
       const isSceneHeader = trimmed.toLowerCase().includes('scene ') || (trimmed.startsWith('###') && trimmed.toLowerCase().includes('scene'));
       if (isSceneHeader) {
-        // If this is the FIRST explicit scene and our initial trace has nothing, just replace it
         if (!hasExplicitScenes && currentScene.artifacts.length === 0) {
            currentScene.title = trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim();
         } else {
-           // Otherwise, close current artifact and push previous scene
            if (currentArtifact) currentScene.artifacts.push(currentArtifact);
            sceneGroups.push(currentScene);
            currentScene = {
@@ -143,7 +138,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         return;
       }
 
-      // 3. Detect Artifact Tags
       const typeMatch = trimmed.match(typeRegex);
       if (typeMatch) {
         const typeStr = typeMatch[1];
@@ -153,8 +147,10 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
         const isVisualWithId = typeStr.startsWith('VISUAL:');
         const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
-        let typeVal = (isVisualWithId ? '[VISUAL]' : `[${typeStr}]`) as Artifact['type'];
-        if (typeVal as any === '[SPEAKER_NOTES]') typeVal = '[NOTES]';
+        
+        let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
+        if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
+        const typeVal = `[${typeValStr}]` as Artifact['type'];
 
         currentArtifact = {
           type: typeVal,
@@ -162,15 +158,16 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
         };
       } else if (currentArtifact) {
-        // Content belongs to current artifact
         currentArtifact.content += `\n${trimmed}`;
       } else {
-        // Stray content before any tags or scenes - treat as narration in current scene
-        currentScene.artifacts.push({ type: '[NARRATION]', content: trimmed });
+        if (!currentScene) {
+          currentScene = { id: 'intro', title: 'Institutional Initiation', artifacts: [] };
+        }
+        const introScene = currentScene as SceneGroup;
+        introScene.artifacts.push({ type: '[NARRATION]', content: trimmed });
       }
     });
 
-    // Final closing
     if (currentArtifact) currentScene.artifacts.push(currentArtifact);
     if (currentScene.artifacts.length > 0 || hasExplicitScenes) {
       sceneGroups.push(currentScene);
@@ -275,8 +272,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/10" />
                  </div>
 
-                 <div className="flex flex-wrap gap-8">
-                    <div className="w-full flex flex-wrap gap-8">
+                 <div className="flex flex-wrap gap-8 items-stretch">
+                    {/* ROW 1: 70/30 ASYMMETRIC SPLIT (Synchronized Height) */}
+                    <div className="w-full flex flex-wrap gap-8 items-stretch">
                        <div className="flex-[2.5] min-w-[min(100%,600px)] p-14 rounded-[3.5rem] bg-white/[0.015] border border-white/[0.05] shadow-2xl relative overflow-hidden group/nar">
                           <div className="absolute top-8 left-10 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/nar:text-[#A7DADB]/60 transition-colors">
                              <Mic2 size={14} /> Spoken Payload
@@ -287,7 +285,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              </ReactMarkdown>
                           </div>
                        </div>
-                       <div className="flex-1 min-w-[min(100%,350px)] rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden relative shadow-2xl group/viz h-fit">
+                       <div className="flex-1 min-w-[min(100%,350px)] rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden relative shadow-2xl group/viz flex flex-col">
                           <div className="absolute top-8 left-10 z-20 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/viz:text-[#A7DADB] transition-colors">
                              <Eye size={14} /> Art Direction
                           </div>
@@ -295,11 +293,22 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              const vis = scene.artifacts.find(a => a.type === '[VISUAL]');
                              const url = vis?.visualId ? visualUrls[vis.visualId] : null;
                              return url ? (
-                               <div className="w-full h-full">
-                                 <img src={url} alt="Scene Mockup" className="w-full h-auto block" />
+                               <div className="flex-1 flex flex-col min-h-0">
+                                 <div className="flex-1 relative flex items-center justify-center p-12 mt-4">
+                                   <img src={url} alt="Scene Mockup" className="max-w-full max-h-full object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] rounded-2xl" />
+                                 </div>
+                                 <div className="p-10 bg-white/[0.02] border-t border-white/5 space-y-4">
+                                    <div className="space-y-1">
+                                       <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Contextual Anchor</span>
+                                       <p className="text-[10px] text-slate-500 leading-relaxed italic line-clamp-3">{vis?.content}</p>
+                                    </div>
+                                    <div className="text-[8px] font-mono text-slate-700 uppercase tracking-tighter pt-2 border-t border-white/[0.02]">
+                                       * Neural Trace: AI generated mockup for reference purposes only.
+                                    </div>
+                                 </div>
                                </div>
                              ) : (
-                               <div className="aspect-[4/5]">
+                               <div className="flex-1 flex items-center justify-center min-h-[400px]">
                                  <GenerativePlaceholder status={vis?.visualId ? 'processing' : 'pending'} scale={scale} />
                                </div>
                              );

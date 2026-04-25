@@ -182,14 +182,8 @@ function ArchitectureCanvasContent() {
       <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10, position: 'relative', overflow: 'hidden' }}>
         {/* Global HUD Header */}
         <header className="h-24 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
-          <div className="flex items-center gap-8">
-             <div className="w-10 h-10 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
-                <Workflow size={20} className="text-[#A7DADB]" />
-             </div>
-             <Typography variant="h6" sx={{ fontFamily: 'var(--font-quicksand)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.3em', color: 'white', fontSize: '13px' }}>Architecture Hub</Typography>
-          </div>
-
-          {/* --- INTEGRATED INTEGRITY SUITE (The Shield) --- */}
+          
+          {/* --- INTEGRATED INTEGRITY SUITE (Moved to Primary Slot) --- */}
           <div className="flex items-center gap-12 px-10 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.05] shadow-2xl relative overflow-hidden group/hud">
             <div className="absolute inset-0 bg-[#A7DADB]/[0.02] group-hover/hud:bg-[#A7DADB]/[0.05] transition-colors" />
             
