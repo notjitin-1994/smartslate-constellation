@@ -93,6 +93,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   nodeId
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
+  const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [visualUrls, setVisualUrls] = useState<Record<string, string>>({}); 
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
@@ -302,8 +303,14 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              const url = vis?.visualId ? visualUrls[vis.visualId] : null;
                              return url ? (
                                <div className="flex-1 flex flex-col min-h-0">
-                                 <div className="flex-1 relative flex items-center justify-center p-12 mt-4">
-                                   <img src={url} alt="Scene Mockup" className="max-w-full max-h-full object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] rounded-2xl" />
+                                 <div className="flex-1 relative flex items-center justify-center p-12 mt-4 cursor-pointer group/img" onClick={() => setExpandedImageUrl(url)}>
+                                   <div className="absolute inset-0 bg-[#A7DADB]/0 group-hover/img:bg-[#A7DADB]/5 transition-colors z-10 rounded-3xl" />
+                                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/img:opacity-100 z-20 transition-all">
+                                      <div className="p-4 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-2xl">
+                                         <Eye size={24} className="text-[#A7DADB]" />
+                                      </div>
+                                   </div>
+                                   <img src={url} alt="Scene Mockup" className="max-w-full max-h-full object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] rounded-2xl group-hover/img:scale-[1.02] transition-transform duration-500" />
                                  </div>
                                  <div className="p-10 bg-white/[0.02] border-t border-white/5 space-y-4">
                                     <div className="space-y-1">
@@ -382,6 +389,30 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                 <div className="flex items-center gap-4"><BookOpen size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4></div>
                 <div className="grid grid-cols-1 gap-5">{citations.map((cite, i) => (<div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite"><div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div><span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span></div>))}</div>
               </section>
+            </div>
+          </Box>
+        </Fade>
+      </Modal>
+
+      {/* --- VISUAL LIGHTBOX MODAL --- */}
+      <Modal open={!!expandedImageUrl} onClose={() => setExpandedImageUrl(null)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(60px)', bgcolor: 'rgba(0, 0, 0, 0.9)' } }}>
+        <Fade in={!!expandedImageUrl}>
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'auto', maxWidth: '95vw', maxHeight: '90vh', outline: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="relative group">
+              <img 
+                src={expandedImageUrl || ''} 
+                alt="Expanded Mockup" 
+                className="max-w-full max-h-[85vh] object-contain rounded-[2rem] border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.9)]"
+              />
+              <IconButton 
+                onClick={() => setExpandedImageUrl(null)} 
+                sx={{ position: 'absolute', top: -20, right: -20, color: 'white', bgcolor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(0,0,0,1)' }, zIndex: 100 }}
+              >
+                <X size={24} />
+              </IconButton>
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-8 py-3 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                Neural Trace Full-Scale View
+              </div>
             </div>
           </Box>
         </Fade>
