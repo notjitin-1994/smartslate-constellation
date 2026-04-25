@@ -221,8 +221,10 @@ export default function Sidebar() {
                     >
                       {quickAccessItems.map((item) => {
                         const isVault = item.title === 'Knowledge Vault';
-                        const targetPath = isVault && blueprintId 
-                          ? `/constellation/vault?blueprintId=${blueprintId}`
+                        const currentBlueprintId = blueprintId || searchParams.get('blueprintId');
+                        
+                        const targetPath = isVault && currentBlueprintId 
+                          ? `/constellation/vault?blueprintId=${currentBlueprintId}`
                           : item.path;
                         
                         const isActive = pathname === item.path || (isVault && pathname === '/constellation/vault');

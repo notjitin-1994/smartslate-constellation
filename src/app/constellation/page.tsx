@@ -239,7 +239,7 @@ function ArchitectureCanvasContent() {
                 <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', border: '1px solid rgba(167, 218, 219, 0.1)', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.15)', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
              </Tooltip>
              <button 
-               onClick={() => router.push('/vault')} 
+               onClick={() => router.push(`/constellation/vault?blueprintId=${blueprintId}`)} 
                title="Knowledge Vault"
                className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"
              >
