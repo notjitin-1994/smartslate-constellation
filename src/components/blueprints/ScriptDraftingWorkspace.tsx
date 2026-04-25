@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import Image from 'next/image';
 import { 
   BookOpen, 
   Activity, 
@@ -288,7 +287,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              </ReactMarkdown>
                           </div>
                        </div>
-                       <div className="flex-1 min-w-[min(100%,350px)] aspect-[4/5] md:aspect-auto rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden relative shadow-2xl group/viz">
+                       <div className="flex-1 min-w-[min(100%,350px)] rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden relative shadow-2xl group/viz h-fit">
                           <div className="absolute top-8 left-10 z-20 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/viz:text-[#A7DADB] transition-colors">
                              <Eye size={14} /> Art Direction
                           </div>
@@ -296,9 +295,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              const vis = scene.artifacts.find(a => a.type === '[VISUAL]');
                              const url = vis?.visualId ? visualUrls[vis.visualId] : null;
                              return url ? (
-                               <Image src={url} alt="Scene Mockup" fill className="object-cover" unoptimized />
+                               <div className="w-full h-full">
+                                 <img src={url} alt="Scene Mockup" className="w-full h-auto block" />
+                               </div>
                              ) : (
-                               <GenerativePlaceholder status={vis?.visualId ? 'processing' : 'pending'} scale={scale} />
+                               <div className="aspect-[4/5]">
+                                 <GenerativePlaceholder status={vis?.visualId ? 'processing' : 'pending'} scale={scale} />
+                               </div>
                              );
                           })()}
                        </div>
