@@ -24,19 +24,19 @@ export async function POST(req: NextRequest) {
       blueprintContext
     });
 
-    // --- ASYNCHRONOUS VISUAL DISPATCHER ---
+    // --- ASYNCHRONOUS VISUAL DISPATCHER (Hardened Semantic Sniffer) ---
     const script = result.script;
-    const promptRegex = /\[VISUAL_PROMPT\]:?\s*(.*?)(?=\n|\[|$)/g;
+    const promptRegex = /\[VISUAL_PROMPT\][*: ]*(.*?)(?=\n|\[|$)/gi;
     const matches = [...script.matchAll(promptRegex)];
 
     if (matches.length > 0) {
-      console.log(`[Architect] Dispatching ${matches.length} visual tasks...`);
+      console.log(`[Architect] Parser found ${matches.length} prompt candidates.`);
       const supabase = createAdminClient();
 
-      // Fire-and-forget triggers
-      matches.forEach(async (match) => {
-        const visualPrompt = match[1].trim();
-        if (!visualPrompt) return;
+      // Sequentially trigger (Ensures handshake completion within Vercel's 10s window)
+      for (const match of matches) {
+        const visualPrompt = match[1].trim().replace(/\*+$/, '');
+        if (!visualPrompt || visualPrompt.length < 5) continue;
 
         try {
           const { data: gen, error: genErr } = await supabase
@@ -52,7 +52,8 @@ export async function POST(req: NextRequest) {
 
           if (genErr) throw genErr;
 
-          fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-visual`, {
+          // Await the trigger call. This is now SAFE because the Edge function returns instantly.
+          await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-visual`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -65,10 +66,11 @@ export async function POST(req: NextRequest) {
             })
           }).catch(err => console.error('[Architect] Dispatch Error:', err));
 
+          console.log(`[Architect] Successfully dispatched visual task: ${gen.id}`);
         } catch (dispatchErr) {
           console.error('[Architect] Failed to dispatch visual task:', dispatchErr);
         }
-      });
+      }
     }
 
     return NextResponse.json({

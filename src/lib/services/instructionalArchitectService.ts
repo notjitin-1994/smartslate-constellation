@@ -106,7 +106,7 @@ export class InstructionalArchitectService {
         --- PRODUCTION ARTIFACT STANDARDS ---
         You MUST use the following tags to categorize all instructional content:
         1. [VISUAL]: A director's description of what appears on screen.
-        2. [VISUAL_PROMPT]: A highly detailed, descriptive image generation prompt for Nano Banana Pro. Focus on textures, lighting (cinematic, deep space), and technical accuracy.
+        2. [VISUAL_PROMPT]: MANDATORY. For every [VISUAL], you MUST provide a detailed image generation prompt for Nano Banana Pro. Focus on textures, cinematic lighting, and technical accuracy.
         3. [NARRATION]: The verbatim spoken dialogue for the instructor/voiceover.
         4. [ACTIVITY]: Describe a specific learner interaction.
         5. [BRANCHING]: Define a decision point and its outcomes.
