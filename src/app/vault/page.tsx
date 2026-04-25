@@ -20,7 +20,9 @@ import {
   FileCode,
   FileUp,
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -39,6 +41,8 @@ interface QueuedFile {
   status: 'queued' | 'processing' | 'completed' | 'failed';
   progress: number;
 }
+
+type BatchStatus = 'idle' | 'processing' | 'success' | 'error';
 
 const StatCard = ({ label, value, icon: Icon, subValue }: { label: string, value: string | number, icon: any, subValue?: string }) => (
   <div className="flex-1 min-w-[200px] p-6 rounded-[2rem] border border-[#A7DADB]/10 bg-white/[0.01] backdrop-blur-3xl group hover:border-[#A7DADB]/30 transition-all">
@@ -60,11 +64,13 @@ function VaultContent() {
   const [vaultedFiles, setVaultedFiles] = useState<any[]>([]);
   const [facts, setFacts] = useState<any[]>([]);
   const [fileQueue, setFileQueue] = useState<QueuedFile[]>([]);
-  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<BatchStatus>('idle');
+  const [lastError, setLastError] = useState<string | null>(null);
   const [currentProcessingFile, setCurrentProcessingFile] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchVaultData = useCallback(async () => {
+    // Explicitly fetch global facts (blueprint_id is null)
     const { data, error } = await supabase
       .from('knowledge_vault')
       .select('*')
@@ -72,7 +78,7 @@ function VaultContent() {
     
     if (data) {
       setFacts(data);
-      // Unique files based on source_name in metadata
+      // Aggregating unique files based on source_name in metadata
       const uniqueFiles = Array.from(new Set(data.map(d => d.metadata?.source_name))).filter(Boolean).map(name => {
         return data.find(d => d.metadata?.source_name === name);
       });
@@ -93,14 +99,18 @@ function VaultContent() {
       progress: 0
     }));
     setFileQueue(prev => [...prev, ...newQueueItems]);
+    setBatchStatus('idle');
+    setLastError(null);
   };
 
   const processBatch = async () => {
     if (fileQueue.length === 0) return;
-    setIsBatchProcessing(true);
+    setBatchStatus('processing');
+    setLastError(null);
+
+    let hasFailure = false;
 
     for (let i = 0; i < fileQueue.length; i++) {
-      if (fileQueue[i].status === 'completed') continue;
       const item = fileQueue[i];
       setCurrentProcessingFile(item.file.name);
       
@@ -128,29 +138,46 @@ function VaultContent() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            blueprintId: null, // Global ingestion
             contentType,
             content: base64,
             fileName: item.file.name
           }),
         });
 
-        if (!response.ok) throw new Error('Ingestion failed');
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Ingestion failed');
+        }
+        
         updateStatus('completed', 100);
-      } catch (err) {
+      } catch (err: any) {
         console.error(`[Vault Ingest] Failed:`, err);
         updateStatus('failed', 0);
+        setLastError(err.message || 'System error during harvest');
+        hasFailure = true;
       }
     }
 
-    setIsBatchProcessing(false);
+    if (hasFailure) {
+      setBatchStatus('error');
+    } else {
+      setBatchStatus('success');
+      // Add slight delay to ensure DB indexing before refresh
+      setTimeout(() => {
+        fetchVaultData();
+        // Reset to idle after success view
+        setTimeout(() => setBatchStatus('idle'), 4000);
+      }, 500);
+    }
+    
     setCurrentProcessingFile(null);
-    setFileQueue([]);
-    fetchVaultData();
+    if (!hasFailure) setFileQueue([]);
   };
 
   const handleDelete = async (fileName: string) => {
     try {
-      const response = await fetch(`/api/ingest/delete?fileName=${fileName}`, { method: 'DELETE' });
+      const response = await fetch(`/api/ingest/delete?fileName=${encodeURIComponent(fileName)}`, { method: 'DELETE' });
       if (response.ok) fetchVaultData();
     } catch (err) {
       console.error('Delete failed:', err);
@@ -218,12 +245,14 @@ function VaultContent() {
             
             {/* INGESTION HUD */}
             <section className={cn(
-              "relative rounded-[3rem] border-2 border-dashed bg-white/[0.01] transition-all group overflow-hidden",
+              "relative rounded-[3rem] border-2 border-dashed bg-white/[0.01] transition-all group overflow-hidden min-h-[400px] flex items-center justify-center",
+              batchStatus === 'error' ? "border-rose-500/20" : 
+              batchStatus === 'success' ? "border-emerald-500/20" : 
               fileQueue.length > 0 ? "border-[#A7DADB]/30" : "border-[#A7DADB]/10 hover:border-[#A7DADB]/30"
             )}>
                <AnimatePresence mode="wait">
-                  {isBatchProcessing ? (
-                    <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-16 flex flex-col items-center text-center space-y-8">
+                  {batchStatus === 'processing' ? (
+                    <motion.div key="processing" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="p-16 flex flex-col items-center text-center space-y-8 w-full">
                        <div className="relative">
                           <motion.div animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }} className="w-40 h-40 rounded-full border border-[#A7DADB]/20 border-t-[#A7DADB]" />
                           <div className="absolute inset-0 flex items-center justify-center">
@@ -238,6 +267,31 @@ function VaultContent() {
                           <motion.div animate={{ width: `${overallProgress}%` }} className="h-full bg-[#4F46E5] shadow-[0_0_20px_rgba(79,70,229,0.5)]" />
                        </div>
                     </motion.div>
+                  ) : batchStatus === 'success' ? (
+                    <motion.div key="success" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="p-16 flex flex-col items-center text-center space-y-6">
+                       <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 12, stiffness: 200 }}>
+                            <CheckCircle2 size={48} />
+                          </motion.div>
+                       </div>
+                       <div className="space-y-2">
+                          <h3 className="text-2xl font-black uppercase tracking-tighter text-emerald-400">Ingestion Complete</h3>
+                          <p className="text-slate-500 text-sm font-medium">Technical facts have been successfully verified and committed to the ledger.</p>
+                       </div>
+                    </motion.div>
+                  ) : batchStatus === 'error' ? (
+                    <motion.div key="error" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="p-16 flex flex-col items-center text-center space-y-6">
+                       <div className="w-24 h-24 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.2)]">
+                          <XCircle size={48} />
+                       </div>
+                       <div className="space-y-2">
+                          <h3 className="text-2xl font-black uppercase tracking-tighter text-rose-500">Extraction Failed</h3>
+                          <p className="text-rose-400/60 text-[10px] font-mono uppercase tracking-widest">{lastError}</p>
+                       </div>
+                       <button onClick={() => processBatch()} className="px-8 py-3 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all flex items-center gap-2">
+                          <RefreshCw size={14} /> Retry Ingestion
+                       </button>
+                    </motion.div>
                   ) : (
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-16 flex flex-col items-center text-center space-y-6">
                        <input type="file" multiple onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer z-20" accept=".pdf,.docx,.txt" />
@@ -249,7 +303,7 @@ function VaultContent() {
                           <p className="text-slate-500 text-sm font-medium">Anchor the constellation with multi-document technical grounding.</p>
                        </div>
                        {fileQueue.length > 0 && (
-                         <button onClick={(e) => { e.stopPropagation(); processBatch(); }} className="relative z-30 px-8 py-3 rounded-xl bg-[#4F46E5] text-[10px] font-black text-white uppercase tracking-[0.3em] hover:bg-[#4338ca] transition-all shadow-2xl shadow-indigo-500/40 flex items-center gap-3">
+                         <button onClick={(e) => { e.stopPropagation(); processBatch(); }} className="relative z-30 px-8 py-3 rounded-xl bg-[#4F46E5] text-[10px] font-black text-white uppercase tracking-[0.3em] hover:bg-[#4338ca] transition-all shadow-2xl shadow-indigo-500/40 flex items-center gap-3 active:scale-95">
                             <Play size={14} fill="currentColor" /> Initialize Batch Ingestion ({fileQueue.length})
                          </button>
                        )}
@@ -374,7 +428,6 @@ function VaultContent() {
                               Inspect <ExternalLink size={10} />
                            </button>
                         </div>
-                        {/* Subtle glow on hover */}
                         <div className="absolute inset-0 bg-[#A7DADB]/[0.01] opacity-0 group-hover/file:opacity-100 transition-opacity" />
                      </motion.div>
                    ))}
