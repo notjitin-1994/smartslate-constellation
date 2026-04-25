@@ -26,6 +26,8 @@ import { IconButton, Modal, Backdrop, Fade, Box } from '@mui/material';
 import { supabase } from '@/lib/supabase';
 import { useSidebar } from '@/lib/SidebarContext';
 
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+
 // --- SUB-COMPONENTS ---
 
 const GenerativePlaceholder = ({ status, error, scale }: { status: string, error?: string, scale: number }) => {
@@ -93,8 +95,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   nodeId
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
-  const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
+  const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [visualUrls, setVisualUrls] = useState<Record<string, string>>({}); 
+  const [visualPrompts, setVisualPrompts] = useState<Record<string, string>>({}); 
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
@@ -192,11 +195,16 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     if (allVisualIds.length === 0) return;
 
     const fetchExisting = async () => {
-      const { data } = await supabase.from('visual_generations').select('id, image_url, status').in('id', allVisualIds).eq('status', 'completed');
+      const { data } = await supabase.from('visual_generations').select('id, image_url, prompt, status').in('id', allVisualIds).eq('status', 'completed');
       if (data) {
-        const map: Record<string, string> = {};
-        data.forEach(g => { if(g.image_url) map[g.id] = g.image_url; });
-        setVisualUrls(prev => ({ ...prev, ...map }));
+        const urlMap: Record<string, string> = {};
+        const promptMap: Record<string, string> = {};
+        data.forEach(g => { 
+          if(g.image_url) urlMap[g.id] = g.image_url; 
+          if(g.prompt) promptMap[g.id] = g.prompt;
+        });
+        setVisualUrls(prev => ({ ...prev, ...urlMap }));
+        setVisualPrompts(prev => ({ ...prev, ...promptMap }));
       }
     };
     fetchExisting();
@@ -294,30 +302,86 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              </ReactMarkdown>
                           </div>
                        </div>
-                       <div className="flex-1 min-w-[min(100%,350px)] rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden relative shadow-2xl group/viz flex flex-col">
+                       <div className={cn(
+                          "transition-all duration-500 relative shadow-2xl group/viz flex flex-col",
+                          expandedSceneId === scene.id 
+                            ? "fixed inset-x-0 top-24 bottom-0 z-[100] bg-[#020617] p-12 overflow-y-auto" 
+                            : "flex-1 min-w-[min(100%,350px)] rounded-[3.5rem] bg-black/40 border border-[#A7DADB]/20 overflow-hidden"
+                       )}>
                           <div className="absolute top-8 left-10 z-20 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/viz:text-[#A7DADB] transition-colors">
                              <Eye size={14} /> Art Direction
                           </div>
+
+                          {expandedSceneId === scene.id && (
+                             <button 
+                               onClick={() => setExpandedSceneId(null)}
+                               className="absolute top-8 right-10 z-30 p-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-rose-500/20 hover:text-rose-500 transition-all"
+                             >
+                                <X size={20} />
+                             </button>
+                          )}
+
                           {(() => {
                              const vis = scene.artifacts.find(a => a.type === '[VISUAL]');
                              const url = vis?.visualId ? visualUrls[vis.visualId] : null;
+                             const prompt = vis?.visualId ? visualPrompts[vis.visualId] : null;
+                             
                              return url ? (
-                               <div className="flex-1 flex flex-col min-h-0">
-                                 <div className="flex-1 relative flex items-center justify-center p-12 mt-4 cursor-pointer group/img" onClick={() => setExpandedImageUrl(url)}>
+                               <div className={cn(
+                                 "flex flex-col min-h-0",
+                                 expandedSceneId === scene.id ? "h-full" : "flex-1"
+                               )}>
+                                 <div 
+                                   className={cn(
+                                     "relative flex items-center justify-center cursor-pointer group/img transition-all",
+                                     expandedSceneId === scene.id ? "flex-1 p-0" : "flex-1 p-12 mt-4"
+                                   )}
+                                   onClick={() => setExpandedSceneId(expandedSceneId === scene.id ? null : scene.id)}
+                                 >
                                    <div className="absolute inset-0 bg-[#A7DADB]/0 group-hover/img:bg-[#A7DADB]/5 transition-colors z-10 rounded-3xl" />
-                                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/img:opacity-100 z-20 transition-all">
-                                      <div className="p-4 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-2xl">
-                                         <Eye size={24} className="text-[#A7DADB]" />
+                                   
+                                   {expandedSceneId !== scene.id && (
+                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/img:opacity-100 z-20 transition-all">
+                                        <div className="p-4 rounded-full bg-black/60 backdrop-blur-md border border-white/20 shadow-2xl">
+                                           <Eye size={24} className="text-[#A7DADB]" />
+                                        </div>
+                                     </div>
+                                   )}
+
+                                   <img 
+                                      src={url} 
+                                      alt="Scene Mockup" 
+                                      className={cn(
+                                        "object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] transition-all duration-500",
+                                        expandedSceneId === scene.id ? "max-w-[90vw] max-h-[70vh] rounded-[3rem]" : "max-w-full max-h-full rounded-2xl group-hover/img:scale-[1.02]"
+                                      )}
+                                   />
+
+                                   {/* PROMPT OVERLAY (Visible on hover in expanded view) */}
+                                   {expandedSceneId === scene.id && prompt && (
+                                      <div className="absolute inset-x-0 bottom-0 p-12 bg-gradient-to-t from-[#020617] via-[#020617]/80 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity z-30">
+                                         <div className="max-w-4xl mx-auto space-y-4">
+                                            <span className="text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em]">Neural Trace: Generation Directive</span>
+                                            <p className="text-sm font-mono text-slate-400 leading-relaxed bg-white/[0.02] p-6 rounded-2xl border border-white/5">{prompt}</p>
+                                         </div>
                                       </div>
-                                   </div>
-                                   <img src={url} alt="Scene Mockup" className="max-w-full max-h-full object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] rounded-2xl group-hover/img:scale-[1.02] transition-transform duration-500" />
+                                   )}
                                  </div>
-                                 <div className="p-10 bg-white/[0.02] border-t border-white/5 space-y-4">
+
+                                 <div className={cn(
+                                   "p-10 bg-white/[0.02] border-t border-white/5 space-y-4",
+                                   expandedSceneId === scene.id && "max-w-4xl mx-auto w-full border-none bg-transparent"
+                                 )}>
                                     <div className="space-y-1">
-                                       <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Contextual Anchor</span>
-                                       <p className="text-[10px] text-slate-500 leading-relaxed italic line-clamp-3">{vis?.content}</p>
+                                       <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Institutional Art Direction</span>
+                                       <p className={cn(
+                                         "text-slate-500 leading-relaxed italic transition-all",
+                                         expandedSceneId === scene.id ? "text-lg text-slate-300" : "text-[10px] line-clamp-3"
+                                       )}>
+                                          {vis?.content}
+                                       </p>
                                     </div>
-                                    <div className="text-[8px] font-mono text-[#A7DADB] uppercase tracking-tighter pt-2 border-t border-white/[0.02] drop-shadow-[0_0_5px_rgba(167,218,219,0.5)] opacity-80">
+                                    <div className="text-[8px] font-mono text-[#A7DADB] uppercase tracking-tighter pt-2 border-t border-white/[0.02] drop-shadow-[0_0_5px_rgba(16,185,129,0.5)] opacity-80">
                                        * Neural Trace: AI generated mockup for reference purposes only.
                                     </div>
                                  </div>
@@ -389,30 +453,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                 <div className="flex items-center gap-4"><BookOpen size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4></div>
                 <div className="grid grid-cols-1 gap-5">{citations.map((cite, i) => (<div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite"><div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div><span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span></div>))}</div>
               </section>
-            </div>
-          </Box>
-        </Fade>
-      </Modal>
-
-      {/* --- VISUAL LIGHTBOX MODAL --- */}
-      <Modal open={!!expandedImageUrl} onClose={() => setExpandedImageUrl(null)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(60px)', bgcolor: 'rgba(0, 0, 0, 0.9)' } }}>
-        <Fade in={!!expandedImageUrl}>
-          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'auto', maxWidth: '95vw', maxHeight: '90vh', outline: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="relative group">
-              <img 
-                src={expandedImageUrl || ''} 
-                alt="Expanded Mockup" 
-                className="max-w-full max-h-[85vh] object-contain rounded-[2rem] border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.9)]"
-              />
-              <IconButton 
-                onClick={() => setExpandedImageUrl(null)} 
-                sx={{ position: 'absolute', top: -20, right: -20, color: 'white', bgcolor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(0,0,0,1)' }, zIndex: 100 }}
-              >
-                <X size={24} />
-              </IconButton>
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-8 py-3 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                Neural Trace Full-Scale View
-              </div>
             </div>
           </Box>
         </Fade>
