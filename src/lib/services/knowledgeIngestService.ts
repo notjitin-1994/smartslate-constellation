@@ -155,7 +155,7 @@ export class KnowledgeIngestService {
         const valuesToEmbed = chunks.map((chunk: string) => `[MODULE: ${mc.moduleId}] [CONTEXT: ${object.contextHeader}] \n\n DATA: ${chunk}`);
         
         const { embeddings } = await embedMany({
-          model: google.textEmbeddingModel('gemini-embedding-2-preview'),
+          model: google.textEmbeddingModel('gemini-embedding-2'),
           values: valuesToEmbed,
           providerOptions: { google: { outputDimensionality: 3072 } }
         });
@@ -184,7 +184,7 @@ export class KnowledgeIngestService {
         const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${object.contextHeader}] \n\n DATA: ${chunk}`);
         
         const { embeddings } = await embedMany({
-          model: google.textEmbeddingModel('gemini-embedding-2-preview'),
+          model: google.textEmbeddingModel('gemini-embedding-2'),
           values: valuesToEmbed,
           providerOptions: { google: { outputDimensionality: 3072 } }
         });
@@ -249,7 +249,7 @@ export class KnowledgeIngestService {
       console.log(`[Ingest] Media analysis complete. Embedding description...`);
 
       const { embedding } = await embed({
-        model: google.textEmbeddingModel('gemini-embedding-2-preview'),
+        model: google.textEmbeddingModel('gemini-embedding-2'),
         value: description,
         providerOptions: {
           google: {

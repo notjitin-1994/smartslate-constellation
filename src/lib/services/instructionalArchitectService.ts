@@ -99,7 +99,7 @@ export class InstructionalArchitectService {
 
       // --- PASS 3: CONSTRAINED SYNTHESIS ---
       const { text: draft } = await generateText({
-        model: google('gemini-2.0-flash-exp'),
+        model: google('gemini-3.1-pro-preview'),
         temperature: 0.1, 
         system: `You are a World-Class Instructional Architect. Your goal is to draft a production-ready storyboard (Constellation) using ONLY the [FACT_LEDGER].
         
@@ -141,7 +141,7 @@ export class InstructionalArchitectService {
   private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
     if (!rawContext.trim()) return '';
     const { text } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
+      model: google('gemini-3-flash-preview'),
       system: `Distill the provided chunks into a numbered list of UNIQUE Atomic Facts related to "${nodeTitle}". Capture granular details, advice, and metrics.`,
       prompt: `[RAW_CHUNKS]:\n${rawContext}`,
     });
@@ -199,7 +199,7 @@ export class InstructionalArchitectService {
 
   private async performAdversarialAudit(draft: string, factLedger: string) {
     const { text } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
+      model: google('gemini-3-flash-preview'),
       system: `You are an Adversarial Integrity Sentinel. 
       Verify that every factual claim in the DRAFT is explicitly supported by a Fact in the [FACT_LEDGER].
       Ignore conversational framing (greetings, transitions). 
