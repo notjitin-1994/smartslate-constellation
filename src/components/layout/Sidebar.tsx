@@ -30,7 +30,7 @@ import {
 const quickAccessItems = [
   { title: 'Dashboard', icon: Icons.Dashboard, path: '/dashboard' },
   { title: 'Architecture', icon: Icons.Blueprints, path: '/constellation' },
-  { title: 'Asset Ingest', icon: Icons.Assets, path: '/assets' },
+  { title: 'Knowledge Vault', icon: Icons.Assets, path: '/vault' },
 ];
 
 const solaraSuiteLinks = [

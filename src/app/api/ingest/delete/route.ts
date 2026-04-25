@@ -4,24 +4,31 @@ import { createAdminClient } from '@/lib/supabase';
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const blueprintId = searchParams.get('blueprintId');
+    const blueprintId = searchParams.get('blueprintId'); // can be null
     const fileName = searchParams.get('fileName');
 
-    if (!blueprintId || !fileName) {
+    if (!fileName) {
       return NextResponse.json(
-        { error: 'Missing required parameters: blueprintId and fileName.' },
+        { error: 'Missing required parameter: fileName.' },
         { status: 400 }
       );
     }
 
     const supabase = createAdminClient();
 
-    // Delete all chunks for this specific file in this blueprint
-    const { error } = await supabase
+    // Delete all chunks for this specific file
+    let query = supabase
       .from('knowledge_vault')
       .delete()
-      .eq('blueprint_id', blueprintId)
       .eq('metadata->>source_name', fileName);
+
+    if (blueprintId) {
+      query = query.eq('blueprint_id', blueprintId);
+    } else {
+      query = query.is('blueprint_id', null);
+    }
+
+    const { error } = await query;
 
     if (error) throw error;
 

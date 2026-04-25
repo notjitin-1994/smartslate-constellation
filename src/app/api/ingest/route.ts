@@ -6,15 +6,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { blueprintId, contentType, content, fileName, metadata, blueprintContext } = body;
 
-    if (!blueprintId || !contentType || !content) {
+    if (!contentType || !content) {
       return NextResponse.json(
-        { error: 'Missing required fields: blueprintId, contentType, and content are mandatory.' },
+        { error: 'Missing required fields: contentType and content are mandatory.' },
         { status: 400 }
       );
     }
 
     const result = await knowledgeIngestService.ingest({
-      blueprintId,
+      blueprintId: blueprintId || null,
       contentType,
       content,
       fileName,

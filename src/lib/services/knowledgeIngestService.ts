@@ -8,7 +8,7 @@ import { z } from 'zod';
 export type ContentType = 'text' | 'image' | 'video' | 'pdf' | 'docx';
 
 export interface IngestAsset {
-  blueprintId: string;
+  blueprintId: string | null;
   contentType: ContentType;
   content: string; // Base64 for media/docs or raw text
   fileName: string;
