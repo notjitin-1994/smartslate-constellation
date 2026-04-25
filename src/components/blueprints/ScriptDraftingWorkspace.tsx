@@ -230,7 +230,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                        </div>
                     </div>
                  </div>
-                 <button onClick={() => setIsInsightOpen(true)} className="px-10 py-4 rounded-2xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[11px] font-black text-[#A7DADB] uppercase tracking-[0.3em] hover:bg-[#A7DADB] hover:text-black transition-all">Verification Ledger</button>
               </div>
 
               <div className="mt-12 pt-10 border-t border-white/5 flex gap-4 overflow-x-auto pb-4 custom-scrollbar">

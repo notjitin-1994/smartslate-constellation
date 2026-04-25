@@ -150,8 +150,6 @@ function ArchitectureCanvasContent() {
     } finally { setIsDrafting(false); }
   };
 
-  const formatText = (txt: string) => txt.replace(/_/g, ' ');
-
   const TooltipContent = ({ title, body }: { title: string, body: string }) => (
     <Box sx={{ p: 1.5, maxWidth: 280 }}>
       <Typography variant="caption" sx={{ fontWeight: 900, color: '#A7DADB', textTransform: 'uppercase', display: 'block', mb: 1, letterSpacing: '0.1em' }}>
@@ -248,16 +246,6 @@ function ArchitectureCanvasContent() {
             <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
                 <div className="space-y-12 w-full max-w-full">
-                   <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] backdrop-blur-xl relative overflow-hidden w-full max-w-full">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/40" />
-                      <div className="flex flex-col gap-4">
-                        <h2 className="text-4xl font-black text-white tracking-tighter leading-none">{formatText(currentModule?.title || 'Instructional Node')}</h2>
-                        <div className="flex items-center gap-4">
-                          <div className="px-4 py-1.5 rounded-xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[10px] font-black text-[#A7DADB] uppercase tracking-widest">{formatText(currentModule?.id || 'NO ID')}</div>
-                          <div className="px-4 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-[10px] font-black text-slate-500 uppercase tracking-widest">{formatText(currentModule?.targetModality || 'UNMAPPED')}</div>
-                        </div>
-                      </div>
-                   </motion.div>
                    <ScriptDraftingWorkspace content={activeScript?.script || ""} semanticDelta={activeScript?.semanticDelta} citations={activeScript?.citations || []} isLoading={isDrafting} nodeId={currentModule?.id || ""} />
                 </div>
               ) : (
