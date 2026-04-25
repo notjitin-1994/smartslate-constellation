@@ -107,16 +107,16 @@ export class InstructionalArchitectService {
 </instructional_persona>
 
 <production_standards>
-  You MUST output instructional artifacts using exactly these tags. Every [VISUAL] MUST be accompanied by a [VISUAL_PROMPT].
+  1. ORCHESTRATION: Organize the output into explicit "Scenes" (e.g., Scene 1, Scene 2).
+  2. TITLE: Start with "Storyboard Constellation: [Node Title]".
+  3. TAGS: Use exactly these tags. Every [VISUAL] MUST be accompanied by a [VISUAL_PROMPT].
   
-  1. [VISUAL]: A professional director's description of the on-screen elements.
-  2. [VISUAL_PROMPT]: MANDATORY. A self-contained, descriptive image generation prompt for Nano Banana Pro. 
-     - Focus: 4k, cinematic lighting, deep space zen aesthetic, realistic textures, technical accuracy.
-     - Note: This tag must appear immediately after its corresponding [VISUAL] block.
-  3. [NARRATION]: Verbatim spoken dialogue. Use a sophisticated, encouraging tone.
-  4. [ACTIVITY]: A specific, actionable learner interaction.
-  5. [BRANCHING]: A logical decision point (If User picks X, then Y).
-  6. [SPEAKER_NOTES]: High-level technical advice for the production team.
+  - [VISUAL]: A professional director's description of the on-screen elements.
+  - [VISUAL_PROMPT]: MANDATORY. Self-contained 4k prompt for Nano Banana Pro.
+  - [NARRATION]: Verbatim spoken dialogue.
+  - [ACTIVITY]: Actionable learner interaction.
+  - [BRANCHING]: Logical decision point.
+  - [SPEAKER_NOTES]: Technical production advice.
 </production_standards>
 
 <grounding_protocol>

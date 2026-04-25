@@ -98,15 +98,18 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- HARDENED SCENE-BASED PARSER ---
+  // --- INDESTRUCTIBLE SCENE-BASED PARSER ---
   const { scenes, moduleTitle } = useMemo(() => {
-    if (!content) return { scenes: [] as SceneGroup[], moduleTitle: 'Instructional Trace' };
+    const sceneGroups: SceneGroup[] = [];
+    if (!content) return { scenes: sceneGroups, moduleTitle: 'Instructional Trace' };
     
     const lines = content.split('\n');
     let mTitle = 'Instructional Trace';
-    const sceneGroups: SceneGroup[] = [];
-    let currentScene: SceneGroup | null = null;
+    
+    // We start with a fallback scene to catch everything if the AI forgets "Scene X"
+    let currentScene: SceneGroup = { id: 'initial-trace', title: 'Core Instructional sequence', artifacts: [] };
     let currentArtifact: Artifact | null = null;
+    let hasExplicitScenes = false;
 
     const typeRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]/;
 
@@ -114,40 +117,45 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const trimmed = line.trim();
       if (!trimmed) return;
 
-      if (trimmed.includes('Storyboard Constellation:')) {
+      // 1. Detect Module Title
+      if (trimmed.toLowerCase().includes('storyboard constellation:')) {
         mTitle = trimmed.replace(/^[#*\s]*Storyboard Constellation:?\s*/i, '').replace(/\*+$/, '').trim();
         return;
       }
 
-      if (trimmed.toLowerCase().includes('scene ') || (trimmed.startsWith('###') && trimmed.toLowerCase().includes('scene'))) {
-        if (currentScene) {
+      // 2. Detect New Scene
+      const isSceneHeader = trimmed.toLowerCase().includes('scene ') || (trimmed.startsWith('###') && trimmed.toLowerCase().includes('scene'));
+      if (isSceneHeader) {
+        // If this is the FIRST explicit scene and our initial trace has nothing, just replace it
+        if (!hasExplicitScenes && currentScene.artifacts.length === 0) {
+           currentScene.title = trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim();
+        } else {
+           // Otherwise, close current artifact and push previous scene
            if (currentArtifact) currentScene.artifacts.push(currentArtifact);
            sceneGroups.push(currentScene);
+           currentScene = {
+             id: `scene-${index}`,
+             title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
+             artifacts: []
+           };
         }
-        currentScene = {
-          id: `scene-${index}`,
-          title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
-          artifacts: []
-        };
         currentArtifact = null;
+        hasExplicitScenes = true;
         return;
       }
 
+      // 3. Detect Artifact Tags
       const typeMatch = trimmed.match(typeRegex);
       if (typeMatch) {
         const typeStr = typeMatch[1];
         if (typeStr === 'VISUAL_PROMPT') return;
 
-        if (currentArtifact && currentScene) {
-          currentScene.artifacts.push(currentArtifact);
-        }
+        if (currentArtifact) currentScene.artifacts.push(currentArtifact);
 
         const isVisualWithId = typeStr.startsWith('VISUAL:');
         const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
-        
-        let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
-        if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
-        const typeVal = `[${typeValStr}]` as Artifact['type'];
+        let typeVal = (isVisualWithId ? '[VISUAL]' : `[${typeStr}]`) as Artifact['type'];
+        if (typeVal as any === '[SPEAKER_NOTES]') typeVal = '[NOTES]';
 
         currentArtifact = {
           type: typeVal,
@@ -155,22 +163,18 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
         };
       } else if (currentArtifact) {
+        // Content belongs to current artifact
         currentArtifact.content += `\n${trimmed}`;
       } else {
-        // Explicit non-null check to satisfy TS inference
-        if (!currentScene) {
-          currentScene = { id: 'intro', title: 'Institutional Initiation', artifacts: [] };
-        }
-        
-        const introScene = currentScene as SceneGroup;
-        introScene.artifacts.push({ type: '[NARRATION]', content: trimmed });
+        // Stray content before any tags or scenes - treat as narration in current scene
+        currentScene.artifacts.push({ type: '[NARRATION]', content: trimmed });
       }
     });
 
-    if (currentScene) {
-      const finalScene = currentScene as SceneGroup;
-      if (currentArtifact) finalScene.artifacts.push(currentArtifact);
-      sceneGroups.push(finalScene);
+    // Final closing
+    if (currentArtifact) currentScene.artifacts.push(currentArtifact);
+    if (currentScene.artifacts.length > 0 || hasExplicitScenes) {
+      sceneGroups.push(currentScene);
     }
 
     return { scenes: sceneGroups, moduleTitle: mTitle };
@@ -352,7 +356,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
             <div className="space-y-24 overflow-y-auto custom-scrollbar pr-4 flex-1">
               <section className="space-y-8">
                 <div className="flex items-center gap-4"><History size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4></div>
-                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-400 leading-relaxed font-light italic"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
+                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-400 leading-relaxed font-light italic text-slate-400"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
               </section>
               <section className="space-y-8">
                 <div className="flex items-center gap-4"><BookOpen size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4></div>
