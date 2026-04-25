@@ -327,56 +327,103 @@ function VaultContent() {
                </AnimatePresence>
             </section>
 
-            <section className="rounded-[3rem] border border-[#A7DADB]/10 bg-white/[0.01] overflow-hidden flex flex-col min-h-[600px]">
-               <div className="p-10 border-b border-white/5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                     <div className="w-1.5 h-10 bg-[#4F46E5] rounded-full" />
+            <section className="space-y-6">
+               <div className="flex items-center justify-between px-10 py-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 backdrop-blur-3xl">
+                  <div className="flex items-center gap-6">
+                     <div className="w-2 h-12 bg-[#4F46E5] rounded-full shadow-[0_0_20px_rgba(79,70,229,0.4)]" />
                      <div>
-                        <h2 className="text-2xl font-black tracking-tighter uppercase text-white">Course Fact Ledger</h2>
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">Atomic Grounding Objects</p>
+                        <h2 className="text-3xl font-black tracking-tighter uppercase text-white">Course Fact Ledger</h2>
+                        <p className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Atomic Grounding Objects • {filteredFacts.length} Identifiers</p>
                      </div>
                   </div>
-                  <div className="flex gap-3">
-                     <button onClick={fetchVaultData} className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all"><RefreshCw size={18} className={cn(batchStatus === 'processing' && "animate-spin")} /></button>
-                     <button className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all"><Filter size={18} /></button>
-                     <button className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all"><Download size={18} /></button>
+                  <div className="flex gap-4">
+                     <button 
+                       onClick={fetchVaultData} 
+                       title="Sync Ledger"
+                       className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] hover:border-[#A7DADB]/30 transition-all group"
+                     >
+                       <RefreshCw size={20} className={cn(batchStatus === 'processing' && "animate-spin", "group-hover:rotate-180 transition-transform duration-700")} />
+                     </button>
+                     <button className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] hover:border-[#A7DADB]/30 transition-all"><Filter size={20} /></button>
+                     <button className="px-6 py-4 rounded-2xl bg-[#4F46E5]/10 border border-[#4F46E5]/20 text-[#4F46E5] text-[10px] font-black uppercase tracking-widest hover:bg-[#4F46E5]/20 transition-all flex items-center gap-3">
+                        <Download size={16} /> Export Ledger
+                     </button>
                   </div>
                </div>
-               <div className="flex-1 overflow-x-auto">
-                  <table className="w-full text-left">
-                     <thead>
-                        <tr className="bg-white/[0.02]">
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Source</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Type</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest">Extracted Content</th>
-                           <th className="px-8 py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest text-center">Status</th>
-                        </tr>
-                     </thead>
-                     <tbody className="divide-y divide-white/[0.03]">
-                        {filteredFacts.map((fact, idx) => (
-                          <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                             <td className="px-8 py-6">
-                                <div className="flex items-center gap-3 text-white">
-                                   <FileCode size={14} className="text-[#A7DADB]/40" />
-                                   <span className="text-xs font-bold truncate max-w-[140px]">{fact.metadata?.source_name}</span>
+
+               <div className="grid grid-cols-1 gap-6">
+                  {filteredFacts.map((fact, idx) => (
+                    <motion.div 
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                      className="group/fact relative p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.05] hover:border-[#A7DADB]/30 transition-all duration-500 overflow-hidden"
+                    >
+                       {/* Contextual Anchor Glow */}
+                       <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB] opacity-0 group-hover/fact:opacity-100 transition-opacity" />
+                       
+                       <div className="flex flex-col md:flex-row md:items-start gap-10 relative z-10">
+                          {/* META COLUMN */}
+                          <div className="w-full md:w-64 shrink-0 space-y-4">
+                             <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-[#A7DADB]/10 text-[#A7DADB]">
+                                   <FileCode size={14} />
                                 </div>
-                             </td>
-                             <td className="px-8 py-6">
-                                <span className="px-2 py-0.5 rounded-md bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[9px] font-black text-[#A7DADB] uppercase tracking-tighter">{fact.content_type}</span>
-                             </td>
-                             <td className="px-8 py-6">
-                                <p className="text-sm font-medium text-slate-400 group-hover:text-slate-200 transition-colors whitespace-pre-wrap leading-relaxed max-w-[500px]">{fact.raw_content}</p>
-                             </td>
-                             <td className="px-8 py-6 text-center">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest"><CheckCircle2 size={10} /> Verified</div>
-                             </td>
-                          </tr>
-                        ))}
-                        {filteredFacts.length === 0 && (
-                          <tr><td colSpan={4} className="py-32 text-center opacity-20"><Database size={48} className="mx-auto mb-4" /><p className="text-[10px] font-black uppercase tracking-[0.5em]">Ledger Clear</p></td></tr>
-                        )}
-                     </tbody>
-                  </table>
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest truncate">
+                                   {fact.metadata?.source_name}
+                                </span>
+                             </div>
+                             <div className="flex flex-wrap gap-2">
+                                <span className="px-2 py-0.5 rounded-md bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[8px] font-black text-[#A7DADB]/60 uppercase tracking-tighter">
+                                   {fact.content_type}
+                                </span>
+                                {fact.metadata?.module_id && (
+                                  <span className="px-2 py-0.5 rounded-md bg-indigo-500/5 border border-indigo-500/10 text-[8px] font-black text-indigo-400 uppercase tracking-tighter">
+                                     Node: {fact.metadata.module_id}
+                                  </span>
+                                )}
+                             </div>
+                             <div className="pt-4 flex items-center gap-3">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                                   <CheckCircle2 size={10} /> Grounded
+                                </div>
+                                <button 
+                                  onClick={() => navigator.clipboard.writeText(fact.id)}
+                                  className="p-2 rounded-lg bg-white/5 border border-white/5 text-slate-600 hover:text-[#A7DADB] hover:border-[#A7DADB]/20 transition-all opacity-0 group-hover/fact:opacity-100"
+                                  title="Copy Object ID"
+                                >
+                                   <Database size={12} />
+                                </button>
+                             </div>
+                          </div>
+
+                          {/* CONTENT BLOCK */}
+                          <div className="flex-1 space-y-4">
+                             {fact.contextual_header && (
+                               <div className="flex items-center gap-3">
+                                  <div className="w-8 h-[1px] bg-[#A7DADB]/20" />
+                                  <span className="text-[10px] font-bold text-[#A7DADB] uppercase tracking-[0.3em] opacity-80">{fact.contextual_header}</span>
+                               </div>
+                             )}
+                             <p className="text-[15px] font-medium text-slate-400 group-hover/fact:text-slate-200 transition-colors leading-relaxed selection:bg-[#A7DADB]/20">
+                                {fact.raw_content}
+                             </p>
+                          </div>
+                       </div>
+
+                       {/* Interactive Hover Glow */}
+                       <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover/fact:opacity-100 transition-opacity pointer-events-none" />
+                    </motion.div>
+                  ))}
+
+                  {filteredFacts.length === 0 && (
+                    <div className="py-40 text-center rounded-[3rem] border border-dashed border-white/5 bg-white/[0.01]">
+                       <Database size={48} className="mx-auto text-slate-700 mb-6 opacity-20" />
+                       <h3 className="text-xl font-black text-slate-600 uppercase tracking-widest">Grounding Ledger Clear</h3>
+                       <p className="text-slate-700 text-sm mt-2 font-medium">Ingest technical assets to populate the constellation repository.</p>
+                    </div>
+                  )}
                </div>
             </section>
           </div>
