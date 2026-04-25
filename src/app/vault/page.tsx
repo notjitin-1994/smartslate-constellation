@@ -287,7 +287,7 @@ function VaultContent() {
                         </tr>
                      </thead>
                      <tbody className="divide-y divide-white/[0.03]">
-                        {filteredFacts.slice(0, 50).map((fact, idx) => (
+                        {filteredFacts.map((fact, idx) => (
                           <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
                              <td className="px-8 py-6">
                                 <div className="flex items-center gap-3">
@@ -301,13 +301,27 @@ function VaultContent() {
                                 </span>
                              </td>
                              <td className="px-8 py-6">
-                                <p className="text-sm font-medium text-slate-500 group-hover:text-slate-200 transition-colors line-clamp-2 max-w-[400px]">
-                                   {fact.raw_content}
-                                </p>
+                                <div className="space-y-2">
+                                   {fact.contextual_header && (
+                                     <p className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-widest">{fact.contextual_header}</p>
+                                   )}
+                                   <p className="text-sm font-medium text-slate-400 group-hover:text-slate-200 transition-colors whitespace-pre-wrap leading-relaxed">
+                                      {fact.raw_content}
+                                   </p>
+                                </div>
                              </td>
                              <td className="px-8 py-6 text-center">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
-                                   <CheckCircle2 size={10} /> Verified
+                                <div className="flex items-center justify-center gap-4">
+                                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+                                      <CheckCircle2 size={10} /> Verified
+                                   </div>
+                                   <button 
+                                     title="Copy Fact ID"
+                                     onClick={() => navigator.clipboard.writeText(fact.id)}
+                                     className="p-2 rounded-lg hover:bg-white/5 text-slate-600 hover:text-[#A7DADB] transition-all opacity-0 group-hover:opacity-100"
+                                   >
+                                      <FileCode size={14} />
+                                   </button>
                                 </div>
                              </td>
                           </tr>
