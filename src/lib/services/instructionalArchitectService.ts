@@ -133,7 +133,7 @@ export class InstructionalArchitectService {
     *   ENVIRONMENT: Strictly contextual to the course domain (e.g., "Modern hospital laboratory," "Industrial manufacturing floor," "Minimalist home office").
     *   LIGHTING: Professional cinematic lighting (e.g., "3-point studio lighting," "Soft natural window light," "Clean high-key lighting").
     *   TECHNICAL: "Photorealistic, 8k, sharp focus, cinematic depth of field, professional color grading."
-    *   AVOID: Any mention of "Deep Space," "Zen," "Obsidian," or generic atmospheric terms unless explicitly part of the course content.
+    *   CRITICAL NEGATIVE CONSTRAINT: DO NOT use any terms from this application's UI identity (e.g., "Deep Space," "Zen," "Obsidian," "Neural Network," "Glow," "Constellation," "Teal accents"). The mockup MUST reflect the real-world setting of the COURSE CONTENT, not the tool it was built in.
   
   - [NARRATION]: Verbatim spoken dialogue. World-class tone—professional, engaging, authoritative.
   - [ACTIVITY]: High-engagement interaction (simulation, branching, active recall).

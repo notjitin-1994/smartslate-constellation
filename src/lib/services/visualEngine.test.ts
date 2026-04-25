@@ -5,8 +5,8 @@ const MOCK_SCRIPT = `
 [HEADER] Core Architecture Initiation
 Welcome to the module.
 
-[VISUAL] A futuristic dashboard displaying neural links.
-[VISUAL_PROMPT] A high-fidelity 4k render of a glowing neural network in deep space, teal accents, cinematic lighting.
+[VISUAL] A professional boardroom setting with a diverse team.
+[VISUAL_PROMPT] A photorealistic medium shot of a diverse corporate team engaged in a strategic meeting in a modern, sunlit glass boardroom. Professional studio lighting, 8k, sharp focus.
 
 [NARRATION] Today we will explore the constellation.
 `;
