@@ -24,35 +24,22 @@ export async function POST(req: NextRequest) {
       blueprintContext
     });
 
-    // --- ASYNCHRONOUS VISUAL DISPATCHER (Hardened Semantic Sniffer V2) ---
-    const script = result.script;
-    
-    /**
-     * INDESTRUCTIBLE REGEX:
-     * - Matches [VISUAL_PROMPT] in any case.
-     * - Handles any amount of markdown wrapping (*, #, _, :)
-     * - Captures everything until the next tag or double newline.
-     */
+    // --- ASYNCHRONOUS VISUAL DISPATCHER (Deterministic Trace V4) ---
+    let hydratedScript = result.script;
     const promptRegex = /\[VISUAL_PROMPT\][*: ]*([\s\S]*?)(?=\n\n|\[|$)/gi;
-    const matches = [...script.matchAll(promptRegex)];
-
-    console.log(`[Architect] Parser Sniffer result: Found ${matches.length} prompt candidates.`);
+    const matches = [...hydratedScript.matchAll(promptRegex)];
 
     if (matches.length > 0) {
+      console.log(`[Architect] Dispatching ${matches.length} deterministic traces...`);
       const supabase = createAdminClient();
 
+      // We iterate through prompts and sequentially inject IDs into the script
       for (const match of matches) {
-        // Clean the captured prompt: strip markdown, extra colons, and internal asterisks
-        const visualPrompt = match[1]
-          .replace(/[#*]/g, '')
-          .replace(/^[:\s]*/, '')
-          .trim();
-
+        const visualPrompt = match[1].replace(/[#*]/g, '').replace(/^[:\s]*/, '').trim();
         if (!visualPrompt || visualPrompt.length < 10) continue;
 
-        console.log(`[Architect] Dispatching verified prompt: ${visualPrompt.substring(0, 40)}...`);
-
         try {
+          // 1. Create the unique generation record
           const { data: gen, error: genErr } = await supabase
             .from('visual_generations')
             .insert({
@@ -66,7 +53,28 @@ export async function POST(req: NextRequest) {
 
           if (genErr) throw genErr;
 
-          // Trigger the Edge Function (Fast Handshake)
+          // 2. REWRITE the [VISUAL] tag to embed this specific UUID
+          // We look for the [VISUAL] tag that appears BEFORE this prompt
+          const promptStartIndex = match.index!;
+          const beforePrompt = hydratedScript.substring(0, promptStartIndex);
+          
+          // Match [VISUAL] with optional markdown wrapping
+          const visualTagRegex = /\[VISUAL\][*: ]*/g;
+          const visualMatches = [...beforePrompt.matchAll(visualTagRegex)];
+          
+          if (visualMatches.length > 0) {
+            const lastMatch = visualMatches[visualMatches.length - 1];
+            const matchIndex = lastMatch.index!;
+            const matchLen = lastMatch[0].length;
+            
+            // Perform the surgery on the hydrated script
+            hydratedScript = 
+              hydratedScript.substring(0, matchIndex) + 
+              `[VISUAL:${gen.id}] ` + 
+              hydratedScript.substring(matchIndex + matchLen);
+          }
+
+          // 3. Trigger the worker
           await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-visual`, {
             method: 'POST',
             headers: {
@@ -78,28 +86,26 @@ export async function POST(req: NextRequest) {
               prompt: visualPrompt,
               blueprintId: blueprintId
             })
-          });
+          }).catch(err => console.error('[Architect] Trigger Error:', err));
 
-          console.log(`[Architect] Success: Background task queued for ${gen.id}`);
         } catch (dispatchErr) {
-          console.error('[Architect] Dispatch Loop Failure:', dispatchErr);
+          console.error('[Architect] Dispatch Failure:', dispatchErr);
         }
       }
     }
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        script: hydratedScript
+      },
     });
   } catch (error: unknown) {
     const err = error as Error;
     console.error('[Architect API CRASH]:', err);
-    
     return NextResponse.json(
-      { 
-        error: err.message || 'An error occurred during instructional drafting.',
-        details: process.env.NODE_ENV === 'development' ? err.stack : undefined 
-      },
+      { error: err.message || 'An error occurred during instructional drafting.' },
       { status: 500 }
     );
   }

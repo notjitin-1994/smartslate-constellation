@@ -319,6 +319,7 @@ function ArchitectureCanvasContent() {
                      semanticDelta={activeScript?.semanticDelta}
                      citations={activeScript?.citations || []}
                      isLoading={isDrafting}
+                     nodeId={currentModule?.id || ""}
                    />
                 </div>
               ) : (
