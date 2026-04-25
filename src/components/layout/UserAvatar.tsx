@@ -1,8 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from 'lucide-react';
-import Image from 'next/image';
 
 interface UserAvatarProps {
   sizeClass?: string;
@@ -13,22 +13,24 @@ export const UserAvatar = ({
   sizeClass = "w-10 h-10",
   avatarUrl 
 }: UserAvatarProps) => {
-  if (avatarUrl) {
+  const [imgError, setImgError] = useState(false);
+
+  if (avatarUrl && !imgError) {
     return (
-      <div className={`${sizeClass} relative rounded-full overflow-hidden border border-[rgba(124,105,245,0.2)]`}>
-        <Image 
+      <div className={`${sizeClass} relative rounded-full overflow-hidden border border-[#A7DADB]/20 bg-black/40`}>
+        <img 
           src={avatarUrl} 
-          alt="User Avatar" 
-          fill
-          className="object-cover"
+          alt="User" 
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
         />
       </div>
     );
   }
 
   return (
-    <div className={`${sizeClass} flex items-center justify-center rounded-full bg-[#7C69F5]/20 border border-[#7C69F5]/40 text-[#7C69F5]`}>
-      <User size={sizeClass.includes('w-8') ? 16 : 20} />
+    <div className={`${sizeClass} flex items-center justify-center rounded-full bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB] shadow-inner`}>
+      <User size={sizeClass.includes('w-10') ? 20 : 16} />
     </div>
   );
 };
