@@ -70,21 +70,31 @@ function VaultContent() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchVaultData = useCallback(async () => {
-    // Explicitly fetch global facts (blueprint_id is null)
+    // 1. Fetch ALL knowledge objects (both global and blueprint-specific)
     const { data, error } = await supabase
       .from('knowledge_vault')
       .select('*')
       .order('created_at', { ascending: false });
     
     if (data) {
+      console.log(`[Vault] Synchronized ${data.length} atomic facts.`);
       setFacts(data);
-      // Aggregating unique files based on source_name in metadata
-      const uniqueFiles = Array.from(new Set(data.map(d => d.metadata?.source_name))).filter(Boolean).map(name => {
-        return data.find(d => d.metadata?.source_name === name);
+      
+      // 2. Aggregate unique files based on metadata source_name
+      // We use a Map to ensure we get the most recent entry for each unique file name
+      const fileMap = new Map();
+      data.forEach(item => {
+        const name = item.metadata?.source_name;
+        if (name && !fileMap.has(name)) {
+          fileMap.set(name, item);
+        }
       });
+      
+      const uniqueFiles = Array.from(fileMap.values());
+      console.log(`[Vault] Identified ${uniqueFiles.length} unique technical assets.`);
       setVaultedFiles(uniqueFiles);
     }
-    if (error) console.error('[Vault] Fetch Error:', error);
+    if (error) console.error('[Vault] Sync Error:', error);
   }, []);
 
   useEffect(() => {
@@ -323,6 +333,13 @@ function VaultContent() {
                      </div>
                   </div>
                   <div className="flex gap-3">
+                     <button 
+                       onClick={fetchVaultData}
+                       title="Refresh Ledger"
+                       className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all"
+                     >
+                       <RefreshCw size={18} className={cn(batchStatus === 'processing' && "animate-spin")} />
+                     </button>
                      <button className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all"><Filter size={18} /></button>
                      <button className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-[#A7DADB] transition-all"><Download size={18} /></button>
                   </div>
@@ -411,8 +428,12 @@ function VaultContent() {
                                  <FileText size={24} className="text-[#A7DADB]" />
                               </div>
                               <div className="flex flex-col overflow-hidden">
-                                 <span className="text-sm font-black text-slate-200 group-hover/file:text-white transition-colors truncate max-w-[180px]">{file.metadata?.source_name}</span>
-                                 <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">{file.content_type} • {new Date(file.created_at).toLocaleDateString()}</span>
+                                 <span className="text-sm font-black text-slate-200 group-hover/file:text-white transition-colors truncate max-w-[180px]">
+                                    {file.metadata?.source_name || "Unknown Asset"}
+                                 </span>
+                                 <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">
+                                    {file.content_type || "Technical"} • {file.created_at ? new Date(file.created_at).toLocaleDateString() : "Historical"}
+                                 </span>
                               </div>
                            </div>
                            <IconButton onClick={() => handleDelete(file.metadata?.source_name)} size="small" sx={{ color: 'rgba(244, 63, 94, 0.4)', '&:hover': { color: '#F43F5E', bgcolor: 'rgba(244, 63, 94, 0.1)' }, opacity: 0, '.group/file:hover &': { opacity: 1 } }}>
