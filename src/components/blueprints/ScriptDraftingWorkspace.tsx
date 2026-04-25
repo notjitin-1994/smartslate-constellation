@@ -310,7 +310,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                        <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Contextual Anchor</span>
                                        <p className="text-[10px] text-slate-500 leading-relaxed italic line-clamp-3">{vis?.content}</p>
                                     </div>
-                                    <div className="text-[8px] font-mono text-slate-700 uppercase tracking-tighter pt-2 border-t border-white/[0.02]">
+                                    <div className="text-[8px] font-mono text-[#A7DADB] uppercase tracking-tighter pt-2 border-t border-white/[0.02] drop-shadow-[0_0_5px_rgba(167,218,219,0.5)] opacity-80">
                                        * Neural Trace: AI generated mockup for reference purposes only.
                                     </div>
                                  </div>
@@ -347,9 +347,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                        </div>
                        <div className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/5 shadow-xl space-y-6 group/not">
                           <div className="flex items-center gap-4 text-slate-600 uppercase tracking-[0.3em] text-[9px] font-black group-hover/not:text-slate-400 transition-colors">
-                             <StickyNote size={14} /> Institutional Notes
+                             <StickyNote size={14} /> Notes
                           </div>
-                          <div className="text-[0.95rem] text-slate-500 italic leading-relaxed border-l-2 border-white/10 pl-6">
+                          <div className="text-[0.95rem] text-slate-500 italic leading-relaxed">
                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                {scene.artifacts.find(a => a.type === '[NOTES]')?.content || "Standard operational guidelines apply."}
                              </ReactMarkdown>
