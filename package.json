@@ -19,6 +19,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.81.1",
     "ai": "^6.0.168",
+    "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.544.0",
     "mammoth": "^1.12.0",
@@ -29,6 +30,7 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.4",
+    "tailwind-merge": "^3.5.0",
     "unpdf": "^1.6.0",
     "zod": "^4.3.6",
     "zustand": "^4.5.7"
