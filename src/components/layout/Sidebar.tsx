@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brand } from './Brand';
 import { UserAvatar } from './UserAvatar';
@@ -52,6 +52,9 @@ const getModalityIcon = (type: string) => {
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const blueprintId = searchParams.get('blueprintId');
+
   const { user, signOut } = useAuth();
   const { collapsed, setCollapsed, isConstellationMode, setIsConstellationMode } = useSidebar();
   const [isMounted, setIsMounted] = useState(false);
@@ -217,11 +220,17 @@ export default function Sidebar() {
                       className={`space-y-1 ${collapsed ? 'flex flex-col items-center' : 'overflow-hidden'}`}
                     >
                       {quickAccessItems.map((item) => {
-                        const isActive = pathname === item.path;
+                        const isVault = item.title === 'Knowledge Vault';
+                        const targetPath = isVault && blueprintId 
+                          ? `/constellation/vault?blueprintId=${blueprintId}`
+                          : item.path;
+                        
+                        const isActive = pathname === item.path || (isVault && pathname === '/constellation/vault');
+                        
                         return (
                           <button
                             key={item.title}
-                            onClick={() => router.push(item.path)}
+                            onClick={() => router.push(targetPath)}
                             title={collapsed ? item.title : ''}
                             className={`group flex items-center transition-all duration-300 ${
                               collapsed ? 'justify-center h-10 w-10 rounded-xl' : 'px-4 py-3 gap-4 w-full rounded-xl'
