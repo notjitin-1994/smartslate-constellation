@@ -2,12 +2,11 @@
 
 import React from 'react';
 import Sidebar from "@/components/layout/Sidebar";
-import { SidebarProvider, useSidebar } from "@/lib/SidebarContext";
+import { SidebarProvider } from "@/lib/SidebarContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePathname } from 'next/navigation';
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
-  const { collapsed } = useSidebar();
   const pathname = usePathname();
   const isAuthPage = pathname?.startsWith('/login') || pathname?.startsWith('/signup');
 
@@ -18,10 +17,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main 
-        className="flex-1 transition-all duration-500 ease-in-out"
-        style={{ paddingLeft: collapsed ? '64px' : '288px' }}
-      >
+      <main className="flex-1 transition-all duration-500 ease-in-out relative overflow-hidden">
         {children}
       </main>
     </div>

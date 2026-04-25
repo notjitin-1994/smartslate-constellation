@@ -53,9 +53,13 @@ function ArchitectureCanvasContent() {
   const [showUlsPreview, setShowUlsPreview] = useState(false);
   const { setIsConstellationMode } = useSidebar();
 
-  // Initialize sidebar to Neural Trace on mount
+  // Initialize sidebar to Neural Trace on first-time mount in this session
   useEffect(() => {
-    setIsConstellationMode(true);
+    const hasVisited = sessionStorage.getItem('constellation-mode-init');
+    if (!hasVisited) {
+      setIsConstellationMode(true);
+      sessionStorage.setItem('constellation-mode-init', 'true');
+    }
   }, [setIsConstellationMode]);
 
   // --- PERSISTENCE HOOK ---

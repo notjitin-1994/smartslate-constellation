@@ -118,7 +118,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`hidden h-screen flex-col md:flex fixed left-0 top-0 z-50 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) glass-sidebar ${
+      className={`hidden h-screen flex-col md:flex relative z-50 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) glass-sidebar shrink-0 ${
         collapsed ? 'w-16' : 'w-72'
       }`}
     >

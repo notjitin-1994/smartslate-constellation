@@ -27,7 +27,6 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  // Sync to storage
   const handleSetCollapsed = (val: boolean) => {
     setCollapsed(val);
     localStorage.setItem('sidebar-collapsed', val.toString());
