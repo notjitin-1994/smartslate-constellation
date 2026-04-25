@@ -173,14 +173,10 @@ function ArchitectureCanvasContent() {
         {/* Global HUD Header */}
         <header className="h-24 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
           <div className="flex items-center gap-8">
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex flex-col">
-              <h2 className="text-lg font-bold text-white tracking-tight leading-none mb-1">{formatText(currentModule?.title || 'Instructional Node')}</h2>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-slate-500 font-mono font-bold tracking-widest">{formatText(currentModule?.id || 'NO ID')}</span>
-                <div className="w-1 h-1 rounded-full bg-slate-800" />
-                <span className="text-[10px] text-[#A7DADB] font-black uppercase tracking-widest">{formatText(currentModule?.targetModality || 'UNMAPPED')}</span>
-              </div>
-            </div>
+             <div className="w-10 h-10 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
+                <Workflow size={20} className="text-[#A7DADB]" />
+             </div>
+             <Typography variant="h6" sx={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'white', fontSize: '14px' }}>Architecture Hub</Typography>
           </div>
 
           {/* --- INTEGRATED INTEGRITY SUITE (The Shield) --- */}
@@ -282,12 +278,29 @@ function ArchitectureCanvasContent() {
         <div className="flex-1 overflow-y-auto px-12 lg:px-24 pb-20 pt-10 custom-scrollbar relative z-10">
             <AnimatePresence mode="wait">
               {activeScript || isDrafting ? (
-                <ScriptDraftingWorkspace 
-                  content={activeScript?.script || ""}
-                  semanticDelta={activeScript?.semanticDelta}
-                  citations={activeScript?.citations || []}
-                  isLoading={isDrafting}
-                />
+                <div className="space-y-12">
+                   {/* MODULAR NODE IDENTIFICATION (Moved from Header) */}
+                   <motion.div 
+                     initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+                     className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] backdrop-blur-xl relative overflow-hidden"
+                   >
+                      <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]/40" />
+                      <div className="flex flex-col gap-4">
+                        <h2 className="text-4xl font-black text-white tracking-tighter leading-none">{formatText(currentModule?.title || 'Instructional Node')}</h2>
+                        <div className="flex items-center gap-4">
+                          <div className="px-4 py-1.5 rounded-xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[10px] font-black text-[#A7DADB] uppercase tracking-widest">{formatText(currentModule?.id || 'NO ID')}</div>
+                          <div className="px-4 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-[10px] font-black text-slate-500 uppercase tracking-widest">{formatText(currentModule?.targetModality || 'UNMAPPED')}</div>
+                        </div>
+                      </div>
+                   </motion.div>
+
+                   <ScriptDraftingWorkspace 
+                     content={activeScript?.script || ""}
+                     semanticDelta={activeScript?.semanticDelta}
+                     citations={activeScript?.citations || []}
+                     isLoading={isDrafting}
+                   />
+                </div>
               ) : (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}

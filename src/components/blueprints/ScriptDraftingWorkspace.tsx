@@ -161,20 +161,19 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
       case '[HEADER]': 
-        return "w-full border-[#A7DADB]/10 bg-white/[0.005] py-12 px-14 mb-4";
+        return "w-full border-[#A7DADB]/20 bg-white/[0.005] py-16 px-20 mb-8";
       case '[VISUAL]': 
       case '[NARRATION]':
       case '[BRANCHING]':
-        return "flex-[2] min-w-[min(100%,450px)] border-[#A7DADB]/20 bg-white/[0.01]";
+        return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/20 bg-white/[0.01]";
       case '[ACTIVITY]':
       case '[SPEAKER_NOTES]':
-        return "flex-1 min-w-[min(100%,300px)] border-white/10 bg-white/[0.005]";
+        return "flex-1 min-w-[min(100%,320px)] border-white/10 bg-white/[0.005]";
       default: 
         return "flex-1 min-w-[300px] border-white/10";
     }
   };
 
-  // Expose the insight trigger to the parent via event
   useEffect(() => {
     const handleTrigger = () => setIsInsightOpen(true);
     window.addEventListener('constellation-open-verification', handleTrigger);
@@ -206,25 +205,25 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   transition={{ delay: idx * 0.05 }}
                   whileHover={{ y: -8, transition: { duration: 0.3 } }}
                   className={`
-                    relative overflow-hidden group rounded-[3rem] p-10
+                    relative overflow-hidden group rounded-[3rem] p-12
                     backdrop-blur-3xl border
                     ${getCardStyle(art.type)}
                     transition-all duration-700 hover:bg-white/[0.02]
-                    shadow-[0_20px_60px_rgba(0,0,0,0.4)]
+                    shadow-[0_20px_80px_rgba(0,0,0,0.5)]
                   `}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-                  <div className="flex items-center justify-between mb-8 relative z-10">
-                    <div className="flex items-center gap-5">
-                      <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all">
+                  <div className="flex items-center justify-between mb-10 relative z-10">
+                    <div className="flex items-center gap-6">
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all">
                         {getTypeIcon(art.type)}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/30">
+                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#A7DADB]/30">
                           {art.type.replace('[', '').replace(']', '')}
                         </span>
-                        {art.title && <span className="text-xs font-bold text-white tracking-tight uppercase">{art.title}</span>}
+                        {art.title && <span className="text-sm font-bold text-white tracking-widest uppercase">{art.title}</span>}
                       </div>
                     </div>
                     <IconButton size="small" sx={{ color: 'white/[0.05]', '&:hover': { color: '#A7DADB' } }}><Maximize2 size={14} /></IconButton>
@@ -232,17 +231,19 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
                   <div className="relative z-10">
                     {art.type === '[VISUAL]' && (
-                      <div className="aspect-video w-full rounded-[2rem] bg-black/60 border border-white/5 flex items-center justify-center mb-10 relative overflow-hidden shadow-2xl">
+                      <div className="aspect-video w-full rounded-[2.5rem] bg-black/60 border border-white/5 flex items-center justify-center mb-12 relative overflow-hidden shadow-2xl">
                          <GenerativeLens content={art.content} />
                       </div>
                     )}
 
                     <div className={`
                       prose prose-invert max-w-none
-                      ${art.type === '[HEADER]' ? 'text-4xl font-bold tracking-tighter text-white/90' : ''}
-                      ${art.type === '[NARRATION]' ? 'text-2xl font-light leading-relaxed text-white/90' : 'text-[15px] text-slate-400 leading-relaxed'}
-                      ${art.type === '[SPEAKER_NOTES]' ? 'text-sm text-slate-500 italic border-l-2 border-white/5 pl-8 py-2' : ''}
-                      ${art.type === '[BRANCHING]' ? 'font-mono text-[13px] bg-black/40 p-8 rounded-3xl border border-white/5 text-[#A7DADB]/80' : ''}
+                      ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''}
+                      ${art.type === '[NARRATION]' ? 'text-[1.125rem] font-medium leading-[1.65] text-white/90 tracking-[-0.01em] italic' : ''}
+                      ${art.type === '[ACTIVITY]' ? 'text-[1.05rem] font-bold text-[#A7DADB] leading-relaxed' : ''}
+                      ${art.type === '[SPEAKER_NOTES]' ? 'text-[0.95rem] text-slate-500 italic border-l-4 border-white/10 pl-10 py-4 font-medium' : ''}
+                      ${art.type === '[BRANCHING]' ? 'font-mono text-[0.9rem] bg-black/40 p-10 rounded-[2rem] border border-white/5 text-[#A7DADB]/80 leading-relaxed' : ''}
+                      ${!['[HEADER]', '[NARRATION]', '[ACTIVITY]', '[SPEAKER_NOTES]', '[BRANCHING]'].includes(art.type) ? 'text-[1.1rem] text-slate-400 font-light leading-relaxed' : ''}
                     `}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                         {art.content}
@@ -251,7 +252,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   </div>
 
                   <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <Workflow size={80} className="text-[#A7DADB]" />
+                    <Workflow size={100} className="text-[#A7DADB]" />
                   </div>
                 </motion.div>
               ))}

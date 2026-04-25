@@ -23,7 +23,8 @@ import {
   Monitor,
   ArrowRight,
   Brain,
-  LayoutDashboard
+  LayoutDashboard,
+  ChevronLeft
 } from 'lucide-react';
 
 const quickAccessItems = [
@@ -58,6 +59,10 @@ export default function Sidebar() {
   const [modules, setModules] = useState<any[]>([]);
   const [activeNodeIdx, setActiveNodeIdx] = useState<number>(0);
 
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 3;
+
   useEffect(() => {
     setIsMounted(true);
     const fetchProfile = async () => {
@@ -74,7 +79,12 @@ export default function Sidebar() {
 
     const handleConstellationData = (e: any) => {
       if (e.detail?.modules) setModules(e.detail.modules);
-      if (typeof e.detail?.activeIdx === 'number') setActiveNodeIdx(e.detail.activeIdx);
+      if (typeof e.detail?.activeIdx === 'number') {
+        setActiveNodeIdx(e.detail.activeIdx);
+        // Automatically jump to the page containing the active node
+        const pageOfNode = Math.floor(e.detail.activeIdx / itemsPerPage) + 1;
+        setCurrentPage(pageOfNode);
+      }
     };
     window.addEventListener('constellation-sidebar-sync', handleConstellationData);
     return () => window.removeEventListener('constellation-sidebar-sync', handleConstellationData);
@@ -92,6 +102,18 @@ export default function Sidebar() {
     initial: (direction: number) => ({ x: direction > 0 ? 100 : -100, opacity: 0 }),
     animate: { x: 0, opacity: 1 },
     exit: (direction: number) => ({ x: direction > 0 ? -100 : 100, opacity: 0 })
+  };
+
+  // --- PAGINATION CALCULATIONS ---
+  const totalPages = Math.ceil(modules.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentModulesSlice = modules.slice(startIndex, startIndex + itemsPerPage);
+
+  const getPaginationNumbers = () => {
+    if (totalPages <= 3) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (currentPage === 1) return [1, 2, 3];
+    if (currentPage === totalPages) return [totalPages - 2, totalPages - 1, totalPages];
+    return [currentPage - 1, currentPage, currentPage + 1];
   };
 
   return (
@@ -213,35 +235,79 @@ export default function Sidebar() {
               variants={variants}
               initial="initial" animate="animate" exit="exit"
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className={`px-4 py-4 space-y-2 ${collapsed ? 'flex flex-col items-center' : ''}`}
+              className={`px-4 py-4 space-y-2 flex-1 flex flex-col ${collapsed ? 'items-center' : ''}`}
             >
-              {modules.map((mod, i) => {
-                const isActive = activeNodeIdx === i;
-                return (
-                  <button
-                    key={mod.id}
-                    onClick={() => handleNodeClick(i)}
-                    className={`group relative flex items-center transition-all duration-300
-                      ${collapsed ? 'justify-center h-11 w-11 rounded-xl' : 'p-3.5 gap-4 w-full rounded-2xl'}
-                      ${isActive ? 'bg-[#4F46E5]/10 border border-[#4F46E5]/20' : 'hover:bg-white/[0.03] border border-transparent'}
-                    `}
-                  >
-                    <div className={`shrink-0 flex items-center justify-center border transition-all duration-500
-                      ${collapsed ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'}
-                      ${isActive ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-[#4F46E5]' : 'bg-slate-900/50 border-[#A7DADB]/10 text-slate-500 group-hover:border-[#A7DADB]/30'}
-                    `}>
-                      {getModalityIcon(mod.targetModality)}
-                    </div>
-                    {!collapsed && (
-                      <div className="flex flex-col text-left overflow-hidden">
-                        <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-[#4F46E5]' : 'text-slate-600'}`}>{formatText(mod.id)}</span>
-                        <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
+              <div className="flex-1 space-y-2">
+                {currentModulesSlice.map((mod, relativeIdx) => {
+                  const absoluteIdx = startIndex + relativeIdx;
+                  const isActive = activeNodeIdx === absoluteIdx;
+                  return (
+                    <button
+                      key={mod.id}
+                      onClick={() => handleNodeClick(absoluteIdx)}
+                      className={`group relative flex items-center transition-all duration-300
+                        ${collapsed ? 'justify-center h-11 w-11 rounded-xl' : 'p-3.5 gap-4 w-full rounded-2xl'}
+                        ${isActive ? 'bg-[#4F46E5]/10 border border-[#4F46E5]/20' : 'hover:bg-white/[0.03] border border-transparent'}
+                      `}
+                    >
+                      <div className={`shrink-0 flex items-center justify-center border transition-all duration-500
+                        ${collapsed ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'}
+                        ${isActive ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-[#4F46E5]' : 'bg-slate-900/50 border-[#A7DADB]/10 text-slate-500 group-hover:border-[#A7DADB]/30'}
+                      `}>
+                        {getModalityIcon(mod.targetModality)}
                       </div>
-                    )}
-                    {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-2 bottom-2 w-1 bg-[#4F46E5] rounded-full" />}     
-                  </button>
-                );
-              })}
+                      {!collapsed && (
+                        <div className="flex flex-col text-left overflow-hidden">
+                          <span className={`text-[10px] font-mono font-bold tracking-widest ${isActive ? 'text-[#4F46E5]' : 'text-slate-600'}`}>{formatText(mod.id)}</span>
+                          <span className={`text-[11px] font-bold truncate ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{formatText(mod.title)}</span>
+                        </div>
+                      )}
+                      {isActive && <motion.div layoutId="nodeActive" className="absolute left-0 top-2 bottom-2 w-1 bg-[#4F46E5] rounded-full" />}     
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* --- SIDEBAR PAGINATION SYSTEM --- */}
+              {totalPages > 1 && (
+                <div className={`mt-auto pt-6 border-t border-white/[0.03] flex items-center gap-2 ${collapsed ? 'flex-col' : 'justify-center'}`}>
+                   {!collapsed && (
+                     <button 
+                       disabled={currentPage === 1}
+                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                       className="p-1.5 rounded-lg hover:bg-white/[0.05] text-slate-500 disabled:opacity-20 transition-all"
+                     >
+                       <ChevronLeft size={16} />
+                     </button>
+                   )}
+                   
+                   <div className={`flex items-center gap-1.5 ${collapsed ? 'flex-col' : ''}`}>
+                      {getPaginationNumbers().map(num => (
+                        <button
+                          key={num}
+                          onClick={() => setCurrentPage(num)}
+                          className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${
+                            currentPage === num 
+                              ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/20' 
+                              : 'text-slate-600 hover:text-[#A7DADB] hover:bg-white/[0.03]'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                   </div>
+
+                   {!collapsed && (
+                     <button 
+                       disabled={currentPage === totalPages}
+                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                       className="p-1.5 rounded-lg hover:bg-white/[0.05] text-slate-500 disabled:opacity-20 transition-all"
+                     >
+                       <ChevronRight size={16} />
+                     </button>
+                   )}
+                </div>
+              )}
             </motion.nav>
           )}
         </AnimatePresence>
