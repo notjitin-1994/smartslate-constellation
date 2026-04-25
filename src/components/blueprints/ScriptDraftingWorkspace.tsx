@@ -17,7 +17,8 @@ import {
   StickyNote,
   Maximize2,
   Sparkles,
-  Layers
+  Layers,
+  AlertCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,34 +28,88 @@ import { IconButton, Modal, Backdrop, Fade, Box } from '@mui/material';
 import { supabase } from '@/lib/supabase';
 import { useSidebar } from '@/lib/SidebarContext';
 
-// --- SUB-COMPONENT: PROCEDURAL GENERATIVE LENS (As Loader) ---
-const GenerativeLens = ({ content, status, scale }: { content: string, status?: string, scale: number }) => {
-  const [seed] = useState(Math.floor(Math.random() * 1000));
-  
+// --- SUB-COMPONENT: ADVANCED GENERATIVE PLACEHOLDER ---
+const GenerativePlaceholder = ({ 
+  status, 
+  error, 
+  scale 
+}: { 
+  status: string, 
+  error?: string, 
+  scale: number 
+}) => {
+  const [fakeProgress, setFakeProgress] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (status === 'pending') setFakeProgress(15);
+    if (status === 'processing') {
+      setFakeProgress(20);
+      interval = setInterval(() => {
+        setFakeProgress(prev => {
+          if (prev >= 92) return prev;
+          return prev + 1;
+        });
+      }, 350); 
+    }
+    if (status === 'completed') setFakeProgress(100);
+    return () => clearInterval(interval);
+  }, [status]);
+
+  if (status === 'failed') {
+    return (
+      <div className="absolute inset-0 bg-rose-950/20 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center">
+         <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-6">
+            <AlertCircle size={32} className="text-rose-500" />
+         </div>
+         <h4 className="text-white font-black uppercase tracking-tighter text-lg mb-2">Synthesis Failed</h4>
+         <div className="p-4 rounded-xl bg-black/40 border border-white/5 max-w-xs">
+            <p className="text-[10px] font-mono text-rose-400/80 leading-relaxed uppercase">
+              Error: {error || "Unknown Neural Interruption"}
+            </p>
+         </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full h-full bg-[#020617] overflow-hidden flex items-center justify-center group/viz">
       <div className="absolute inset-0 opacity-20 group-hover/viz:opacity-40 transition-opacity duration-1000"
         style={{
           backgroundImage: `radial-gradient(circle at 50% 50%, #A7DADB15 0%, transparent 70%), 
-                            linear-gradient(${seed % 360}deg, #4F46E505 0%, transparent 100%)`
+                            linear-gradient(45deg, #4F46E505 0%, transparent 100%)`
         }}
       />
-      <div className="relative z-10 flex flex-col items-center gap-6 px-12 text-center" style={{ gap: `${24 * scale}px` }}>
+      
+      <div className="relative z-10 flex flex-col items-center w-full max-w-xs text-center" style={{ gap: `${32 * scale}px` }}>
          <motion.div 
-           animate={{ scale: [1, 1.05, 1], rotate: [0, 2, -2, 0] }}
-           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+           animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
+           transition={{ duration: 6, repeat: Infinity }}
            className="rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center backdrop-blur-xl shadow-2xl"
-           style={{ width: `${96 * scale}px`, height: `${96 * scale}px` }}
+           style={{ width: `${80 * scale}px`, height: `${80 * scale}px` }}
          >
             <Sparkles size={32 * scale} className="text-[#A7DADB]" />
          </motion.div>
          
-         <div className="space-y-2">
-            <div className="font-black text-[#A7DADB] uppercase tracking-[0.4em] opacity-40" style={{ fontSize: `${10 * scale}px` }}>
-              {status === 'processing' ? 'Synthesizing 4K Assets' : 'Nano Banana Pro Active'}
+         <div className="space-y-4 w-full">
+            <div className="flex flex-col gap-1">
+              <div className="font-black text-[#A7DADB] uppercase tracking-[0.4em]" style={{ fontSize: `${10 * scale}px` }}>
+                {status === 'pending' ? 'Establishing Neural Link' : 'Nano Banana Synthesis'}
+              </div>
+              <div className="font-mono text-slate-500 uppercase tracking-widest" style={{ fontSize: `${9 * scale}px` }}>
+                4K Instructional Architecture
+              </div>
             </div>
-            <div className="font-bold text-white/80 tracking-tight leading-tight max-w-xs truncate-2-lines italic" style={{ fontSize: `${18 * scale}px` }}>
-               &quot;{content.split(' ').slice(0, 8).join(' ')}...&quot;
+            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
+               <motion.div 
+                 initial={{ width: 0 }}
+                 animate={{ width: `${fakeProgress}%` }}
+                 className="h-full bg-gradient-to-r from-[#4F46E5] to-[#A7DADB] rounded-full shadow-[0_0_10px_#A7DADB40]"
+               />
+            </div>
+            <div className="flex justify-between items-center px-1">
+               <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">Engine Alpha</span>
+               <span className="text-[10px] font-mono font-bold text-[#A7DADB]">{fakeProgress}%</span>
             </div>
          </div>
       </div>
@@ -70,6 +125,12 @@ interface Artifact {
   visualId?: string;
 }
 
+interface VisualState {
+  url?: string;
+  status: string;
+  error?: string;
+}
+
 interface ScriptDraftingWorkspaceProps {
   content: string;
   isLoading: boolean;
@@ -82,22 +143,18 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   content,
   isLoading,
   semanticDelta,
-  citations
+  citations,
+  nodeId
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
-  const [visualUrls, setVisualUrls] = useState<Record<string, string>>({}); // Maps visualId to image_url
+  const [visualStates, setVisualStates] = useState<Record<string, VisualState>>({}); 
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
   // --- PARSE MARKDOWN INTO BENTO ARTIFACTS ---
   const artifacts = useMemo(() => {
     if (!content) return [];
-    
-    const normalized = content
-      .replace(/---/g, '')
-      .replace(/###\s+\*\*Scene/gi, '[HEADER] Scene')
-      .replace(/\*\*(Storyboard Constellation.*?)\*\*/i, '[HEADER] $1');
-
+    const normalized = content.replace(/---/g, '').replace(/###\s+\*\*Scene/gi, '[HEADER] Scene').replace(/\*\*(Storyboard Constellation.*?)\*\*/i, '[HEADER] $1');
     const lines = normalized.split('\n');
     const tempResults: Artifact[] = [];
     let currentArtifact: Partial<Artifact> | null = null;
@@ -107,17 +164,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const trimmed = line.trim();
       if (!trimmed) return;
       const typeMatch = trimmed.match(typeRegex);
-      
       if (typeMatch) {
         const typeStr = typeMatch[1];
         if (typeStr === 'VISUAL_PROMPT') return;
-
         if (currentArtifact) tempResults.push(currentArtifact as Artifact);
-        
         const isVisualWithId = typeStr.startsWith('VISUAL:');
         const visualId = isVisualWithId ? typeStr.split(':')[1] : undefined;
         const type = `[${isVisualWithId ? 'VISUAL' : typeStr}]` as Artifact['type'];
-
         currentArtifact = {
           id: `artifact-${index}`,
           type,
@@ -127,19 +180,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       } else if (currentArtifact) {
         currentArtifact.content += `\n${trimmed}`;
       } else {
-        tempResults.push({
-          id: `intro-${index}`,
-          type: '[HEADER]', 
-          content: trimmed,
-          title: 'System Initiation'
-        });
+        tempResults.push({ id: `intro-${index}`, type: '[HEADER]', content: trimmed, title: 'System Initiation' });
       }
     });
     if (currentArtifact) tempResults.push(currentArtifact as Artifact);
 
     const headers = tempResults.filter(a => a.type === '[HEADER]');
     const others = tempResults.filter(a => a.type !== '[HEADER]');
-    
     if (headers.length > 0) {
       const mainHeader: Artifact = {
         id: 'main-constellation-header',
@@ -160,28 +207,32 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const fetchExisting = async () => {
       const { data } = await supabase
         .from('visual_generations')
-        .select('id, image_url')
-        .in('id', visualIds)
-        .eq('status', 'completed')
-        .not('image_url', 'is', null);
+        .select('id, image_url, status, error_message')
+        .in('id', visualIds);
       
       if (data) {
-        const map: Record<string, string> = {};
-        data.forEach(g => { map[g.id] = g.image_url!; });
-        setVisualUrls(prev => ({ ...prev, ...map }));
+        const map: Record<string, VisualState> = {};
+        data.forEach(g => { 
+          map[g.id] = { url: g.image_url, status: g.status, error: g.error_message }; 
+        });
+        setVisualStates(prev => ({ ...prev, ...map }));
       }
     };
     fetchExisting();
 
     const channel = supabase
-      .channel('visual-trace-sync-hardened')
+      .channel(`visual-trace-sync-${nodeId}`)
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'visual_generations' },
         (payload) => {
-          if (visualIds.includes(payload.new.id) && payload.new.status === 'completed' && payload.new.image_url) {
-            setVisualUrls(prev => ({
+          if (visualIds.includes(payload.new.id)) {
+            setVisualStates(prev => ({
               ...prev,
-              [payload.new.id]: payload.new.image_url
+              [payload.new.id]: { 
+                url: payload.new.image_url, 
+                status: payload.new.status, 
+                error: payload.new.error_message 
+              }
             }));
           }
         }
@@ -189,7 +240,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [artifacts]);
+  }, [artifacts, nodeId]); 
 
   const getTypeIcon = (type: Artifact['type']) => {
     switch (type) {
@@ -206,15 +257,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const getCardStyle = (type: Artifact['type']) => {
     switch (type) {
       case '[HEADER]': return "w-full border-[#A7DADB]/20 bg-white/[0.005] mb-8";
-      case '[VISUAL]': 
-      case '[NARRATION]':
-      case '[BRANCHING]':
-        return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/20 bg-white/[0.01]";
-      case '[ACTIVITY]':
-      case '[SPEAKER_NOTES]':
-        return "flex-1 min-w-[min(100%,320px)] border-white/10 bg-white/[0.005]";
-      default: 
-        return "flex-1 min-w-[300px] border-white/10";
+      case '[VISUAL]': case '[NARRATION]': case '[BRANCHING]': return "flex-[2] min-w-[min(100%,480px)] border-[#A7DADB]/20 bg-white/[0.01]";
+      case '[ACTIVITY]': case '[SPEAKER_NOTES]': return "flex-1 min-w-[min(100%,320px)] border-white/10 bg-white/[0.005]";
+      default: return "flex-1 min-w-[300px] border-white/10";
     }
   };
 
@@ -235,14 +280,11 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                ))}
             </div>
           ) : (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
-              className="flex flex-wrap pb-40"
-              style={{ gap: `${32 * scale}px` }}
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap pb-40" style={{ gap: `${32 * scale}px` }}>
               {artifacts.map((art, idx) => {
                 const isVisual = art.type === '[VISUAL]';
-                const imageUrl = isVisual && art.visualId ? visualUrls[art.visualId] : null;
+                const vState = isVisual && art.visualId ? visualStates[art.visualId] : null;
+                const imageUrl = vState?.url;
 
                 return (
                   <motion.div
@@ -255,16 +297,13 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     style={{ padding: `${48 * scale}px` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-[#A7DADB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-
                     <div className="flex items-center justify-between mb-10 relative z-10" style={{ marginBottom: `${40 * scale}px` }}>
                       <div className="flex items-center gap-6" style={{ gap: `${24 * scale}px` }}>
                         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.05] group-hover:border-[#A7DADB]/30 transition-all shadow-inner" style={{ padding: `${16 * scale}px` }}>
                           {getTypeIcon(art.type)}
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-black uppercase tracking-[0.4em] text-[#A7DADB]/30" style={{ fontSize: `${10 * scale}px` }}>
-                            {art.type.replace('[', '').replace(']', '')}
-                          </span>
+                          <span className="font-black uppercase tracking-[0.4em] text-[#A7DADB]/30" style={{ fontSize: `${10 * scale}px` }}>{art.type.replace('[', '').replace(']', '')}</span>
                           {art.title && <span className="font-bold text-white tracking-widest uppercase" style={{ fontSize: `${14 * scale}px` }}>{art.title}</span>}
                         </div>
                       </div>
@@ -277,43 +316,34 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                            <AnimatePresence mode="wait">
                              {imageUrl ? (
                                <motion.div key="image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
-                                 <Image 
-                                   src={imageUrl} 
-                                   alt="Generated Mockup" 
-                                   fill 
-                                   className="object-cover" 
-                                   unoptimized
-                                 />
+                                 <Image src={imageUrl} alt="Generated Mockup" fill className="object-cover" unoptimized />
                                </motion.div>
                              ) : (
                                <motion.div key="loader" exit={{ opacity: 0 }} className="absolute inset-0">
-                                 <GenerativeLens content={art.content} status={art.visualId ? 'processing' : undefined} scale={scale} />
+                                 <GenerativePlaceholder 
+                                   status={vState?.status || 'pending'} 
+                                   error={vState?.error} 
+                                   scale={scale} 
+                                 />
                                </motion.div>
                              )}
                            </AnimatePresence>
                         </div>
                       )}
 
-                      <div className={`prose prose-invert max-w-none ${art.type === '[HEADER]' ? 'tracking-tighter text-white' : ''} ${art.type === '[NARRATION]' ? 'font-medium text-white/90 tracking-[-0.01em] italic' : ''} ${art.type === '[ACTIVITY]' ? 'font-bold text-[#A7DADB]' : ''} ${art.type === '[SPEAKER_NOTES]' ? 'text-slate-500 italic border-l-4 border-white/10 font-medium' : ''} ${art.type === '[BRANCHING]' ? 'font-mono bg-black/40 rounded-[2rem] border border-white/5 text-[#A7DADB]/80' : ''}`}
+                      <div className={`prose prose-invert max-w-none ${art.type === '[HEADER]' ? 'text-5xl font-black tracking-tighter text-white py-12' : ''} ${art.type === '[NARRATION]' ? 'font-medium text-white/90 tracking-[-0.01em] italic' : ''} ${art.type === '[ACTIVITY]' ? 'font-bold text-[#A7DADB]' : ''} ${art.type === '[SPEAKER_NOTES]' ? 'text-slate-500 italic border-l-4 border-white/10 font-medium' : ''} ${art.type === '[BRANCHING]' ? 'font-mono bg-black/40 rounded-[2rem] border border-white/5 text-[#A7DADB]/80' : ''}`}
                            style={{ 
-                              fontSize: art.type === '[HEADER]' ? `${48 * scale}px` : 
-                                        art.type === '[NARRATION]' ? `${18 * scale}px` : 
-                                        art.type === '[SPEAKER_NOTES]' ? `${15 * scale}px` : `${16 * scale}px`,
+                              fontSize: art.type === '[HEADER]' ? `${48 * scale}px` : art.type === '[NARRATION]' ? `${18 * scale}px` : art.type === '[SPEAKER_NOTES]' ? `${15 * scale}px` : `${16 * scale}px`,
                               lineHeight: 1.65,
                               padding: art.type === '[BRANCHING]' ? `${40 * scale}px` : '0',
                               paddingLeft: art.type === '[SPEAKER_NOTES]' ? `${40 * scale}px` : undefined,
                               paddingTop: art.type === '[HEADER]' ? `${48 * scale}px` : undefined,
                               paddingBottom: art.type === '[HEADER]' ? `${48 * scale}px` : undefined
                            }}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                          {art.content}
-                        </ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{art.content}</ReactMarkdown>
                       </div>
                     </div>
-
-                    <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-10 transition-opacity">
-                      <Workflow size={100 * scale} className="text-[#A7DADB]" />
-                    </div>
+                    <div className="absolute bottom-6 right-10 opacity-5 group-hover:opacity-10 transition-opacity"><Workflow size={100 * scale} className="text-[#A7DADB]" /></div>
                   </motion.div>
                 );
               })}
