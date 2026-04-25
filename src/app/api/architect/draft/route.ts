@@ -13,6 +13,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // --- PROBE: Verify Google Key Presence without logging the value ---
+    const rawKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    console.log(`[Architect API Probe] Google Key Diagnostic:`, {
+      isDefined: !!rawKey,
+      length: rawKey?.length || 0,
+      startsWith: rawKey?.substring(0, 3) + '...'
+    });
+
     const result = await instructionalArchitectService.draftNodeScript({
       id,
       title,
