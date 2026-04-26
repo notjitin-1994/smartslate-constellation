@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseKnowledgeStore } from '@/infrastructure/knowledge/adapters/SupabaseKnowledgeStore';
 import { AgenticConstellationOrchestrator } from '@/infrastructure/orchestration/adapters/AgenticConstellationOrchestrator';
+import { SupabaseStateStore } from '@/infrastructure/orchestration/adapters/SupabaseStateStore';
 import { createAdminClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     const store = new SupabaseKnowledgeStore();
+    const stateStore = new SupabaseStateStore();
     const orchestrator = new AgenticConstellationOrchestrator();
 
     // 1. Fetch the Knowledge Ledger (The Source of Truth)
@@ -30,8 +32,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1.5 Fetch the Global Constellation State (Memory)
+    const state = await stateStore.getState(blueprintId);
+
     // 2. Orchestrate the Constellation (Mapper -> Storyboarder -> Sentinel)
-    const result = await orchestrator.orchestrate(title, description, ledger, targetModality);
+    const result = await orchestrator.orchestrate(id, title, description, ledger, state, targetModality);
 
     // 3. Post-Process Visuals (Inject IDs for deterministic rendering)
     let hydratedScript = result.script;
@@ -100,7 +105,8 @@ export async function POST(req: NextRequest) {
         groundingScore: result.metadata.groundingScore,
         auditLog: result.metadata.auditLog,
         deliverables: result.metadata.deliverables,
-        schematic: result.metadata.schematic
+        schematic: result.metadata.schematic,
+        state: result.metadata.state
       },
     });
   } catch (error: unknown) {

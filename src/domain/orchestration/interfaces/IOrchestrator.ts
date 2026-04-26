@@ -1,4 +1,4 @@
-import { KnowledgeLedger } from '../../knowledge/entities/Knowledge';
+import { KnowledgeLedger, GlobalConstellationState } from '../../knowledge/entities/Knowledge';
 
 export interface InstructionalSchematic {
   blueprint_id: string;
@@ -22,6 +22,7 @@ export interface StoryboardResult {
     auditLog: string[];
     deliverables: string[];
     schematic?: InstructionalSchematic;
+    state?: GlobalConstellationState;
   };
 }
 
@@ -30,9 +31,11 @@ export interface IConstellationOrchestrator {
    * Phase 1 & 2: Generate the tactical logic then render the creative script.
    */
   orchestrate(
+    nodeId: string,
     nodeTitle: string,
     nodeDescription: string,
     ledger: KnowledgeLedger,
+    state: GlobalConstellationState,
     targetModality?: string
   ): Promise<StoryboardResult>;
 
@@ -42,6 +45,7 @@ export interface IConstellationOrchestrator {
   refine(
     currentScript: string,
     feedback: string,
-    ledger: KnowledgeLedger
+    ledger: KnowledgeLedger,
+    state: GlobalConstellationState
   ): Promise<StoryboardResult>;
 }

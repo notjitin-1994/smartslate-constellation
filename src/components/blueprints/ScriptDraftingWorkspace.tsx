@@ -115,25 +115,46 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { scenes, moduleTitle } = useMemo(() => {
     if (!content) return { scenes: [], moduleTitle: 'Instructional Trace' };
     
-    const titleMatch = content.match(/Storyboard Constellation:\s*(.*)/i);
+    // Clean up markdown artifacts around tags (e.g. **[VISUAL]** -> [VISUAL])
+    const cleanContent = content.replace(/\*\*\[/g, '[').replace(/\]\*\*/g, ']');
+
+    const titleMatch = cleanContent.match(/Storyboard Constellation:\s*(.*)/i);
     const mTitle = titleMatch ? titleMatch[1].replace(/[*#]/g, '').trim() : 'Instructional Trace';
 
-    const sceneRegex = /(?:^|\n)(?:Scene\s+\d+|###\s+Scene\s+\d+|Scene:)/gi;
-    const sceneParts = content.split(sceneRegex);
-    const sceneHeaders = content.match(sceneRegex) || [];
-
+    // Split by Scene Headers more robustly
+    const sceneRegex = /(?:^|\n)\s*(?:###\s*)?(?:Scene\s*\d+|Scene:)(?:\s*-\s*|\s*:\s*|\s+)?([^\n]*)/gi;
+    
+    const sceneParts = cleanContent.split(sceneRegex);
     const sceneGroups: SceneGroup[] = [];
 
-    sceneParts.slice(1).forEach((sceneContent, idx) => {
-      const artifacts: Artifact[] = [];
-      const header = sceneHeaders[idx]?.trim().replace(/^[#*\s]*/, '') || `Scene ${idx + 1}`;
+    // sceneParts will have: [before_scene_1, scene_1_title, scene_1_content, scene_2_title, scene_2_content...]
+    // We skip index 0 if it doesn't contain tags.
+    
+    let currentTitle = 'Sequence Opening';
+    let currentContent = '';
 
-      const blockRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]([\s\S]*?)(?=\n\s*\[|$)/gi;
+    for (let i = 0; i < sceneParts.length; i++) {
+      if (i === 0) {
+        currentContent = sceneParts[i];
+        if (!/\[(?:VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)/i.test(currentContent)) {
+          continue; // Skip preamble if it has no tags
+        }
+      } else if (i % 2 === 1) {
+        currentTitle = sceneParts[i] ? sceneParts[i].trim().replace(/[*#]/g, '') : `Scene ${Math.ceil(i/2)}`;
+        continue;
+      } else {
+        currentContent = sceneParts[i];
+      }
+
+      const artifacts: Artifact[] = [];
+      
+      // Look for tags and everything until the next tag
+      const blockRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]([\s\S]*?)(?=\n\s*\[(?:VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)|$)/gi;
       let match;
       
-      while ((match = blockRegex.exec(sceneContent)) !== null) {
-        const typeStr = match[1];
-        const blockContent = match[2].replace(/^[*: ]+/, '').trim();
+      while ((match = blockRegex.exec(currentContent)) !== null) {
+        const typeStr = match[1].toUpperCase();
+        const blockContent = match[2].replace(/^[*: \n]+/, '').trim();
 
         if (typeStr === 'VISUAL_PROMPT') {
           artifacts.push({ type: '[DIRECTIVE]', content: blockContent });
@@ -152,12 +173,14 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         });
       }
 
-      sceneGroups.push({
-        id: `scene-${idx}`,
-        title: header,
-        artifacts
-      });
-    });
+      if (artifacts.length > 0) {
+        sceneGroups.push({
+          id: `scene-${sceneGroups.length}`,
+          title: currentTitle,
+          artifacts
+        });
+      }
+    }
 
     return { scenes: sceneGroups, moduleTitle: mTitle };
   }, [content]);
@@ -393,7 +416,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                         "object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] transition-all duration-500",
                                         expandedSceneId === scene.id ? "max-w-[90vw] max-h-[70vh] rounded-[3rem]" : "max-w-full max-h-full rounded-2xl group-hover/img:scale-[1.02]"
                                       )}
-                                   />
                                    />
                                  </div>
 

@@ -22,3 +22,10 @@ export interface KnowledgeLedger {
   facts: Fact[];
   constraints: Constraint[];
 }
+
+export interface GlobalConstellationState {
+  blueprint_id: string;
+  covered_fact_ids: string[];
+  narrative_arc: string;
+  previous_node_outputs: { node_id: string; summary: string }[];
+}
