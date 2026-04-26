@@ -111,80 +111,53 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- DETERMINISTIC MULTI-PASS PARSER ---
+  // --- ROBUST BLOCK-BASED PARSER ---
   const { scenes, moduleTitle } = useMemo(() => {
+    if (!content) return { scenes: [], moduleTitle: 'Instructional Trace' };
+    
+    const titleMatch = content.match(/Storyboard Constellation:\s*(.*)/i);
+    const mTitle = titleMatch ? titleMatch[1].replace(/[*#]/g, '').trim() : 'Instructional Trace';
+
+    const sceneRegex = /(?:^|\n)(?:Scene\s+\d+|###\s+Scene\s+\d+|Scene:)/gi;
+    const sceneParts = content.split(sceneRegex);
+    const sceneHeaders = content.match(sceneRegex) || [];
+
     const sceneGroups: SceneGroup[] = [];
-    if (!content) return { scenes: sceneGroups, moduleTitle: 'Instructional Trace' };
-    
-    const lines = content.split('\n');
-    let mTitle = 'Instructional Trace';
-    
-    let currentScene: SceneGroup | null = null;
-    let currentArtifact: Artifact | null = null;
 
-    const typeRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]/;
+    sceneParts.slice(1).forEach((sceneContent, idx) => {
+      const artifacts: Artifact[] = [];
+      const header = sceneHeaders[idx]?.trim().replace(/^[#*\s]*/, '') || `Scene ${idx + 1}`;
 
-    lines.forEach((line, index) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-
-      if (trimmed.toLowerCase().includes('storyboard constellation:')) {
-        mTitle = trimmed.replace(/^[#*\s]*Storyboard Constellation:?\s*/i, '').replace(/\*+$/, '').trim();
-        return;
-      }
-
-      const isExplicitSceneHeader = /^(Scene\s+\d+|###\s+Scene\s+\d+|Scene:)/i.test(trimmed);
+      const blockRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]([\s\S]*?)(?=\n\s*\[|$)/gi;
+      let match;
       
-      if (isExplicitSceneHeader) {
-        if (currentArtifact && currentScene) currentScene.artifacts.push(currentArtifact);
-        if (currentScene) sceneGroups.push(currentScene);
-        currentScene = {
-          id: `scene-${index}`,
-          title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
-          artifacts: []
-        };
-        currentArtifact = null;
-        return;
-      }
+      while ((match = blockRegex.exec(sceneContent)) !== null) {
+        const typeStr = match[1];
+        const blockContent = match[2].replace(/^[*: ]+/, '').trim();
 
-      const typeMatch = trimmed.match(typeRegex);
-      if (typeMatch) {
-        const typeStr = typeMatch[1];
-        if (currentArtifact && currentScene) currentScene.artifacts.push(currentArtifact);
+        if (typeStr === 'VISUAL_PROMPT') {
+          artifacts.push({ type: '[DIRECTIVE]', content: blockContent });
+          continue;
+        }
 
         const isVisualWithId = typeStr.startsWith('VISUAL:');
-        const isVisualPrompt = typeStr === 'VISUAL_PROMPT';
         const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
-        
         let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
         if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
-        if (isVisualPrompt) typeValStr = 'DIRECTIVE';
-        
-        const typeVal = `[${typeValStr}]` as Artifact['type'];
 
-        if (!currentScene) {
-          currentScene = { id: 'auto-scene-init', title: 'Sequence Opening', artifacts: [] };
-        }
-
-        currentArtifact = {
-          type: typeVal,
+        artifacts.push({
+          type: `[${typeValStr}]` as Artifact['type'],
           visualId: vId,
-          content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
-        };
-      } else {
-        if (currentArtifact) {
-          currentArtifact.content += `\n${trimmed}`;
-        } else if (trimmed.length > 0) {
-          if (!currentScene) {
-            currentScene = { id: 'intro-buffer', title: 'Instructional Initiation', artifacts: [] };
-          }
-          currentArtifact = { type: '[NARRATION]', content: trimmed };
-        }
+          content: blockContent
+        });
       }
-    });
 
-    if (currentArtifact && currentScene) (currentScene as SceneGroup).artifacts.push(currentArtifact);
-    if (currentScene) sceneGroups.push(currentScene as SceneGroup);
+      sceneGroups.push({
+        id: `scene-${idx}`,
+        title: header,
+        artifacts
+      });
+    });
 
     return { scenes: sceneGroups, moduleTitle: mTitle };
   }, [content]);
@@ -272,12 +245,10 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         </motion.div>
       )}
 
-      {/* --- PRODUCTION SUMMARY (DELIVERABLES & AUDIT) --- */}
+      {/* --- PRODUCTION SUMMARY --- */}
       {!isLoading && ((deliverables && deliverables.length > 0) || (auditLog && auditLog.length > 0)) && (
          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="w-full max-w-full px-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-               
-               {/* Deliverables Column */}
                <div className="p-10 rounded-[3rem] bg-indigo-500/[0.02] border border-indigo-500/10 backdrop-blur-3xl shadow-2xl relative overflow-hidden flex flex-col gap-8">
                   <div className="absolute top-0 left-0 w-1 h-full bg-[#4F46E5]" />
                   <div className="flex items-center gap-6">
@@ -299,7 +270,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                   </div>
                </div>
 
-               {/* Audit Summary Column */}
                <div className="p-10 rounded-[3rem] bg-[#A7DADB]/[0.02] border border-[#A7DADB]/10 backdrop-blur-3xl shadow-2xl relative overflow-hidden flex flex-col gap-8">
                   <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]" />
                   <div className="flex items-center gap-6">
@@ -323,7 +293,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                      )}
                   </div>
                </div>
-
             </div>
          </motion.div>
       )}
@@ -356,7 +325,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                  </div>
 
                  <div className="flex flex-wrap gap-8 items-stretch">
-                    {/* ROW 1: 70/30 ASYMMETRIC SPLIT */}
                     <div className="w-full flex flex-wrap gap-8 items-stretch">
                        <div className="flex-[2.5] min-w-[min(100%,600px)] p-14 rounded-[3.5rem] bg-white/[0.015] border border-white/[0.05] shadow-2xl relative overflow-hidden group/nar">
                           <div className="absolute top-8 left-10 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/nar:text-[#A7DADB]/60 transition-colors">
@@ -420,6 +388,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                       alt="Scene Mockup" 
                                       width={1200}
                                       height={800}
+                                      unoptimized={true}
                                       className={cn(
                                         "object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] transition-all duration-500",
                                         expandedSceneId === scene.id ? "max-w-[90vw] max-h-[70vh] rounded-[3rem]" : "max-w-full max-h-full rounded-2xl group-hover/img:scale-[1.02]"
@@ -463,7 +432,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                     </div>
 
                     <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-8">
-                       <div className="p-10 rounded-[3rem] bg-indigo-500/[0.02] border border-indigo-500/20 shadow-xl space-y-6 group/act">
+                       <div className="p-10 rounded-[3rem] bg-indigo-500/[0.02] border border-indigo-500/10 shadow-xl space-y-6 group/act">
                           <div className="flex items-center gap-4 text-indigo-400/50 uppercase tracking-[0.3em] text-[9px] font-black group-hover/act:text-indigo-400 transition-colors">
                              <MousePointer2 size={14} /> Engagement Protocol
                           </div>

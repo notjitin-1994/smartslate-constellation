@@ -7,7 +7,7 @@ import { Fact, Constraint, KnowledgeLedger } from '../../../domain/knowledge/ent
 export class GeminiKnowledgeDistiller implements IKnowledgeDistiller {
   async distillBlueprint(blueprintJson: Record<string, unknown>): Promise<{ masterMd: string; constraints: Constraint[] }> {
     const { object } = await generateObject({
-      model: google('gemini-3.1-pro-preview'),
+      model: google('gemini-3.1-pro-preview'), // UPGRADED TO 3.1 PRO
       schema: z.object({
         masterMd: z.string().describe('A high-fidelity markdown summary of the blueprint constraints.'),
         constraints: z.array(z.object({
@@ -27,7 +27,7 @@ export class GeminiKnowledgeDistiller implements IKnowledgeDistiller {
 
   async distillSubjectMatter(content: string, sourceName: string): Promise<{ facts: Fact[]; subjectMatterMd: string }> {
     const { object } = await generateObject({
-      model: google('gemini-3-flash-preview'),
+      model: google('gemini-3-flash-preview'), // UPGRADED TO 3 FLASH
       schema: z.object({
         subjectMatterMd: z.string().describe('Structured markdown version of the user data.'),
         facts: z.array(z.object({
@@ -53,7 +53,7 @@ export class GeminiKnowledgeDistiller implements IKnowledgeDistiller {
 
   async generateAlignmentMap(ledger: KnowledgeLedger): Promise<string> {
     const { text } = await generateText({
-      model: google('gemini-3-flash-preview'),
+      model: google('gemini-3.1-flash-lite-preview'), // UPGRADED TO 3.1 LITE for fast gap analysis
       system: `You are a Strategic Auditor. Compare the Blueprint Constraints with the Subject Matter Facts.
       Identify which facts satisfy which constraints and highlight any gaps.`,
       prompt: `BLUEPRINT_MASTER:\n${ledger.master_blueprint_md}\n\nFACT_LEDGER:\n${ledger.subject_matter_md}`
