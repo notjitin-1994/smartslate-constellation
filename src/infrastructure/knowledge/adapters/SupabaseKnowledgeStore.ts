@@ -3,6 +3,7 @@ import { embed, embedMany } from 'ai';
 import { google } from '@/lib/google';
 import { IKnowledgeStore } from '../../../domain/knowledge/interfaces/IKnowledgeInterfaces';
 import { Fact, Constraint, KnowledgeLedger } from '../../../domain/knowledge/entities/Knowledge';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface SupabaseFactRow {
   raw_content: string;
@@ -16,7 +17,14 @@ interface SupabaseFactRow {
 }
 
 export class SupabaseKnowledgeStore implements IKnowledgeStore {
-  private adminClient = createAdminClient();
+  private _adminClient: SupabaseClient | null = null;
+
+  private get adminClient() {
+    if (!this._adminClient) {
+      this._adminClient = createAdminClient();
+    }
+    return this._adminClient;
+  }
 
   async saveLedger(ledger: KnowledgeLedger): Promise<void> {
     const { error: ledgerError } = await this.adminClient

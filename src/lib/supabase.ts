@@ -1,9 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js';
 
-// 1. Sanitize standard keys
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
+// 1. Sanitize standard keys with build-time fallbacks
+// We use placeholder strings to prevent @supabase/ssr and supabase-js from throwing during static analysis.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || 'https://placeholder-url.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || 'placeholder-anon-key';
 
 /**
  * Standard Client: Safe for Browser & Server.
@@ -14,10 +15,8 @@ let clientInstance: SupabaseClient | null = null;
 export const getSupabaseClient = () => {
   if (clientInstance) return clientInstance;
   
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[Supabase] Project URL or Anon Key is missing. Using a placeholder client for build-time safety.');
-    // We return a mock-like client if keys are missing to prevent build-time crashes
-    // In production/runtime, these keys MUST be present.
+  if (supabaseUrl.includes('placeholder')) {
+    console.warn('[Supabase] Using placeholder URL/Key. Ensure NEXT_PUBLIC_SUPABASE_URL is set in Vercel settings.');
   }
 
   clientInstance = createBrowserClient(supabaseUrl, supabaseAnonKey);
@@ -40,13 +39,14 @@ export const createAdminClient = () => {
   if (typeof window !== 'undefined') {
     throw new Error('CRITICAL SECURITY ERROR: Admin Client initialized in browser.');
   }
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   
-  if (!serviceKey) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || 'placeholder-service-key';
+  
+  if (serviceKey === 'placeholder-service-key') {
     console.error('[Supabase Admin] CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing.');
   }
 
-  return createSupabaseClient(supabaseUrl, serviceKey || '', {
+  return createSupabaseClient(supabaseUrl, serviceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
