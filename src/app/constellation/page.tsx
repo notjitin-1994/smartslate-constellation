@@ -326,7 +326,7 @@ function ArchitectureCanvasContent() {
                    {currentModule?.title || 'Prism Architect'}
                  </h2>
                  <p className="text-slate-500 max-w-md text-sm font-medium uppercase tracking-[0.2em] leading-relaxed">
-                   Click "Map Constellation" to initialize multi-agent orchestration for this specific node.
+                   Click &quot;Map Constellation&quot; to initialize multi-agent orchestration for this specific node.
                  </p>
                  <div className="mt-16 flex items-center gap-8 opacity-40 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default">
                     <div className="flex items-center gap-3">
