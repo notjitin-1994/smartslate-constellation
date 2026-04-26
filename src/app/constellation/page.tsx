@@ -191,6 +191,18 @@ function ArchitectureCanvasContent() {
     }));
   }, [modules, activeIdx]);
 
+  useEffect(() => {
+    const handleNodeSelect = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      console.log('[Orchestrator] Received node select event:', customEvent.detail);
+      if (customEvent.detail !== undefined && customEvent.detail.idx !== undefined) {
+        updateState({ activeNodeIdx: Number(customEvent.detail.idx) });
+      }
+    };
+    window.addEventListener('constellation-node-select', handleNodeSelect);
+    return () => window.removeEventListener('constellation-node-select', handleNodeSelect);
+  }, [updateState]);
+
   const handleMapConstellation = async () => {
     if (!currentModule || !blueprintId) return;
     setIsDrafting(true);
@@ -310,9 +322,11 @@ function ArchitectureCanvasContent() {
                     <div className="absolute inset-0 bg-[#A7DADB]/10 blur-2xl animate-pulse" />
                     <Workflow size={48} className="text-[#A7DADB] relative z-10" />
                  </div>
-                 <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">Prism Architect</h2>
+                 <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">
+                   {currentModule?.title || 'Prism Architect'}
+                 </h2>
                  <p className="text-slate-500 max-w-md text-sm font-medium uppercase tracking-[0.2em] leading-relaxed">
-                   Select a strategic node from the sidebar to initialize multi-agent orchestration.
+                   Click "Map Constellation" to initialize multi-agent orchestration for this specific node.
                  </p>
                  <div className="mt-16 flex items-center gap-8 opacity-40 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default">
                     <div className="flex items-center gap-3">
