@@ -7,7 +7,7 @@ export class IngestBlueprintUseCase {
     private knowledgeDistiller: IKnowledgeDistiller
   ) {}
 
-  async execute(blueprintId: string, blueprintJson: any): Promise<KnowledgeLedger> {
+  async execute(blueprintId: string, blueprintJson: Record<string, unknown>): Promise<KnowledgeLedger> {
     console.log(`[UseCase] Starting Ingestion for Blueprint: ${blueprintId}`);
 
     // 1. Distill the blueprint into the "Apex" Markdown and Constraints

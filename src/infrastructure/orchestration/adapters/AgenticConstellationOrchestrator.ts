@@ -70,7 +70,7 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
     };
   }
 
-  async refineScene(currentScript: string, feedback: string, ledger: KnowledgeLedger): Promise<StoryboardResult> {
+  async refineScene(currentScript: string, feedback: string): Promise<StoryboardResult> {
     // Implementation for iterative refinement agent
     const { text: refinedScript } = await generateText({
       model: google('gemini-3.1-pro-preview'),

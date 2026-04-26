@@ -5,7 +5,7 @@ import { IKnowledgeDistiller } from '../../../domain/knowledge/interfaces/IKnowl
 import { Fact, Constraint, KnowledgeLedger } from '../../../domain/knowledge/entities/Knowledge';
 
 export class GeminiKnowledgeDistiller implements IKnowledgeDistiller {
-  async distillBlueprint(blueprintJson: any): Promise<{ masterMd: string; constraints: Constraint[] }> {
+  async distillBlueprint(blueprintJson: Record<string, unknown>): Promise<{ masterMd: string; constraints: Constraint[] }> {
     const { object } = await generateObject({
       model: google('gemini-3.1-pro-preview'),
       schema: z.object({

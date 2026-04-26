@@ -7,7 +7,7 @@ export interface IKnowledgeStore {
 }
 
 export interface IKnowledgeDistiller {
-  distillBlueprint(blueprintJson: any): Promise<{
+  distillBlueprint(blueprintJson: Record<string, unknown>): Promise<{
     masterMd: string;
     constraints: Constraint[];
   }>;

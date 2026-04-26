@@ -4,11 +4,21 @@ import { google } from '@/lib/google';
 import { IKnowledgeStore } from '../../../domain/knowledge/interfaces/IKnowledgeInterfaces';
 import { Fact, Constraint, KnowledgeLedger } from '../../../domain/knowledge/entities/Knowledge';
 
+interface SupabaseFactRow {
+  raw_content: string;
+  metadata: {
+    fact_id?: string;
+    source_name?: string;
+    confidence?: number;
+    id_implications?: string;
+    processed_at?: string;
+  };
+}
+
 export class SupabaseKnowledgeStore implements IKnowledgeStore {
   private adminClient = createAdminClient();
 
   async saveLedger(ledger: KnowledgeLedger): Promise<void> {
-    // 1. Save Markdown & Constraints to knowledge_ledgers
     const { error: ledgerError } = await this.adminClient
       .from('knowledge_ledgers')
       .upsert({
@@ -22,7 +32,6 @@ export class SupabaseKnowledgeStore implements IKnowledgeStore {
 
     if (ledgerError) throw ledgerError;
 
-    // 2. If there are new facts, embed and save to knowledge_vault
     if (ledger.facts.length > 0) {
       const valuesToEmbed = ledger.facts.map(f => `[FACT: ${f.id}] [SOURCE: ${f.source}] \n\n DATA: ${f.content}`);
       
@@ -68,7 +77,7 @@ export class SupabaseKnowledgeStore implements IKnowledgeStore {
       master_blueprint_md: data.master_blueprint_md,
       subject_matter_md: data.subject_matter_md,
       strategic_alignment_md: data.strategic_alignment_md,
-      facts: [], // Facts are retrieved via search
+      facts: [],
       constraints: data.constraints as Constraint[]
     };
   }
@@ -88,7 +97,7 @@ export class SupabaseKnowledgeStore implements IKnowledgeStore {
 
     if (error) throw error;
 
-    return data.map((d: any) => ({
+    return (data as SupabaseFactRow[]).map((d) => ({
       id: d.metadata?.fact_id || 'UNK',
       content: d.raw_content,
       source: d.metadata?.source_name || 'Legacy',

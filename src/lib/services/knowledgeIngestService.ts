@@ -1,4 +1,4 @@
-import { supabase as defaultClient, createAdminClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
 import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 import { IngestBlueprintUseCase } from '@/application/knowledge/use-cases/IngestBlueprint';
@@ -58,7 +58,7 @@ export class KnowledgeIngestService {
   /**
    * Automatically harvests strategic facts from the Polaris Blueprint
    */
-  async harvestBlueprint(blueprintId: string, blueprintJson: any) {
+  async harvestBlueprint(blueprintId: string, blueprintJson: Record<string, unknown>) {
     console.log(`[Ingest] [LEGACY_ADAPTER] [HARVEST] Ingesting Strategic Apex for: ${blueprintId}`);
     try {
       const ledger = await this.ingestBlueprintUseCase.execute(blueprintId, blueprintJson);
