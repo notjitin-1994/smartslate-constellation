@@ -3,6 +3,8 @@ import { SupabaseKnowledgeStore } from '@/infrastructure/knowledge/adapters/Supa
 import { AgenticConstellationOrchestrator } from '@/infrastructure/orchestration/adapters/AgenticConstellationOrchestrator';
 import { createAdminClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

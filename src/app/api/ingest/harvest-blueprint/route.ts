@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { knowledgeIngestService } from '@/lib/services/knowledgeIngestService';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const { blueprintId, blueprintJson } = await req.json();
