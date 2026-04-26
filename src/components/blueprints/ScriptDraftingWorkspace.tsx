@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import Image from 'next/image';
 import { 
   BookOpen, 
   Activity, 
@@ -126,8 +125,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const titleMatch = cleanContent.match(/Storyboard Constellation:\s*(.*)/i);
     const mTitle = titleMatch ? titleMatch[1].replace(/[*#]/g, '').trim() : 'Instructional Trace';
 
-    // 3. Tokenize by Tags and Scene Headers (using ### Scene as anchor)
-    const tokenRegex = /((?:^|\n)\s*###\s*Scene\s*\d+.*)|(\[(?:VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\])/gi;
+    // 3. Tokenize by Tags and Scene Headers
+    // Allowing optional whitespace in VISUAL: tag for LLM resilience
+    const tokenRegex = /((?:^|\n)\s*###\s*Scene\s*\d+.*)|(\[(?:VISUAL(?:\s*:\s*[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\])/gi;
     
     const parts = cleanContent.split(tokenRegex);
 
@@ -166,7 +166,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           currentArtifact = { type: '[DIRECTIVE]', content: '' };
         } else {
           const isVisualWithId = typeStr.startsWith('VISUAL:');
-          const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
+          // Handle [VISUAL: uuid] or [VISUAL : uuid]
+          const vId = isVisualWithId ? typeStr.split(':')[1].trim() : undefined;
           let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
           if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
 
@@ -357,6 +358,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                  </div>
 
                  <div className="flex flex-wrap gap-8 items-stretch">
+                    {/* ROW 1: 70/30 ASYMMETRIC SPLIT */}
                     <div className="w-full flex flex-wrap gap-8 items-stretch">
                        <div className="flex-[2.5] min-w-[min(100%,600px)] p-14 rounded-[3.5rem] bg-white/[0.015] border border-white/[0.05] shadow-2xl relative overflow-hidden group/nar">
                           <div className="absolute top-8 left-10 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/nar:text-[#A7DADB]/60 transition-colors">
@@ -415,12 +417,11 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                      </div>
                                    )}
 
-                                   <Image 
+                                   {/* Standard img tag is more resilient for dynamic external Supabase URLs */}
+                                   <img 
                                       src={url} 
                                       alt="Scene Mockup" 
-                                      width={1200}
-                                      height={800}
-                                      unoptimized={true}
+                                      loading="lazy"
                                       className={cn(
                                         "object-contain shadow-[0_0_80px_rgba(0,0,0,0.8)] transition-all duration-500",
                                         expandedSceneId === scene.id ? "max-w-[90vw] max-h-[70vh] rounded-[3rem]" : "max-w-full max-h-full rounded-2xl group-hover/img:scale-[1.02]"

@@ -81,16 +81,17 @@ const AgentStatusItem = ({ name, icon: Icon, progress, status, task }: AgentStat
   <div className="flex-1 px-6 py-3 rounded-2xl border border-[#A7DADB]/10 bg-white/[0.01] backdrop-blur-md relative overflow-hidden group">
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-3">
-        <Icon size={14} className={status === 'active' ? 'text-[#A7DADB] animate-pulse' : 'text-slate-600'} />
+        <Icon size={14} className={(status === 'active' || status === 'ready') ? 'text-[#A7DADB]' : 'text-slate-600'} />
         <span className="text-[11px] font-black uppercase tracking-widest text-white/80">{name}</span>
       </div>
-      {status === 'active' && <div className="w-1 h-1 rounded-full bg-[#A7DADB] shadow-[0_0_8px_#A7DADB]" />}
+      {status === 'active' && <div className="w-1 h-1 rounded-full bg-[#A7DADB] shadow-[0_0_8px_#A7DADB] animate-pulse" />}
+      {status === 'ready' && <div className="w-1 h-1 rounded-full bg-[#A7DADB] shadow-[0_0_4px_#A7DADB]" />}
     </div>
     <div className="h-[2px] w-full bg-white/5 rounded-full overflow-hidden mb-2">
       <motion.div 
         initial={{ width: 0 }} 
         animate={{ width: `${progress}%` }} 
-        className={`h-full ${status === 'active' ? 'bg-[#A7DADB]' : 'bg-slate-800'}`} 
+        className={`h-full ${(status === 'active' || status === 'ready') ? 'bg-[#A7DADB]' : 'bg-slate-800'}`} 
       />
     </div>
     <p className="text-[8px] font-mono uppercase text-slate-500 tracking-tighter truncate">{task}</p>
