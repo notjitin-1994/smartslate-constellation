@@ -1,4 +1,3 @@
-import { createAdminClient } from '@/lib/supabase';
 import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 import { IngestBlueprintUseCase } from '@/application/knowledge/use-cases/IngestBlueprint';

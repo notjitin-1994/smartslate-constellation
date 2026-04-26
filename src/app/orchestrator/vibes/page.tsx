@@ -1,17 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { 
-  Activity, Search, GitBranch, Layout, ShieldCheck, Terminal, Cpu,
-  ArrowUpRight, RefreshCw, Hash, ChevronRight, Layers, Maximize2, 
-  MoreHorizontal, Zap, Box as BoxIcon, ArrowRight, Command, Plus,
-  Database, Settings2, AlertCircle, Target, Users, Calendar, 
-  TrendingUp, Info
+  Search, GitBranch, Layout, ShieldCheck
 } from 'lucide-react';
 import { 
-  Box, Typography, Tooltip, IconButton, Chip, ThemeProvider, 
-  createTheme, CssBaseline, LinearProgress 
+  ThemeProvider, 
+  createTheme, CssBaseline
 } from '@mui/material';
 
 // --- SHARED UTILS & THEME ---
@@ -212,8 +208,6 @@ const Vibe5 = () => {
 // ============================================================================
 
 export default function VibesSelection() {
-  const [selectedVibe, setSelectedVibe] = useState<number | null>(null);
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

@@ -11,7 +11,7 @@ export class IngestUserDataUseCase {
     console.log(`[UseCase] Distilling User Data for Blueprint: ${blueprintId}`);
 
     // 1. Fetch current ledger or fail if blueprint not ingested yet
-    let ledger = await this.knowledgeStore.getLedger(blueprintId);
+    const ledger = await this.knowledgeStore.getLedger(blueprintId);
     if (!ledger) {
       throw new Error('Strategic Blueprint must be ingested before user data.');
     }
