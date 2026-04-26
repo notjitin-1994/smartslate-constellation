@@ -410,6 +410,32 @@ function ArchitectureCanvasContent() {
                    </section>
                 )}
 
+                {activeScript?.schematic && (
+                   <section className="space-y-6">
+                      <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                         <Workflow size={14} /> Tactical Schematic (Architect)
+                      </div>
+                      <div className="p-8 rounded-[2.5rem] bg-black/40 border border-white/[0.03] overflow-hidden">
+                         <pre className="text-[10px] text-[#A7DADB]/80 font-mono whitespace-pre-wrap leading-relaxed">
+                            {JSON.stringify(activeScript.schematic, null, 2)}
+                         </pre>
+                      </div>
+                   </section>
+                )}
+
+                {activeScript?.state && (
+                   <section className="space-y-6">
+                      <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                         <Database size={14} /> Global Constellation State (Memory)
+                      </div>
+                      <div className="p-8 rounded-[2.5rem] bg-black/40 border border-white/[0.03] overflow-hidden">
+                         <pre className="text-[10px] text-indigo-300/80 font-mono whitespace-pre-wrap leading-relaxed">
+                            {JSON.stringify(activeScript.state, null, 2)}
+                         </pre>
+                      </div>
+                   </section>
+                )}
+
                 <section className="space-y-6">
                    <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
                       <ScrollText size={14} /> Source Knowledge Ledger (Atomic Facts)

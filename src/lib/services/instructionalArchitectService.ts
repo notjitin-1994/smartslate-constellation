@@ -36,6 +36,7 @@ export interface ScriptOutput {
   deliverables?: string[];
   auditLog?: string[];
   schematic?: any;
+  state?: any;
 }
 
 export class InstructionalArchitectService {
