@@ -394,6 +394,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                         expandedSceneId === scene.id ? "max-w-[90vw] max-h-[70vh] rounded-[3rem]" : "max-w-full max-h-full rounded-2xl group-hover/img:scale-[1.02]"
                                       )}
                                    />
+                                   />
                                  </div>
 
                                  <div className={cn(
