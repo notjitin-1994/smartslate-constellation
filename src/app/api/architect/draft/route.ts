@@ -4,6 +4,7 @@ import { AgenticConstellationOrchestrator } from '@/infrastructure/orchestration
 import { createAdminClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // Allow 5 minutes for complex multi-agent orchestration
 
 export async function POST(req: NextRequest) {
   try {
