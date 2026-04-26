@@ -220,12 +220,15 @@ export default function DashboardPage() {
       const hasSub = profile?.subscription_tier && profile.subscription_tier !== 'free';
       setIsPolarisUser(!!hasSub);
 
-      const { count } = await supabase
+      // Check if user has any blueprints
+      const { data: blueprints, error: bpError } = await supabase
         .from('blueprint_generator')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', session.user.id);
+        .select('id')
+        .eq('user_id', session.user.id)
+        .limit(1);
 
-      setHasBlueprints(!!(count && count > 0));
+      if (bpError) throw bpError;
+      setHasBlueprints(!!(blueprints && blueprints.length > 0));
 
     } catch (error: unknown) {
       console.error('Dashboard logic error:', error);
@@ -346,9 +349,14 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-[#94A3B8]/80 tracking-widest uppercase font-medium">
-                  Active Nodes: 03
-                </p>
+                <div className="flex flex-col">
+                  <p className="text-[10px] text-[#94A3B8]/80 tracking-widest uppercase font-medium">
+                    Active Nodes: 03
+                  </p>
+                  <p className="text-[8px] text-[#A7DADB]/40 font-mono uppercase">
+                    ID: {user?.id?.substring(0, 8)}... | SRC: {process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0].split('//')[1]}
+                  </p>
+                </div>
               </div>
               
               <div className="flex items-center gap-8">
