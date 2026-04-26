@@ -32,7 +32,10 @@ export interface ScriptOutput {
   cognitiveLoadScore: number; 
   hallucinationFlag: boolean;
   semanticDelta?: string;
-  groundingTypes: string[]; 
+  groundingTypes: string[];
+  deliverables?: string[];
+  auditLog?: string[];
+  schematic?: any;
 }
 
 export class InstructionalArchitectService {

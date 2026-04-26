@@ -16,7 +16,11 @@ import {
   StickyNote,
   Sparkles,
   Layers,
-  AlertCircle
+  AlertCircle,
+  PackageCheck,
+  Binary,
+  Target,
+  ShieldCheck
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -70,7 +74,7 @@ const GenerativePlaceholder = ({ status, error, scale }: { status: string, error
 // --- TYPES ---
 
 interface Artifact {
-  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[NOTES]';
+  type: '[VISUAL]' | '[NARRATION]' | '[ACTIVITY]' | '[BRANCHING]' | '[NOTES]' | '[DIRECTIVE]';
   content: string;
   visualId?: string;
 }
@@ -86,6 +90,8 @@ interface ScriptDraftingWorkspaceProps {
   isLoading: boolean;
   semanticDelta?: string;
   citations: string[];
+  deliverables: string[];
+  auditLog: string[];
   nodeId: string;
 }
 
@@ -94,6 +100,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   isLoading,
   semanticDelta,
   citations,
+  deliverables,
+  auditLog,
   nodeId
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
@@ -111,7 +119,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const lines = content.split('\n');
     let mTitle = 'Instructional Trace';
     
-    // Initial State: Buffer for content before the first scene
     let currentScene: SceneGroup | null = null;
     let currentArtifact: Artifact | null = null;
 
@@ -121,21 +128,16 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const trimmed = line.trim();
       if (!trimmed) return;
 
-      // 1. Identify Global Title
       if (trimmed.toLowerCase().includes('storyboard constellation:')) {
         mTitle = trimmed.replace(/^[#*\s]*Storyboard Constellation:?\s*/i, '').replace(/\*+$/, '').trim();
         return;
       }
 
-      // 2. Strict Scene Detection (Anchored)
       const isExplicitSceneHeader = /^(Scene\s+\d+|###\s+Scene\s+\d+|Scene:)/i.test(trimmed);
       
       if (isExplicitSceneHeader) {
-        // Close previous artifact and scene
         if (currentArtifact && currentScene) currentScene.artifacts.push(currentArtifact);
         if (currentScene) sceneGroups.push(currentScene);
-
-        // Open new scene
         currentScene = {
           id: `scene-${index}`,
           title: trimmed.replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim(),
@@ -145,23 +147,21 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         return;
       }
 
-      // 3. Artifact Routing
       const typeMatch = trimmed.match(typeRegex);
       if (typeMatch) {
         const typeStr = typeMatch[1];
-        if (typeStr === 'VISUAL_PROMPT') return; // Handled by backend dispatcher
-
-        // If an artifact was already open, push it to current scene
         if (currentArtifact && currentScene) currentScene.artifacts.push(currentArtifact);
 
-        // Prepare new artifact
         const isVisualWithId = typeStr.startsWith('VISUAL:');
+        const isVisualPrompt = typeStr === 'VISUAL_PROMPT';
         const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
+        
         let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
         if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
+        if (isVisualPrompt) typeValStr = 'DIRECTIVE';
+        
         const typeVal = `[${typeValStr}]` as Artifact['type'];
 
-        // If no scene is open, create a fallback container
         if (!currentScene) {
           currentScene = { id: 'auto-scene-init', title: 'Sequence Opening', artifacts: [] };
         }
@@ -172,7 +172,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           content: trimmed.replace(/^[#*\s]*\[.*?\]:?/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '').trim()
         };
       } else {
-        // Append text to the current open artifact or create a fallback narration if text exists but no tag
         if (currentArtifact) {
           currentArtifact.content += `\n${trimmed}`;
         } else if (trimmed.length > 0) {
@@ -184,7 +183,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       }
     });
 
-    // Final Closure
     if (currentArtifact && currentScene) (currentScene as SceneGroup).artifacts.push(currentArtifact);
     if (currentScene) sceneGroups.push(currentScene as SceneGroup);
 
@@ -225,8 +223,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     
     const handleConstellationData = (e: Event) => {
       const customEvent = e as CustomEvent;
-      // Note: We don't have local state for the full module data yet, 
-      // but we satisfy the event listener requirement here.
       console.log('[ScriptDraftingWorkspace] Sync received:', customEvent.detail);
     };
     window.addEventListener('constellation-sidebar-sync', handleConstellationData);
@@ -276,6 +272,62 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         </motion.div>
       )}
 
+      {/* --- PRODUCTION SUMMARY (DELIVERABLES & AUDIT) --- */}
+      {!isLoading && ((deliverables && deliverables.length > 0) || (auditLog && auditLog.length > 0)) && (
+         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="w-full max-w-full px-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               
+               {/* Deliverables Column */}
+               <div className="p-10 rounded-[3rem] bg-indigo-500/[0.02] border border-indigo-500/10 backdrop-blur-3xl shadow-2xl relative overflow-hidden flex flex-col gap-8">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-[#4F46E5]" />
+                  <div className="flex items-center gap-6">
+                     <div className="w-14 h-14 rounded-2xl bg-[#4F46E5]/10 border border-[#4F46E5]/20 flex items-center justify-center">
+                        <PackageCheck size={24} className="text-[#4F46E5]" />
+                     </div>
+                     <div>
+                        <h3 className="text-lg font-black text-white uppercase tracking-tighter">Production Deliverables</h3>
+                        <p className="text-[9px] font-black text-indigo-400/60 uppercase tracking-[0.4em]">Developer Handoff Packet</p>
+                     </div>
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                     {deliverables.map((item, i) => (
+                       <div key={i} className="px-5 py-2 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-3 group hover:border-[#4F46E5]/40 transition-all">
+                          <Target size={12} className="text-slate-600 group-hover:text-[#4F46E5]" />
+                          <span className="text-[10px] font-bold text-slate-400 group-hover:text-white uppercase tracking-widest">{item}</span>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Audit Summary Column */}
+               <div className="p-10 rounded-[3rem] bg-[#A7DADB]/[0.02] border border-[#A7DADB]/10 backdrop-blur-3xl shadow-2xl relative overflow-hidden flex flex-col gap-8">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-[#A7DADB]" />
+                  <div className="flex items-center gap-6">
+                     <div className="w-14 h-14 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
+                        <ShieldCheck size={24} className="text-[#A7DADB]" />
+                     </div>
+                     <div>
+                        <h3 className="text-lg font-black text-white uppercase tracking-tighter">Integrity Checkpoints</h3>
+                        <p className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Sentinel Compliance Log</p>
+                     </div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                     {auditLog.slice(0, 3).map((item, i) => (
+                       <div key={i} className="flex gap-4 items-center">
+                          <div className="w-1 h-1 rounded-full bg-[#A7DADB]" />
+                          <span className="text-[10px] font-bold text-slate-400 truncate uppercase tracking-widest">{item}</span>
+                       </div>
+                     ))}
+                     {auditLog.length > 3 && (
+                       <span className="text-[9px] font-mono text-[#A7DADB]/40 mt-2 uppercase tracking-tighter">+ {auditLog.length - 3} additional integrity marks</span>
+                     )}
+                  </div>
+               </div>
+
+            </div>
+         </motion.div>
+      )}
+
       {/* --- SCENE BENTO GRID --- */}
       <div className="w-full max-w-full mx-auto px-2 space-y-32 pb-60">
         <AnimatePresence mode="wait">
@@ -304,7 +356,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                  </div>
 
                  <div className="flex flex-wrap gap-8 items-stretch">
-                    {/* ROW 1: 70/30 ASYMMETRIC SPLIT (Synchronized Height) */}
+                    {/* ROW 1: 70/30 ASYMMETRIC SPLIT */}
                     <div className="w-full flex flex-wrap gap-8 items-stretch">
                        <div className="flex-[2.5] min-w-[min(100%,600px)] p-14 rounded-[3.5rem] bg-white/[0.015] border border-white/[0.05] shadow-2xl relative overflow-hidden group/nar">
                           <div className="absolute top-8 left-10 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/nar:text-[#A7DADB]/60 transition-colors">
@@ -337,6 +389,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
 
                           {(() => {
                              const vis = scene.artifacts.find(a => a.type === '[VISUAL]');
+                             const directive = scene.artifacts.find(a => a.type === '[DIRECTIVE]');
                              const url = vis?.visualId ? visualUrls[vis.visualId] : null;
                              const prompt = vis?.visualId ? visualPrompts[vis.visualId] : null;
                              
@@ -372,33 +425,31 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                         expandedSceneId === scene.id ? "max-w-[90vw] max-h-[70vh] rounded-[3rem]" : "max-w-full max-h-full rounded-2xl group-hover/img:scale-[1.02]"
                                       )}
                                    />
-
-                                   {/* PROMPT OVERLAY (Visible on hover in expanded view) */}
-                                   {expandedSceneId === scene.id && prompt && (
-                                      <div className="absolute inset-x-0 bottom-0 p-12 bg-gradient-to-t from-[#020617] via-[#020617]/80 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity z-30">
-                                         <div className="max-w-4xl mx-auto space-y-4">
-                                            <span className="text-[10px] font-black text-[#A7DADB] uppercase tracking-[0.4em]">Neural Trace: Generation Directive</span>
-                                            <p className="text-sm font-mono text-slate-400 leading-relaxed bg-white/[0.02] p-6 rounded-2xl border border-white/5">{prompt}</p>
-                                         </div>
-                                      </div>
-                                   )}
                                  </div>
 
                                  <div className={cn(
                                    "p-10 bg-white/[0.02] border-t border-white/5 space-y-4",
                                    expandedSceneId === scene.id && "max-w-4xl mx-auto w-full border-none bg-transparent"
                                  )}>
-                                    <div className="space-y-1">
-                                       <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Institutional Art Direction</span>
-                                       <p className={cn(
-                                         "text-slate-500 leading-relaxed italic transition-all",
-                                         expandedSceneId === scene.id ? "text-lg text-slate-300" : "text-[10px] line-clamp-3"
-                                       )}>
-                                          {vis?.content}
-                                       </p>
-                                    </div>
-                                    <div className="text-[8px] font-mono text-[#A7DADB] uppercase tracking-tighter pt-2 border-t border-white/[0.02] drop-shadow-[0_0_5px_rgba(16,185,129,0.5)] opacity-80">
-                                       * Neural Trace: AI generated mockup for reference purposes only.
+                                    <div className="space-y-4">
+                                       <div className="space-y-1">
+                                          <span className="text-[8px] font-black text-[#A7DADB]/40 uppercase tracking-[0.3em]">Institutional Art Direction</span>
+                                          <p className={cn(
+                                            "text-slate-500 leading-relaxed italic transition-all",
+                                            expandedSceneId === scene.id ? "text-lg text-slate-300" : "text-[10px] line-clamp-3"
+                                          )}>
+                                             {vis?.content}
+                                          </p>
+                                       </div>
+                                       
+                                       {(directive || prompt) && (
+                                          <div className="p-4 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 space-y-2">
+                                             <div className="flex items-center gap-2 text-[#A7DADB]/60 uppercase tracking-[0.2em] text-[7px] font-black">
+                                                <Binary size={10} /> Neural Generation Directive
+                                             </div>
+                                             <p className="text-[9px] font-mono text-slate-400 leading-normal">{prompt || directive?.content}</p>
+                                          </div>
+                                       )}
                                     </div>
                                  </div>
                                </div>
@@ -440,7 +491,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              <ReactMarkdown 
                                remarkPlugins={[remarkGfm]}
                                components={{
-                                 hr: () => null // Never render white lines in notes
+                                 hr: () => null 
                                }}
                              >
                                {scene.artifacts.find(a => a.type === '[NOTES]')?.content || "Standard operational guidelines apply."}

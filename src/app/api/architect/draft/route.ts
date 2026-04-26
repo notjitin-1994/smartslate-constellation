@@ -30,9 +30,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Orchestrate the Constellation (Mapper -> Storyboarder -> Sentinel)
-    const result = await orchestrator.generateStoryboard(title, description, ledger, targetModality);
+    const result = await orchestrator.orchestrate(title, description, ledger, targetModality);
 
-    // 3. Post-Process Visuals (Keep existing dispatcher logic for backward compatibility)
+    // 3. Post-Process Visuals (Inject IDs for deterministic rendering)
     let hydratedScript = result.script;
     const promptRegex = /\[VISUAL_PROMPT\][*: ]*([\s\S]*?)(?=\n\n|\[|$)/gi;
     const matches = [...hydratedScript.matchAll(promptRegex)];
@@ -98,7 +98,8 @@ export async function POST(req: NextRequest) {
         citations: ledger.facts.map(f => f.source),
         groundingScore: result.metadata.groundingScore,
         auditLog: result.metadata.auditLog,
-        deliverables: result.metadata.deliverables
+        deliverables: result.metadata.deliverables,
+        schematic: result.metadata.schematic
       },
     });
   } catch (error: unknown) {
@@ -110,4 +111,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

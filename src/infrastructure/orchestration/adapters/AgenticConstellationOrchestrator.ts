@@ -1,54 +1,66 @@
 import { generateText, generateObject } from 'ai';
 import { google } from '@/lib/google';
 import { z } from 'zod';
-import { IConstellationOrchestrator, StoryboardResult } from '../../../domain/orchestration/interfaces/IOrchestrator';
+import { 
+  IConstellationOrchestrator, 
+  StoryboardResult, 
+  InstructionalSchematic 
+} from '../../../domain/orchestration/interfaces/IOrchestrator';
 import { KnowledgeLedger } from '../../../domain/knowledge/entities/Knowledge';
 
 export class AgenticConstellationOrchestrator implements IConstellationOrchestrator {
   
-  async generateStoryboard(
+  async orchestrate(
     nodeTitle: string, 
     nodeDescription: string, 
     ledger: KnowledgeLedger,
     targetModality?: string
   ): Promise<StoryboardResult> {
-    console.log(`[Orchestrator] Orchestrating Constellation for: ${nodeTitle}`);
+    console.log(`[Orchestrator] Starting Hierarchical Distillation for: ${nodeTitle}`);
 
-    // --- AGENT 1: CONSTELLATION MAPPER (The Architect) ---
-    const { text: mappedFlow } = await generateText({
-      model: google('gemini-3.1-pro-preview'),
-      system: `You are the Constellation Mapper. Your role is to define the structural logic and pedagogical flow.
-      ADHERE TO: Merrill's First Principles.
-      CONSTRAINTS: ${ledger.master_blueprint_md}
-      SOURCE FACTS: ${ledger.subject_matter_md}`,
-      prompt: `TASK: Map out a high-fidelity instructional flow for "${nodeTitle}". 
-      Description: ${nodeDescription}. Modality: ${targetModality || 'Blended'}.`
+    // --- PHASE 1: TACTICAL SCHEMATIC (The Architect) ---
+    // This agent creates the logical "skeletal" structure and binds facts to scenes.
+    const { object: schematic } = await generateObject({
+      model: google('gemini-1.5-pro-latest'),
+      schema: z.object({
+        blueprint_id: z.string(),
+        node_id: z.string(),
+        pedagogical_model: z.enum(['Merrill', 'Gagne', 'Bloom']),
+        global_context: z.string(),
+        scenes: z.array(z.object({
+          id: z.string(),
+          pedagogical_goal: z.string(),
+          fact_ids: z.array(z.string()),
+          interaction_pattern: z.string(),
+          visual_direction: z.string()
+        })),
+        kpi_alignment: z.array(z.string())
+      }),
+      system: `You are the Constellation Architect. Your role is to build a TACTICAL SCHEMATIC.
+      MANDATE:
+      1. Map the source facts to a logical learning trajectory.
+      2. Adhere strictly to the Blueprint constraints: ${ledger.master_blueprint_md}
+      3. Use Gagne's 9 Events or Merrill's Principles based on the node complexity.
+      4. BIND every scene to specific [Fact_ID]s from the ledger: ${ledger.subject_matter_md}`,
+      prompt: `TASK: Create a schematic for "${nodeTitle}" (${nodeDescription}). Target Modality: ${targetModality || 'Blended'}.`
     });
 
-    // --- AGENT 2: VISUAL STORYBOARDER (Brand Agnostic Artist) ---
+    // --- PHASE 2: CREATIVE RENDERING (The Artist) ---
+    // This agent "hydrates" the schematic into the final ULS-GLA markdown.
     const { text: finalStoryboard } = await generateText({
-      model: google('gemini-3.1-pro-preview'),
-      system: `You are an elite Visual Storyboarder and Technical Art Director. 
-      Your mission is to generate zero-ambiguity visual instructions for content developers.
-
-      BRAND AGNOSTIC PROTOCOL:
-      1. Do NOT use SmartSlate brand terms (Obsidian, Deep Space, Zen, Neural Network).
-      2. Dynamically ADAPT to the Institutional Art Direction found in the Facts/Blueprint.
-      3. If no specific brand direction is provided, use a "Universal Cinematic Professional" style (high contrast, depth of field, clear focal points).
-
-      TECHNICAL STANDARDS:
-      - [VISUAL]: Precise composition (Shot type, POV, Lighting, Color Palette). Describe exactly what is on-screen.
-      - [VISUAL_PROMPT]: High-fidelity 4k prompt for image generation. Focus on photorealism, content accuracy, and cinematic quality.
-      - [NARRATION]: Script-ready dialogue.
-      - [ACTIVITY]: Interaction logic (e.g., "Clickable hotspot on the reactor core," "Drag-and-drop sequence for component A").
-      - [BRANCHING]: Logical decision paths.
-      - [SPEAKER_NOTES]: LIST ALL ASSETS REQUIRED (e.g., 3D models, specific UI sound effects, SVG icons, background WAV).`,
-      prompt: `TASK: Based on this flow: ${mappedFlow}, generate the final storyboard for "${nodeTitle}".
-      CROSS-REFERENCE: Every factual claim MUST include its source [Fact_ID].
-      AMBIGUITY TARGET: 0%. The developer should not have to guess.`
+      model: google('gemini-1.5-pro-latest'),
+      system: `You are the Visual Storyboarder & Scriptwriter. Your mission is to hydrate a TACTICAL SCHEMATIC.
+      
+      OUTPUT RULES:
+      - Use ONLY the facts and logic defined in the Schematic: ${JSON.stringify(schematic)}
+      - Output in ULS-GLA Markdown: [VISUAL], [VISUAL_PROMPT], [NARRATION], [ACTIVITY], [BRANCHING], [SPEAKER_NOTES].
+      - BRAND AGNOSTIC: Adapt art direction to the "visual_direction" in the schematic.
+      - 100% AMBIGUITY FREE: The content developer should not have to guess.`,
+      prompt: `TASK: Render the full storyboard for "${nodeTitle}" based on the provided Schematic.`
     });
 
-    // --- AGENT 3: INTEGRITY SENTINEL (The Auditor) ---
+    // --- PHASE 3: INTEGRITY SENTINEL (The Auditor) ---
+    // This agent verifies the final output against the strategic apex.
     const { object: audit } = await generateObject({
       model: google('gemini-3-flash-preview'),
       schema: z.object({
@@ -56,8 +68,12 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
         auditLog: z.array(z.string()),
         deliverables: z.array(z.string())
       }),
-      system: `You are the Integrity Sentinel. Verify 100% groundedness in the facts and alignment with blueprint KPIs.`,
-      prompt: `STORYBOARD:\n${finalStoryboard}\n\nBLUEPRINT:\n${ledger.master_blueprint_md}`
+      system: `You are the Integrity Sentinel. Your mission is to verify that the final Storyboard is 100% grounded.
+      CHECKLIST:
+      1. Are all [Fact_ID]s correctly cited?
+      2. Does the [ACTIVITY] match the "interaction_pattern" in the schematic?
+      3. Are the [VISUAL] specs brand-agnostic?`,
+      prompt: `STORYBOARD:\n${finalStoryboard}\n\nSCHEMATIC:\n${JSON.stringify(schematic)}\n\nBLUEPRINT:\n${ledger.master_blueprint_md}`
     });
 
     return {
@@ -65,17 +81,21 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
       metadata: {
         groundingScore: audit.groundingScore,
         auditLog: audit.auditLog,
-        deliverables: audit.deliverables
+        deliverables: audit.deliverables,
+        schematic: (schematic as unknown as InstructionalSchematic)
       }
     };
   }
 
-  async refineScene(currentScript: string, feedback: string): Promise<StoryboardResult> {
-    // Implementation for iterative refinement agent
+  async refine(currentScript: string, feedback: string, ledger: KnowledgeLedger): Promise<StoryboardResult> {
+    console.log(`[Orchestrator] Performing Surgical Refinement...`);
+    
     const { text: refinedScript } = await generateText({
-      model: google('gemini-3.1-pro-preview'),
-      system: `You are the Iterative Refiner. Perform surgical updates based on feedback.
-      DO NOT rewrite the whole thing. Only change the relevant sections.`,
+      model: google('gemini-1.5-pro-latest'),
+      system: `You are the Iterative Refinement Agent. 
+      TASK: Perform a SURGICAL update to the script based on user feedback.
+      RULE: Do not change unaffected sections. Maintain [Fact_ID] anchors.
+      LEDGER: ${ledger.master_blueprint_md}`,
       prompt: `CURRENT_SCRIPT:\n${currentScript}\n\nFEEDBACK:\n${feedback}`
     });
 
@@ -83,7 +103,7 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
       script: refinedScript,
       metadata: {
         groundingScore: 10,
-        auditLog: ['Refinement completed.'],
+        auditLog: ['Manual refinement applied.'],
         deliverables: []
       }
     };

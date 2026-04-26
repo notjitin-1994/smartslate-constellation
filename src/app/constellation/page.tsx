@@ -1,79 +1,132 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect, Suspense, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   CircularProgress, 
   Box,
   IconButton,
-  Typography,
-  Tooltip
+  Tooltip,
+  Fade,
+  Modal
 } from '@mui/material';
 import { 
   Database,
-  Cloud,
   Code2,
   X,
-  Lightbulb,
+  Sparkles,
   ShieldCheck,
   Workflow,
-  AlertOctagon,
-  Fingerprint
+  Fingerprint,
+  Search,
+  GitBranch,
+  Layout,
+  History,
+  Settings2,
+  ScrollText,
+  ShieldAlert,
+  RefreshCw
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
 import { useSidebar } from '@/lib/SidebarContext';
 import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
 import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
-import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 
-// --- Types ---
+// --- TYPES & CONSTANTS ---
+
+interface Constraint {
+  category: string;
+  requirement: string;
+  impact_level: string;
+  source_id: string;
+}
+
+interface KnowledgeLedger {
+  master_blueprint_md: string;
+  subject_matter_md: string;
+  strategic_alignment_md: string;
+  constraints: Constraint[];
+}
+
 interface Blueprint {
   id: string;
-  blueprint_json: any;
+  blueprint_json: Record<string, unknown>;
   user_id: string;
 }
 
 const COLORS = {
   background: '#020617',
-  surface: '#0d1b2a',
-  primary: '#A7DADB', // Brand Teal
-  action: '#4F46E5',  // Brand Indigo (CTA)
-  textMuted: '#64748B',
+  accent: '#A7DADB',
+  action: '#4F46E5',
+  glass: 'rgba(255, 255, 255, 0.02)',
+  border: 'rgba(167, 218, 219, 0.1)',
 };
+
+// --- SUB-COMPONENTS ---
+
+interface AgentStatusItemProps {
+  name: string;
+  icon: React.ElementType;
+  progress: number;
+  status: 'ready' | 'active' | 'pending' | 'standby';
+  task: string;
+}
+
+const AgentStatusItem = ({ name, icon: Icon, progress, status, task }: AgentStatusItemProps) => (
+  <div className="flex-1 px-6 py-3 rounded-2xl border border-[#A7DADB]/10 bg-white/[0.01] backdrop-blur-md relative overflow-hidden group">
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-3">
+        <Icon size={14} className={status === 'active' ? 'text-[#A7DADB] animate-pulse' : 'text-slate-600'} />
+        <span className="text-[11px] font-black uppercase tracking-widest text-white/80">{name}</span>
+      </div>
+      {status === 'active' && <div className="w-1 h-1 rounded-full bg-[#A7DADB] shadow-[0_0_8px_#A7DADB]" />}
+    </div>
+    <div className="h-[2px] w-full bg-white/5 rounded-full overflow-hidden mb-2">
+      <motion.div 
+        initial={{ width: 0 }} 
+        animate={{ width: `${progress}%` }} 
+        className={`h-full ${status === 'active' ? 'bg-[#A7DADB]' : 'bg-slate-800'}`} 
+      />
+    </div>
+    <p className="text-[8px] font-mono uppercase text-slate-500 tracking-tighter truncate">{task}</p>
+  </div>
+);
+
+// --- MAIN PAGE CONTENT ---
 
 function ArchitectureCanvasContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const blueprintId = searchParams.get('blueprintId');
+  
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [ledger, setLedger] = useState<KnowledgeLedger | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrafting, setIsDrafting] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
-  const [showUlsPreview, setShowUlsPreview] = useState(false);
+  const [isVerificationOpen, setIsVerificationOpen] = useState(false);
+  
   const { setIsConstellationMode } = useSidebar();
+  const { state, updateState } = useConstellationPersistence(blueprintId);
 
-  // Initialize sidebar to Neural Trace on first-time mount in this session
+  // Initialize UI
   useEffect(() => {
-    const hasVisited = sessionStorage.getItem('constellation-mode-init');
-    if (!hasVisited) {
-      setIsConstellationMode(true);
-      sessionStorage.setItem('constellation-mode-init', 'true');
-    }
+    setIsConstellationMode(true);
   }, [setIsConstellationMode]);
 
-  // --- PERSISTENCE HOOK ---
-  const { state, updateState, isSyncing } = useConstellationPersistence(blueprintId);
-
-  // --- DATA NORMALIZATION ---
   const modules = useMemo(() => {
-    const rawModules = blueprint?.blueprint_json?.content_outline?.modules || [];
-    return rawModules.map((m: any) => ({
+    const outline = blueprint?.blueprint_json?.content_outline as Record<string, unknown> | undefined;
+    const raw = (outline?.modules as Record<string, unknown>[]) || [];
+    return raw.map((m) => ({
       ...m,
-      id: m.module_id || m.id || 'NO_ID',
-      targetModality: m.delivery_method || m.targetModality || 'TEXT',
-      pedagogicalMode: m.pedagogicalMode || 'Direct Instruction'
+      id: (m.module_id as string) || (m.id as string) || 'NO_ID',
+      title: (m.title as string) || 'Untitled Node',
+      description: (m.description as string) || '',
+      targetModality: (m.delivery_method as string) || (m.targetModality as string) || 'TEXT'
     }));
   }, [blueprint]);
 
@@ -81,47 +134,64 @@ function ArchitectureCanvasContent() {
   const currentModule = modules[activeIdx] || null;
   const activeScript = state.scriptOutputs[state.activeNodeIdx];
 
-  useEffect(() => {
-    async function loadBlueprint() {
-      if (!blueprintId) return;
-      try {
-        setLoading(true);
-        const { data, error: bpError } = await supabase.from('blueprint_generator').select('*').eq('id', blueprintId).single();
-        if (bpError) throw bpError;
-        setBlueprint(data as Blueprint);
+  // Data Fetching
+  const loadWorkspace = useCallback(async () => {
+    if (!blueprintId) return;
+    try {
+      setLoading(true);
+      
+      const { data: bp, error: bpError } = await supabase
+        .from('blueprint_generator')
+        .select('*')
+        .eq('id', blueprintId)
+        .single();
+      
+      if (bpError) throw bpError;
+      setBlueprint(bp as Blueprint);
 
-        fetch('/api/ingest/harvest-blueprint', {
+      const { data: kl } = await supabase
+        .from('knowledge_ledgers')
+        .select('*')
+        .eq('blueprint_id', blueprintId)
+        .single();
+      
+      if (kl) {
+        setLedger({
+          master_blueprint_md: kl.master_blueprint_md,
+          subject_matter_md: kl.subject_matter_md,
+          strategic_alignment_md: kl.strategic_alignment_md,
+          constraints: kl.constraints as Constraint[]
+        });
+      }
+
+      if (!kl) {
+        await fetch('/api/ingest/harvest-blueprint', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ blueprintId, blueprintJson: (data as any).blueprint_json })
-        }).catch(err => console.error('Auto-Harvest Failed:', err));
-
-      } catch (err: unknown) {
-        console.error('Failed to load blueprint:', err);
-      } finally {
-        setLoading(false);
+          body: JSON.stringify({ blueprintId, blueprintJson: bp.blueprint_json })
+        });
       }
+
+    } catch (err) {
+      console.error('[Orchestrator] Initialization Error:', err);
+    } finally {
+      setLoading(false);
     }
-    loadBlueprint();
   }, [blueprintId]);
 
   useEffect(() => {
+    loadWorkspace();
+  }, [loadWorkspace]);
+
+  // Sidebar Sync
+  useEffect(() => {
     if (!modules.length) return;
     window.dispatchEvent(new CustomEvent('constellation-sidebar-sync', {
-      detail: { modules: modules, activeIdx: activeIdx }
+      detail: { modules, activeIdx }
     }));
   }, [modules, activeIdx]);
 
-  useEffect(() => {
-    const handleNodeSelect = (e: any) => {
-      const idx = typeof e.detail.idx === 'number' ? e.detail.idx : 0;
-      updateState({ activeNodeIdx: idx });
-    };
-    window.addEventListener('constellation-node-select', handleNodeSelect);
-    return () => window.removeEventListener('constellation-node-select', handleNodeSelect);
-  }, [updateState]);
-
-  const handleDraftScript = async () => {
+  const handleMapConstellation = async () => {
     if (!currentModule || !blueprintId) return;
     setIsDrafting(true);
     try {
@@ -132,10 +202,8 @@ function ArchitectureCanvasContent() {
           id: currentModule.id,
           title: currentModule.title,
           description: currentModule.description,
-          pedagogicalMode: currentModule.pedagogicalMode,
           targetModality: currentModule.targetModality,
-          blueprintId,
-          blueprintContext: blueprint?.blueprint_json 
+          blueprintId
         }),
       });
       const result = await response.json();
@@ -143,185 +211,233 @@ function ArchitectureCanvasContent() {
         updateState({ 
           scriptOutputs: { ...state.scriptOutputs, [state.activeNodeIdx]: result.data } 
         });
-      } else {
-        throw new Error(result.error);
       }
-    } catch (err: unknown) {
-      alert(`Map Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
-    } finally { setIsDrafting(false); }
+    } catch (err) {
+      console.error('[Orchestrator] Map Failed:', err);
+    } finally {
+      setIsDrafting(false);
+    }
   };
-
-  const TooltipContent = ({ title, body }: { title: string, body: string }) => (
-    <Box sx={{ p: 1.5, maxWidth: 280 }}>
-      <Typography variant="caption" sx={{ fontWeight: 900, color: '#A7DADB', textTransform: 'uppercase', display: 'block', mb: 1, letterSpacing: '0.1em' }}>
-        {title}
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', lineHeight: 1.6, fontWeight: 500 }}>
-        {body}
-      </Typography>
-    </Box>
-  );
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617]">
-      <CircularProgress sx={{ color: COLORS.primary }} size={40} thickness={2} />
+      <div className="relative">
+        <CircularProgress sx={{ color: COLORS.accent }} size={60} thickness={1.5} />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Workflow size={24} className="text-[#A7DADB] animate-pulse" />
+        </div>
+      </div>
+      <p className="mt-8 text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Initializing Prism Architect</p>
     </div>
   );
 
   return (
-    <Box sx={{ flex: 1, minHeight: '100vh', bgcolor: '#020617', color: '#F8FAFC', overflow: 'hidden', position: 'relative', selection: 'rgba(167, 218, 219, 0.2)' }}>
+    <div className="flex flex-col min-h-screen bg-[#020617] text-[#F8FAFC] overflow-hidden relative font-sans">
       
-      {/* Background Ambience */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#A7DADB]/5 blur-[150px] rounded-full" />
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[#A7DADB]/5 blur-[180px] rounded-full" />
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[150px] rounded-full" />
       </div>
 
-      {/* --- MAIN WORKSPACE --- */}
-      <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 10, position: 'relative', overflow: 'hidden' }}>
-        {/* Global HUD Header */}
-        <header className="h-24 flex items-center justify-between px-12 z-20 shrink-0 border-b border-white/[0.03] bg-[#020617]/50 backdrop-blur-md">
-          
-          {/* --- INTEGRATED INTEGRITY SUITE (Moved to Primary Slot) --- */}
-          <div className="flex items-center gap-12 px-10 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.05] shadow-2xl relative overflow-hidden group/hud">
-            <div className="absolute inset-0 bg-[#A7DADB]/[0.02] group-hover/hud:bg-[#A7DADB]/[0.05] transition-colors" />
-            
-            <div className="flex items-center gap-10 relative z-10">
-                <Tooltip enterTouchDelay={0} title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. Verified means every factual claim is anchored to source documents." />}>
-                  <div className="flex items-center gap-3 cursor-help">
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${activeScript?.hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${activeScript?.hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'}`}>
-                      {activeScript?.hallucinationFlag ? <AlertOctagon size={16} className="animate-pulse" /> : <Fingerprint size={16} />}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Integrity</span>
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${activeScript?.hallucinationFlag ? 'text-rose-500' : 'text-[#A7DADB]'}`}>
-                        {activeScript?.hallucinationFlag ? 'Flagged' : 'Verified'}
-                      </span>
-                    </div>
-                  </div>
-                </Tooltip>
-                <div className="h-6 w-[1px] bg-white/10" />
-                <Tooltip enterTouchDelay={0} title={<TooltipContent title="Grounding Density" body="Measures document coverage. High scores indicate successful utilization of Knowledge Vault requirements." />}>
-                  <div className="flex flex-col gap-1 cursor-help group/item">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Grounding</span>
-                      <span className="text-[9px] font-mono font-black text-white">{activeScript?.groundingScore || 0}/10</span>
-                    </div>
-                    <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${(activeScript?.groundingScore || 0) * 10}%` }} className="h-full bg-[#A7DADB]" />
-                    </div>
-                  </div>
-                </Tooltip>
-                <Tooltip enterTouchDelay={0} title={<TooltipContent title="Cognitive Velocity" body="Measures instructional complexity. Lower scores indicate more digestible, learner-friendly content." />}>
-                  <div className="flex flex-col gap-1 cursor-help">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Cognitive</span>
-                      <span className="text-[9px] font-mono font-black text-white">{activeScript?.cognitiveLoadScore || 0}/10</span>
-                    </div>
-                    <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${(activeScript?.cognitiveLoadScore || 0) * 10}%` }} className="h-full bg-indigo-500" />
-                    </div>
-                  </div>
-                </Tooltip>
-                <div className="h-6 w-[1px] bg-white/10" />
-                <button onClick={() => window.dispatchEvent(new CustomEvent('constellation-open-verification'))} className="px-4 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[8px] font-black text-[#A7DADB] uppercase tracking-[0.2em] hover:bg-[#A7DADB]/10 hover:text-white transition-all shadow-xl">Verification</button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-             {isSyncing && (
-               <div className="px-4 py-2 rounded-xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 flex items-center gap-2 text-[#A7DADB]">
-                 <Cloud size={14} className="animate-pulse" />
-                 <span className="text-[9px] font-black uppercase tracking-tighter">Synchronizing</span>
-               </div>
-             )}
-             <Tooltip title="View Handover Schema">
-                <IconButton onClick={() => setShowUlsPreview(true)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', border: '1px solid rgba(167, 218, 219, 0.1)', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.15)', color: '#A7DADB' } }}><Code2 size={16} /></IconButton>
-             </Tooltip>
-             <button 
-               onClick={() => router.push(`/constellation/vault?blueprintId=${blueprintId}`)} 
-               title="Knowledge Vault"
-               className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-500 hover:text-[#A7DADB] transition-all"
-             >
-               <Database size={20} />
-             </button>
-             <button onClick={handleDraftScript} disabled={isDrafting} className="px-8 py-3 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-indigo-500/20 hover:bg-[#4F46E5]/90 transition-all disabled:opacity-50 flex items-center gap-3">{isDrafting ? <CircularProgress size={14} color="inherit" /> : <Workflow size={14} />}{isDrafting ? 'Mapping...' : 'Map Constellation'}</button>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto px-6 md:px-12 lg:px-20 pb-20 pt-10 custom-scrollbar relative z-10 w-full max-w-full">
-            <AnimatePresence mode="wait">
-              {activeScript || isDrafting ? (
-                <div className="space-y-12 w-full max-w-full">
-                   <ScriptDraftingWorkspace content={activeScript?.script || ""} semanticDelta={activeScript?.semanticDelta} citations={activeScript?.citations || []} isLoading={isDrafting} nodeId={currentModule?.id || ""} />
-                </div>
-              ) : (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center text-center py-40">
-                   <div className="w-20 h-20 rounded-[2rem] bg-[#A7DADB]/5 flex items-center justify-center mb-10 border border-[#A7DADB]/10 relative group">
-                     <Lightbulb size={32} className="text-[#A7DADB] relative z-10 group-hover:scale-110 transition-transform" />
-                   </div>
-                   <div className="p-10 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] backdrop-blur-xl mb-8">
-                     <h3 className="text-4xl font-black text-white mb-6 tracking-tighter uppercase font-heading">Architecture Canvas</h3>
-                     <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">Select a node from the neural trace to begin orchestration.</p>
-                   </div>
-                   <div className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 text-left max-w-lg backdrop-blur-3xl shadow-2xl">
-                      <div className="p-4 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB]"><ShieldCheck size={28} /></div>
-                      <div>
-                        <h4 className="text-[11px] font-black text-white uppercase tracking-[0.2em] mb-1">Claim-Only Verification</h4>
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">Instructional payloads are verified against the truth ledger using deterministic semantic anchors.</p>
-                      </div>
-                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+      <header className="h-24 shrink-0 border-b border-white/[0.03] bg-[#020617]/40 backdrop-blur-xl px-12 flex items-center justify-between gap-12 z-50">
+        <div className="flex flex-1 items-center gap-4">
+           <AgentStatusItem 
+             name="Analyst" icon={Search} progress={ledger ? 100 : 80} 
+             status={ledger ? 'ready' : 'active'} task={ledger ? 'Strategic Apex Ready' : 'Distilling Blueprint...'} 
+           />
+           <AgentStatusItem 
+             name="Mapper" icon={GitBranch} progress={isDrafting ? 45 : (activeScript ? 100 : 0)} 
+             status={isDrafting ? 'active' : (activeScript ? 'ready' : 'pending')} task={isDrafting ? 'Structuring logic...' : 'Awaiting trigger'} 
+           />
+           <AgentStatusItem 
+             name="Storyboarder" icon={Layout} progress={isDrafting ? 20 : (activeScript ? 100 : 0)} 
+             status={isDrafting ? 'active' : (activeScript ? 'ready' : 'pending')} task={isDrafting ? 'Designing visuals...' : 'Brand agnostic mode'} 
+           />
+           <AgentStatusItem 
+             name="Sentinel" icon={ShieldCheck} progress={isDrafting ? 10 : (activeScript ? 100 : 0)} 
+             status={isDrafting ? 'active' : (activeScript ? 'ready' : 'pending')} task="Audit: On standby" 
+           />
         </div>
-      </Box>
 
-      <KnowledgeVaultModal isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} blueprintId={blueprintId || ""} blueprintContext={blueprint?.blueprint_json || {}} />
+        <div className="flex items-center gap-6">
+           <Tooltip title="Knowledge Verification">
+             <button 
+               onClick={() => setIsVerificationOpen(true)}
+               className={`flex items-center gap-3 px-6 py-3 rounded-2xl border transition-all ${activeScript ? 'border-[#A7DADB]/30 bg-[#A7DADB]/5 text-[#A7DADB]' : 'border-white/5 bg-white/[0.02] text-slate-600'}`}
+             >
+                <Fingerprint size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{activeScript ? 'Verified' : 'Verify'}</span>
+             </button>
+           </Tooltip>
+           
+           <div className="h-8 w-[1px] bg-white/5" />
+           
+           <button 
+             onClick={() => setIsVaultOpen(true)}
+             className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 text-slate-400 hover:text-[#A7DADB] hover:border-[#A7DADB]/20 transition-all"
+           >
+              <Database size={20} />
+           </button>
 
-      {/* ULS OVERLAY */}
-      <AnimatePresence>
-        {showUlsPreview && (
-          <Box component={motion.div} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} sx={{ position: 'fixed', inset: 0, zIndex: 1000, bgcolor: 'rgba(2, 6, 23, 0.98)', backdropFilter: 'blur(40px)', p: { xs: 4, md: 8 }, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <Box sx={{ maxWidth: '1000px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', p: 10, overflow: 'hidden', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 8 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div className="w-16 h-16 rounded-3xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
-                    <Code2 size={32} className="text-[#A7DADB]" />
-                  </div>
-                  <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'white', tracking: '-0.02em', fontFamily: 'var(--font-quicksand)' }}>Universal Learning Schema</Typography>
-                    <Typography variant="caption" sx={{ color: '#A7DADB', fontWeight: 800, letterSpacing: '0.4em', textTransform: 'uppercase', opacity: 0.5 }}>V.1.0-GLA HANDOVER PACKET</Typography>
-                  </Box>
-                </Box>
-                <IconButton onClick={() => setShowUlsPreview(false)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', p: 3, borderRadius: '24px', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.1)' } }}><X size={32} /></IconButton>
-              </Box>
-              <Box sx={{ flex: 1, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: '48px', border: '1px solid rgba(167, 218, 219, 0.05)', p: 8, overflow: 'auto' }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.03] space-y-6">
-                      <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Core Metadata</span>
-                      <pre className="text-[#A7DADB] text-[13px] font-mono leading-relaxed">{JSON.stringify({ uls_version: "1.0-GLA", meta: { polaris_id: blueprintId, status: "READY" } }, null, 2)}</pre>
+           <button 
+             onClick={handleMapConstellation}
+             disabled={isDrafting || !currentModule}
+             className="px-10 py-3.5 bg-[#4F46E5] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-indigo-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-20 flex items-center gap-3"
+           >
+             {isDrafting ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+             {isDrafting ? 'Synthesizing...' : 'Map Constellation'}
+           </button>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto relative z-10 p-12 custom-scrollbar">
+         <AnimatePresence mode="wait">
+            {activeScript || isDrafting ? (
+              <motion.div key="workspace" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-screen-2xl mx-auto">
+                 <ScriptDraftingWorkspace 
+                   content={activeScript?.script || ""} 
+                   semanticDelta={activeScript?.semanticDelta} 
+                   citations={activeScript?.citations || []} 
+                   deliverables={activeScript?.deliverables || []}
+                   auditLog={activeScript?.auditLog || []}
+                   isLoading={isDrafting} 
+                   nodeId={currentModule?.id || ""} 
+                 />
+              </motion.div>
+            ) : (
+              <motion.div key="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col items-center justify-center text-center">
+                 <div className="w-32 h-32 rounded-[3rem] bg-[#A7DADB]/5 border border-[#A7DADB]/10 flex items-center justify-center mb-12 relative">
+                    <div className="absolute inset-0 bg-[#A7DADB]/10 blur-2xl animate-pulse" />
+                    <Workflow size={48} className="text-[#A7DADB] relative z-10" />
+                 </div>
+                 <h2 className="text-5xl font-black text-white uppercase tracking-tighter mb-6">Prism Architect</h2>
+                 <p className="text-slate-500 max-w-md text-sm font-medium uppercase tracking-[0.2em] leading-relaxed">
+                   Select a strategic node from the sidebar to initialize multi-agent orchestration.
+                 </p>
+                 <div className="mt-16 flex items-center gap-8 opacity-40 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default">
+                    <div className="flex items-center gap-3">
+                       <ShieldCheck size={14} className="text-[#A7DADB]" />
+                       <span className="text-[9px] font-black uppercase tracking-widest">Grounding: 100% Target</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       <Code2 size={14} className="text-[#A7DADB]" />
+                       <span className="text-[9px] font-black uppercase tracking-widest">Schema: ULS-GLA</span>
+                    </div>
+                 </div>
+              </motion.div>
+            )}
+         </AnimatePresence>
+      </main>
+
+      <KnowledgeVaultModal 
+        isOpen={isVaultOpen} 
+        onClose={() => setIsVaultOpen(false)} 
+        blueprintId={blueprintId || ""} 
+        blueprintContext={blueprint?.blueprint_json || {}} 
+      />
+
+      <Modal 
+        open={isVerificationOpen} 
+        onClose={() => setIsVerificationOpen(false)}
+        closeAfterTransition
+        slotProps={{
+          backdrop: {
+            timeout: 500,
+            sx: { backdropFilter: 'blur(32px)', bgcolor: 'rgba(2, 6, 23, 0.95)' }
+          }
+        }}
+      >
+        <Fade in={isVerificationOpen}>
+          <Box sx={{ 
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', 
+            width: '95%', maxWidth: '1000px', maxHeight: '85vh', bgcolor: '#020617', 
+            border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '48px', 
+            p: 10, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column'
+          }}>
+             <div className="flex justify-between items-center mb-12">
+                <div className="flex items-center gap-6">
+                   <div className="w-14 h-14 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
+                      <ShieldCheck size={28} className="text-[#A7DADB]" />
                    </div>
-                   <div className="p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.03] space-y-6">
-                      <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Active Node</span>
-                      <pre className="text-[#A7DADB] text-[13px] font-mono leading-relaxed">{JSON.stringify(currentModule ? { node_id: currentModule.id, modality: currentModule.targetModality, grounding: activeScript?.groundingScore } : null, null, 2)}</pre>
-                   </div>
-                   <div className="md:col-span-2 p-10 rounded-[3rem] bg-white/[0.01] border border-white/[0.03] space-y-8">
-                      <span className="text-[10px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Full Sequence Trace</span>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {modules.map((m: any) => (<div key={m.id} className="p-4 rounded-2xl bg-black/40 border border-white/5 text-[11px] font-mono text-slate-400">{m.id}: {m.title}</div>))}
-                      </div>
+                   <div>
+                      <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Integrity Sentinel</h3>
+                      <p className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Knowledge Alignment Pass</p>
                    </div>
                 </div>
-              </Box>
-            </Box>
+                <IconButton onClick={() => setIsVerificationOpen(false)} sx={{ color: '#A7DADB' }}><X /></IconButton>
+             </div>
+
+             <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-20">
+                
+                <section className="space-y-6">
+                   <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                      <History size={14} /> Semantic Strategic Alignment
+                   </div>
+                   <div className="p-10 rounded-[2.5rem] bg-white/[0.02] border border-white/5 prose prose-invert prose-sm max-w-none shadow-inner">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                        {ledger?.strategic_alignment_md || "Waiting for constellation mapping to complete integrity pass..."}
+                      </ReactMarkdown>
+                   </div>
+                </section>
+
+                {activeScript?.auditLog && activeScript.auditLog.length > 0 && (
+                   <section className="space-y-6">
+                      <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                         <ShieldAlert size={14} /> Sentinel Compliance Audit
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                         {activeScript.auditLog.map((log: string, i: number) => (
+                           <div key={i} className="flex gap-4 items-start p-6 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-[#A7DADB]/20 transition-all">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#A7DADB] mt-1.5" />
+                              <span className="text-[12px] font-bold text-slate-400">{log}</span>
+                           </div>
+                         ))}
+                      </div>
+                   </section>
+                )}
+
+                <section className="space-y-6">
+                   <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                      <ScrollText size={14} /> Source Knowledge Ledger (Atomic Facts)
+                   </div>
+                   <div className="p-10 rounded-[2.5rem] bg-black/40 border border-white/[0.03] prose prose-invert prose-sm max-w-none text-slate-400">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {ledger?.subject_matter_md || "No subject matter facts ingested for this blueprint."}
+                      </ReactMarkdown>
+                   </div>
+                </section>
+
+                {ledger?.constraints && (
+                  <section className="space-y-6">
+                     <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                        <Settings2 size={14} /> Strategic Constraints Harvested
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        {ledger.constraints.map((c: Constraint, i: number) => (
+                          <div key={i} className="p-5 rounded-2xl bg-white/[0.01] border border-white/5 flex flex-col gap-2">
+                             <div className="flex items-center justify-between">
+                                <span className="text-[8px] font-black text-[#A7DADB] uppercase tracking-widest">{c.category}</span>
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${c.impact_level === 'HIGH' ? 'bg-rose-500/20 text-rose-500' : 'bg-slate-800 text-slate-500'}`}>{c.impact_level}</span>
+                             </div>
+                             <p className="text-xs text-slate-300 font-medium leading-relaxed">{c.requirement}</p>
+                          </div>
+                        ))}
+                     </div>
+                  </section>
+                )}
+             </div>
           </Box>
-        )}
-      </AnimatePresence>
-    </Box>
+        </Fade>
+      </Modal>
+
+    </div>
   );
 }
 
 export default function ArchitectureCanvas() {
-  return <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-[#020617]"><CircularProgress sx={{ color: '#A7DADB' }} /></div>}><ArchitectureCanvasContent /></Suspense>;
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-[#020617]"><CircularProgress sx={{ color: COLORS.accent }} /></div>}>
+      <ArchitectureCanvasContent />
+    </Suspense>
+  );
 }
