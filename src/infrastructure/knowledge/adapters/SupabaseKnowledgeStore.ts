@@ -41,19 +41,26 @@ export class SupabaseKnowledgeStore implements IKnowledgeStore {
     if (ledgerError) throw ledgerError;
 
     if (ledger.facts.length > 0) {
+      const BATCH_SIZE = 50;
       const valuesToEmbed = ledger.facts.map(f => `[FACT: ${f.id}] [SOURCE: ${f.source}] \n\n DATA: ${f.content}`);
       
-      const { embeddings } = await embedMany({
-        model: google.textEmbeddingModel('gemini-embedding-2'),
-        values: valuesToEmbed,
-        providerOptions: { google: { outputDimensionality: 3072 } }
-      });
+      let allEmbeddings: number[][] = [];
+      
+      for (let i = 0; i < valuesToEmbed.length; i += BATCH_SIZE) {
+        const batch = valuesToEmbed.slice(i, i + BATCH_SIZE);
+        const { embeddings } = await embedMany({
+          model: google.textEmbeddingModel('gemini-embedding-2'),
+          values: batch,
+          providerOptions: { google: { outputDimensionality: 3072 } }
+        });
+        allEmbeddings = allEmbeddings.concat(embeddings);
+      }
 
       const vaultRows = ledger.facts.map((f, i) => ({
         blueprint_id: ledger.blueprint_id,
         content_type: 'text',
         raw_content: f.content,
-        embedding: embeddings[i],
+        embedding: allEmbeddings[i],
         metadata: {
           fact_id: f.id,
           source_name: f.source,
@@ -63,11 +70,15 @@ export class SupabaseKnowledgeStore implements IKnowledgeStore {
         }
       }));
 
-      const { error: vaultError } = await this.adminClient
-        .from('knowledge_vault')
-        .insert(vaultRows);
+      // Insert in batches to avoid Supabase payload limits
+      for (let i = 0; i < vaultRows.length; i += BATCH_SIZE) {
+        const batchRows = vaultRows.slice(i, i + BATCH_SIZE);
+        const { error: vaultError } = await this.adminClient
+          .from('knowledge_vault')
+          .insert(batchRows);
 
-      if (vaultError) throw vaultError;
+        if (vaultError) throw vaultError;
+      }
     }
   }
 
@@ -78,7 +89,12 @@ export class SupabaseKnowledgeStore implements IKnowledgeStore {
       .eq('blueprint_id', blueprintId)
       .single();
 
-    if (error || !data) return null;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      throw error; // Throw real errors (network, permissions, etc.)
+    }
+    
+    if (!data) return null;
 
     return {
       blueprint_id: data.blueprint_id,

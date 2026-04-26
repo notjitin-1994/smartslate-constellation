@@ -26,29 +26,49 @@ export class GeminiKnowledgeDistiller implements IKnowledgeDistiller {
   }
 
   async distillSubjectMatter(content: string, sourceName: string): Promise<{ facts: Fact[]; subjectMatterMd: string }> {
-    const { object } = await generateObject({
-      model: google('gemini-3-flash-preview'), // UPGRADED TO 3 FLASH
-      schema: z.object({
-        subjectMatterMd: z.string().describe('Structured markdown version of the user data.'),
-        facts: z.array(z.object({
-          id: z.string(),
-          content: z.string(),
-          source: z.string(),
-          confidence: z.number(),
-          id_implications: z.string().optional()
-        }))
-      }),
-      system: `You are a Strict Knowledge Harvester. Extract atomic facts and convert raw data to structured markdown.
-      Assign each fact a unique ID like [FACT_01].`,
-      prompt: `SOURCE_NAME: ${sourceName}\nCONTENT:\n${content}`
-    });
+    // Optimization 2: Output Context Window Exhaustion (JSON Truncation)
+    // Chunk large text to prevent LLM from hitting its output limits when generating massive JSON arrays.
+    const CHUNK_SIZE = 20000;
+    const contentChunks: string[] = [];
+    for (let i = 0; i < content.length; i += CHUNK_SIZE) {
+      contentChunks.push(content.substring(i, i + CHUNK_SIZE));
+    }
 
-    const facts: Fact[] = object.facts.map(f => ({
-      ...f,
-      processed_at: new Date().toISOString()
-    }));
+    let allFacts: Fact[] = [];
+    let combinedMd = '';
 
-    return { facts, subjectMatterMd: object.subjectMatterMd };
+    for (let i = 0; i < contentChunks.length; i++) {
+      const chunk = contentChunks[i];
+      console.log(`[Distiller] Processing chunk ${i + 1} of ${contentChunks.length}...`);
+      
+      const { object } = await generateObject({
+        model: google('gemini-3-flash-preview'), // UPGRADED TO 3 FLASH
+        schema: z.object({
+          subjectMatterMd: z.string().describe('Structured markdown version of this data chunk.'),
+          facts: z.array(z.object({
+            id: z.string(),
+            content: z.string(),
+            source: z.string(),
+            confidence: z.number(),
+            id_implications: z.string().optional()
+          }))
+        }),
+        system: `You are a Strict Knowledge Harvester processing chunk ${i + 1} of ${contentChunks.length}.
+        Extract atomic facts and convert raw data to structured markdown.
+        Assign each fact a unique ID like [FACT_${i + 1}_01].`,
+        prompt: `SOURCE_NAME: ${sourceName}\nCONTENT CHUNK:\n${chunk}`
+      });
+
+      const processedFacts: Fact[] = object.facts.map(f => ({
+        ...f,
+        processed_at: new Date().toISOString()
+      }));
+
+      allFacts = allFacts.concat(processedFacts);
+      combinedMd += `\n\n${object.subjectMatterMd}`;
+    }
+
+    return { facts: allFacts, subjectMatterMd: combinedMd.trim() };
   }
 
   async generateAlignmentMap(ledger: KnowledgeLedger): Promise<string> {

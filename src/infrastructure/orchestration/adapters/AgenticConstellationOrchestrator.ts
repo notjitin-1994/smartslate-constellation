@@ -90,7 +90,8 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
           schematic: (schematic as unknown as InstructionalSchematic)
         }
       };
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       console.error('[Orchestrator Engine Crash]:', err);
       throw new Error(`Orchestration Engine failed: ${err.message}`);
     }

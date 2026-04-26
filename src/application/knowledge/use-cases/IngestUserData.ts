@@ -20,10 +20,14 @@ export class IngestUserDataUseCase {
     const { facts, subjectMatterMd } = await this.knowledgeDistiller.distillSubjectMatter(content, sourceName);
 
     // 3. Update the ledger
-    // Append or overwrite? For now, we'll overwrite subject_matter_md with structured aggregation
-    // In a real multi-agent system, we might aggregate across multiple files
-    ledger.subject_matter_md = subjectMatterMd;
-    ledger.facts = facts;
+    // Append the new markdown to the existing subject_matter_md with a divider
+    const newMarkdown = `### Source: ${sourceName}\n\n${subjectMatterMd}`;
+    ledger.subject_matter_md = ledger.subject_matter_md 
+      ? `${ledger.subject_matter_md}\n\n---\n\n${newMarkdown}` 
+      : newMarkdown;
+      
+    // Append the new facts to the existing facts array
+    ledger.facts = [...(ledger.facts || []), ...facts];
 
     // 4. Generate the Strategic Alignment Map (Gap Analysis)
     const alignmentMap = await this.knowledgeDistiller.generateAlignmentMap(ledger);
