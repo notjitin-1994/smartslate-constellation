@@ -4,6 +4,8 @@ export class InstructionalModalityRouter {
 
     const baseDirectives = `
     GENERAL OUTPUT RULES:
+    - SCENE HEADERS: You MUST start every scene with "### Scene [Number]: [Title]".
+    - TAGS: [VISUAL], [VISUAL_PROMPT], [NARRATION], [ACTIVITY], [BRANCHING], [SPEAKER_NOTES].
     - Each tag block MUST start on a NEW line.
     - DO NOT put content on the same line as a tag.
     - BRAND AGNOSTIC: Adapt art direction to the "visual_direction" in the schematic.

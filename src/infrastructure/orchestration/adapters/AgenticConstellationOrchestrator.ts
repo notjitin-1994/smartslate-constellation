@@ -7,7 +7,6 @@ import {
   InstructionalSchematic 
 } from '../../../domain/orchestration/interfaces/IOrchestrator';
 import { KnowledgeLedger, GlobalConstellationState } from '../../../domain/knowledge/entities/Knowledge';
-import { InstructionalModalityRouter } from './InstructionalModalityRouter';
 import { SupabaseKnowledgeStore } from '../../knowledge/adapters/SupabaseKnowledgeStore';
 import { SupabaseStateStore } from './SupabaseStateStore';
 
@@ -35,9 +34,6 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
       // Filter out facts we've already used to prevent repetition
       const unusedFacts = relevantFacts.filter(f => !state.covered_fact_ids.includes(f.id));
       const contextLedger = unusedFacts.map(f => `[${f.id}] ${f.content}`).join('\n\n');
-
-      // --- PRE-COMPUTE ROUTING ---
-      const modalityRules = InstructionalModalityRouter.getModalityTemplate(targetModality);
 
       // --- PHASE 1: TACTICAL SCHEMATIC (The Architect) ---
       const { object: schematic } = await generateObject({
@@ -74,7 +70,11 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
         
         OUTPUT RULES:
         - Use ONLY the facts and logic defined in the Schematic: ${JSON.stringify(schematic)}
-        ${modalityRules}`,
+        - SCENE HEADERS: You MUST start every scene with "### Scene [Number]: [Title]". 
+        - TAGS: Use exactly these tags: [VISUAL], [VISUAL_PROMPT], [NARRATION], [ACTIVITY], [BRANCHING], [SPEAKER_NOTES].
+        - Formatting: Place the tag on one line, and the content on the lines below it.
+        - BRAND AGNOSTIC: Adapt art direction to the "visual_direction" in the schematic.
+        - 100% AMBIGUITY FREE: The content developer should not have to guess.`,
         prompt: `TASK: Render the full storyboard for "${nodeTitle}" based on the provided Schematic.`
       });
 

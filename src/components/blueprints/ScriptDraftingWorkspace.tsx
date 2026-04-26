@@ -111,76 +111,85 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- ROBUST BLOCK-BASED PARSER ---
+  // --- HYPER-RESILIENT ANCHORED PARSER ---
   const { scenes, moduleTitle } = useMemo(() => {
+    const sceneGroups: SceneGroup[] = [];
     if (!content) return { scenes: [], moduleTitle: 'Instructional Trace' };
     
-    // Clean up markdown artifacts around tags (e.g. **[VISUAL]** -> [VISUAL])
-    const cleanContent = content.replace(/\*\*\[/g, '[').replace(/\]\*\*/g, ']');
-
+    // 1. Clean and Normalize
+    const cleanContent = content
+      .replace(/\*\*\[/g, '[')
+      .replace(/\]\*\*/g, ']')
+      .replace(/\*\*(Scene\s*\d+)\*\*/gi, '$1');
+    
+    // 2. Extract Module Title
     const titleMatch = cleanContent.match(/Storyboard Constellation:\s*(.*)/i);
     const mTitle = titleMatch ? titleMatch[1].replace(/[*#]/g, '').trim() : 'Instructional Trace';
 
-    // Split by Scene Headers more robustly
-    const sceneRegex = /(?:^|\n)\s*(?:###\s*)?(?:Scene\s*\d+|Scene:)(?:\s*-\s*|\s*:\s*|\s+)?([^\n]*)/gi;
+    // 3. Tokenize by Tags and Scene Headers (using ### Scene as anchor)
+    const tokenRegex = /((?:^|\n)\s*###\s*Scene\s*\d+.*)|(\[(?:VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\])/gi;
     
-    const sceneParts = cleanContent.split(sceneRegex);
-    const sceneGroups: SceneGroup[] = [];
+    const parts = cleanContent.split(tokenRegex);
 
-    // sceneParts will have: [before_scene_1, scene_1_title, scene_1_content, scene_2_title, scene_2_content...]
-    // We skip index 0 if it doesn't contain tags.
-    
-    let currentTitle = 'Sequence Opening';
-    let currentContent = '';
+    let currentScene: SceneGroup = { id: 'scene-0', title: 'Sequence Opening', artifacts: [] };
+    let currentArtifact: Artifact | null = null;
+    let sceneCount = 0;
 
-    for (let i = 0; i < sceneParts.length; i++) {
-      if (i === 0) {
-        currentContent = sceneParts[i];
-        if (!/\[(?:VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)/i.test(currentContent)) {
-          continue; // Skip preamble if it has no tags
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part === undefined || part === '') continue;
+
+      const isSceneHeader = /###\s*Scene\s*\d+/i.test(part);
+      const isTag = part.trim().startsWith('[') && part.trim().endsWith(']');
+
+      if (isSceneHeader) {
+        if (currentScene.artifacts.length > 0 || currentArtifact) {
+          if (currentArtifact) currentScene.artifacts.push(currentArtifact);
+          sceneGroups.push(currentScene);
+          currentArtifact = null;
         }
-      } else if (i % 2 === 1) {
-        currentTitle = sceneParts[i] ? sceneParts[i].trim().replace(/[*#]/g, '') : `Scene ${Math.ceil(i/2)}`;
-        continue;
-      } else {
-        currentContent = sceneParts[i];
-      }
 
-      const artifacts: Artifact[] = [];
-      
-      // Look for tags and everything until the next tag
-      const blockRegex = /\[(VISUAL(?::[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\]([\s\S]*?)(?=\n\s*\[(?:VISUAL|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)|$)/gi;
-      let match;
-      
-      while ((match = blockRegex.exec(currentContent)) !== null) {
-        const typeStr = match[1].toUpperCase();
-        const blockContent = match[2].replace(/^[*: \n]+/, '').trim();
+        sceneCount++;
+        currentScene = {
+          id: `scene-${sceneCount}`,
+          title: part.trim().replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim() || `Scene ${sceneCount}`,
+          artifacts: []
+        };
+      } else if (isTag) {
+        if (currentArtifact) {
+          currentScene.artifacts.push(currentArtifact);
+        }
 
+        const typeStr = part.trim().slice(1, -1).toUpperCase();
+        
         if (typeStr === 'VISUAL_PROMPT') {
-          artifacts.push({ type: '[DIRECTIVE]', content: blockContent });
-          continue;
+          currentArtifact = { type: '[DIRECTIVE]', content: '' };
+        } else {
+          const isVisualWithId = typeStr.startsWith('VISUAL:');
+          const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
+          let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
+          if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
+
+          currentArtifact = {
+            type: `[${typeValStr}]` as Artifact['type'],
+            visualId: vId,
+            content: ''
+          };
         }
+      } else {
+        const cleanText = part.replace(/^[*: \n]+/, '').trim();
+        if (!cleanText) continue;
 
-        const isVisualWithId = typeStr.startsWith('VISUAL:');
-        const vId = isVisualWithId ? typeStr.split(':')[1] : undefined;
-        let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
-        if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
-
-        artifacts.push({
-          type: `[${typeValStr}]` as Artifact['type'],
-          visualId: vId,
-          content: blockContent
-        });
-      }
-
-      if (artifacts.length > 0) {
-        sceneGroups.push({
-          id: `scene-${sceneGroups.length}`,
-          title: currentTitle,
-          artifacts
-        });
+        if (currentArtifact) {
+          currentArtifact.content += (currentArtifact.content ? '\n' : '') + cleanText;
+        } else {
+          currentArtifact = { type: '[NARRATION]', content: cleanText };
+        }
       }
     }
+
+    if (currentArtifact) currentScene.artifacts.push(currentArtifact);
+    if (currentScene.artifacts.length > 0) sceneGroups.push(currentScene);
 
     return { scenes: sceneGroups, moduleTitle: mTitle };
   }, [content]);
