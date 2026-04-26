@@ -421,7 +421,12 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              <StickyNote size={14} /> Notes
                           </div>
                           <div className="text-[0.95rem] text-slate-500 italic leading-relaxed">
-                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                             <ReactMarkdown 
+                               remarkPlugins={[remarkGfm]}
+                               components={{
+                                 hr: () => null // Never render white lines in notes
+                               }}
+                             >
                                {scene.artifacts.find(a => a.type === '[NOTES]')?.content || "Standard operational guidelines apply."}
                              </ReactMarkdown>
                           </div>
