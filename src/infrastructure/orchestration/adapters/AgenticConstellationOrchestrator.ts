@@ -3,8 +3,7 @@ import { google } from '@/lib/google';
 import { z } from 'zod';
 import { 
   IConstellationOrchestrator, 
-  StoryboardResult, 
-  InstructionalSchematic 
+  StoryboardResult
 } from '../../../domain/orchestration/interfaces/IOrchestrator';
 import { KnowledgeLedger, GlobalConstellationState } from '../../../domain/knowledge/entities/Knowledge';
 import { InstructionalModalityRouter } from './InstructionalModalityRouter';
@@ -141,10 +140,10 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
     }
   }
 
-  async refine(nodeId: string, currentScript: string, feedback: string, state: GlobalConstellationState): Promise<StoryboardResult> {
+  async refine(currentScript: string, feedback: string, ledger: KnowledgeLedger, state: GlobalConstellationState): Promise<StoryboardResult> {
     const { text: refinedScript } = await generateText({
       model: google('gemini-3.1-pro-preview'),
-      system: `You are the Refiner Agent. Update the script based on feedback while maintaining the existing Global State: ${JSON.stringify(state)}`,
+      system: `You are the Refiner Agent. Update the script based on feedback while maintaining the existing Global State: ${JSON.stringify(state)}. Ground your refinements in the Knowledge Ledger: ${ledger.subject_matter_md}`,
       prompt: `CURRENT SCRIPT:\n${currentScript}\n\nFEEDBACK:\n${feedback}`
     });
 
