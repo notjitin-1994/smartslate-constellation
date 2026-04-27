@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ScrollText,
+  Settings2,
   Database,
   History,
   Activity
@@ -116,28 +117,28 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- HYPER-RESILIENT GLOBAL PARSER (V6) ---
+  // --- HYPER-RESILIENT GLOBAL PARSER (V8 - Anchor-Free & Case-Resilient) ---
   const { scenes, moduleTitle } = useMemo(() => {
     const sceneGroups: SceneGroup[] = [];
     if (!content) return { scenes: [], moduleTitle: 'Instructional Trace' };
     
-    // 1. Nuclear Normalization
-    // Completely strip ALL markdown bolding/italics and horizontal rules
-    // Structural markers must be plain text for the regex to be 100% reliable
-    const nuclearClean = content
-      .replace(/[*_]{1,3}/g, '') // Strip *, **, ***, _, __, ___
-      .replace(/^-{3,}/gm, '')    // Strip horizontal rules
-      .replace(/^#{1,6}\s*/gm, '### '); // Standardize all headers to level 3
+    // 1. Structural Normalization
+    // Strip bolding and horizontal rules which break boundaries
+    const cleanContent = content
+      .replace(/\*\*\[/g, '[')
+      .replace(/\]\*\*/g, ']')
+      .replace(/\*\*(SCENE|SCREEN|SLIDE|Scene|Screen|Slide)\s*(\d+).*?\*\*/gi, '$1 $2')
+      .replace(/^-{3,}/gm, ''); 
     
     // 2. Extract Module Title
-    const titleMatch = nuclearClean.match(/Storyboard Constellation:\s*(.*)/i);
-    const mTitle = titleMatch ? titleMatch[1].trim() : 'Instructional Trace';
+    const titleMatch = cleanContent.match(/Storyboard Constellation:\s*(.*)/i);
+    const mTitle = titleMatch ? titleMatch[1].replace(/[*#]/g, '').trim() : 'Instructional Trace';
 
-    // 3. Tokenize by any marker (Headers or Tags)
-    // We look for "### SCENE/SCREEN" or "[TAG]"
-    const tokenRegex = /((?:^|\n)\s*###\s*(?:SCENE|SCREEN|SLIDE|Scene|Screen)\s*\d+.*)|(\[(?:VISUAL(?:\s*:\s*[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT|NOTES)\])/gi;
+    // 3. Precise Tokenization
+    // Boundary anchors: Start of line SCENE/SCREEN or [TAG]
+    const tokenRegex = /((?:^|\n)\s*(?:###|##|#)?\s*(?:SCENE|SCREEN|SLIDE|Scene|Screen|Slide)\s*\d+.*)|(\[(?:VISUAL(?:\s*:\s*[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT|NOTES)\])/gi;
     
-    const parts = nuclearClean.split(tokenRegex);
+    const parts = cleanContent.split(tokenRegex);
 
     let currentScene: SceneGroup = { id: 'scene-0', title: 'Sequence Opening', artifacts: [] };
     let currentArtifact: Artifact | null = null;
@@ -147,7 +148,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const part = parts[i];
       if (part === undefined || part === '') continue;
 
-      const isSceneHeader = /###\s*(?:SCENE|SCREEN|SLIDE|Scene|Screen)\s*\d+/i.test(part);
+      const isSceneHeader = /^\s*(?:###|##|#)?\s*(?:SCENE|SCREEN|SLIDE|Scene|Screen|Slide)\s*\d+/i.test(part.trim());
       const isTag = part.trim().startsWith('[') && part.trim().endsWith(']');
 
       if (isSceneHeader) {
@@ -160,7 +161,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         sceneCount++;
         currentScene = {
           id: `scene-${sceneCount}`,
-          title: part.replace(/###\s*/i, '').trim() || `Screen ${sceneCount}`,
+          title: part.trim().replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim() || `Screen ${sceneCount}`,
           artifacts: []
         };
       } else if (isTag) {
@@ -168,19 +169,19 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           currentScene.artifacts.push(currentArtifact);
         }
 
-        const typeStr = part.trim().slice(1, -1).toUpperCase();
+        const rawTag = part.trim().slice(1, -1);
+        const [tagType, tagId] = rawTag.split(':').map(s => s.trim());
+        const typeStr = tagType.toUpperCase();
         
         if (typeStr === 'VISUAL_PROMPT') {
           currentArtifact = { type: '[DIRECTIVE]', content: '' };
         } else {
-          const isVisualWithId = typeStr.startsWith('VISUAL:');
-          const vId = isVisualWithId ? typeStr.split(':')[1].trim() : undefined;
-          let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
+          let typeValStr = typeStr;
           if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
 
           currentArtifact = {
             type: `[${typeValStr}]` as Artifact['type'],
-            visualId: vId,
+            visualId: tagId, // Preserve original UUID casing
             content: ''
           };
         }
@@ -357,7 +358,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                  </div>
 
                  <div className="flex flex-wrap gap-8 items-stretch">
-                    {/* ROW 1: 70/30 ASYMMETRIC SPLIT */}
                     <div className="w-full flex flex-wrap gap-8 items-stretch">
                        <div className="flex-[2.5] min-w-[min(100%,600px)] p-14 rounded-[3.5rem] bg-white/[0.015] border border-white/[0.05] shadow-2xl relative overflow-hidden group/nar">
                           <div className="absolute top-8 left-10 flex items-center gap-4 text-[#A7DADB]/30 uppercase tracking-[0.4em] text-[9px] font-black group-hover/nar:text-[#A7DADB]/60 transition-colors">

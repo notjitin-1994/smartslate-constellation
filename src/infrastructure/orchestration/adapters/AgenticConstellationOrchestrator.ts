@@ -7,6 +7,7 @@ import {
   InstructionalSchematic 
 } from '../../../domain/orchestration/interfaces/IOrchestrator';
 import { KnowledgeLedger, GlobalConstellationState } from '../../../domain/knowledge/entities/Knowledge';
+import { InstructionalModalityRouter } from './InstructionalModalityRouter';
 import { SupabaseKnowledgeStore } from '../../knowledge/adapters/SupabaseKnowledgeStore';
 import { SupabaseStateStore } from './SupabaseStateStore';
 
@@ -35,6 +36,9 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
       const unusedFacts = relevantFacts.filter(f => !state.covered_fact_ids.includes(f.id));
       const contextLedger = unusedFacts.map(f => `[${f.id}] ${f.content}`).join('\n\n');
 
+      // --- PRE-COMPUTE ROUTING ---
+      const modalityRules = InstructionalModalityRouter.getModalityTemplate(targetModality);
+
       // --- PHASE 1: TACTICAL SCHEMATIC (The Architect) ---
       const { object: schematic } = await generateObject({
         model: google('gemini-3.1-pro-preview'),
@@ -50,17 +54,24 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
             interaction_pattern: z.string(),
             visual_direction: z.string()
           })),
-          kpi_alignment: z.array(z.string()),
-          node_summary: z.string().describe('A 1-2 sentence summary of what this node teaches, to be passed to future nodes.')
+          kpi_alignment: z.array(z.string())
         }),
-        system: `You are the Constellation Architect. Your role is to build a TACTICAL SCHEMATIC.
-        MANDATE:
-        1. Map the source facts to a logical learning trajectory.
-        2. Adhere strictly to the Blueprint constraints: ${ledger.master_blueprint_md}
-        3. Strategic Alignment Gaps to target: ${ledger.strategic_alignment_md}
-        4. Global Narrative Arc so far: ${state.narrative_arc}
-        5. BIND every scene to specific [Fact_ID]s from this targeted ledger: ${contextLedger || 'No specific facts retrieved. Use general blueprint context.'}`,
-        prompt: `TASK: Create a schematic for "${nodeTitle}" (${nodeDescription}). Target Modality: ${targetModality || 'Blended'}.`
+        system: `You are the Lead Instructional Architect. Your goal is to map a tactical schematic for a specific node in the constellation.
+        
+        KNOWLEDGE LEDGER (Spend these facts carefully):
+        ${contextLedger}
+        
+        CONSTELLATION MEMORY (Don't repeat what was already covered):
+        ${state.narrative_arc}
+        
+        MODALITY CONSTRAINTS:
+        ${modalityRules}
+        
+        RULES:
+        - Mapping must be 100% grounded in the Ledger.
+        - Strategic sections must follow the ${targetModality} modality requirements.
+        - Ensure narrative continuity from previous nodes.`,
+        prompt: `TASK: Map the tactical schematic for "${nodeTitle}": ${nodeDescription}`
       });
 
       // --- PHASE 2: CREATIVE RENDERING (The Artist) ---
@@ -80,27 +91,37 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
 
       // --- PHASE 3: INTEGRITY SENTINEL (The Auditor) ---
       const { object: audit } = await generateObject({
-        model: google('gemini-3-flash-preview'),
+        model: google('gemini-1.5-flash-latest'),
         schema: z.object({
-          groundingScore: z.number(),
+          groundingScore: z.number().min(0).max(10),
+          hallucinationCount: z.number(),
           auditLog: z.array(z.string()),
           deliverables: z.array(z.string()),
           factsUsed: z.array(z.string())
         }),
         system: `You are the Integrity Sentinel. Your mission is to verify that the final Storyboard is 100% grounded.
-        CHECKLIST:
-        1. Are all [Fact_ID]s correctly cited?
-        2. Does the [ACTIVITY] match the "interaction_pattern" in the schematic?
-        3. Are the [VISUAL] specs brand-agnostic?`,
-        prompt: `STORYBOARD:\n${finalStoryboard}\n\nSCHEMATIC:\n${JSON.stringify(schematic)}\n\nBLUEPRINT:\n${ledger.master_blueprint_md}`
+        
+        SCHEMATIC: ${JSON.stringify(schematic)}
+        LEDGER: ${contextLedger}
+        STORYBOARD: ${finalStoryboard}
+        
+        CRITICAL CHECK: If any fact or pedagogical goal from the schematic is missing or contradicted, flag it.`,
+        prompt: `TASK: Perform a final integrity audit on the rendered storyboard.`
       });
 
-      // --- UPDATE GLOBAL STATE ---
+      // --- PHASE 4: STATE SYNCHRONIZATION (The Memory) ---
+      const updatedState: GlobalConstellationState = {
+        ...state,
+        covered_fact_ids: Array.from(new Set([...state.covered_fact_ids, ...audit.factsUsed])),
+        narrative_arc: `${state.narrative_arc}\n\nNode ${nodeTitle} Completed: ${audit.auditLog[0] || 'Success'}`,
+        previous_node_outputs: [
+          ...state.previous_node_outputs,
+          { node_id: nodeId, summary: audit.auditLog[0] || `Successfully mapped ${nodeTitle}` }
+        ]
+      };
+
       const stateStore = new SupabaseStateStore();
-      state.covered_fact_ids = [...new Set([...state.covered_fact_ids, ...audit.factsUsed])];
-      state.narrative_arc += `\n- Node: ${nodeTitle}: ${schematic.node_summary}`;
-      state.previous_node_outputs.push({ node_id: nodeId, summary: schematic.node_summary });
-      await stateStore.saveState(state);
+      await stateStore.saveState(updatedState);
 
       return {
         script: finalStoryboard,
@@ -108,25 +129,23 @@ export class AgenticConstellationOrchestrator implements IConstellationOrchestra
           groundingScore: audit.groundingScore,
           auditLog: audit.auditLog,
           deliverables: audit.deliverables,
-          schematic: (schematic as unknown as InstructionalSchematic),
-          state: state
+          schematic: schematic,
+          state: updatedState
         }
       };
-    } catch (error: unknown) {
+
+    } catch (error) {
       const err = error as Error;
-      console.error('[Orchestrator Engine Crash]:', err);
-      throw new Error(`Orchestration Engine failed: ${err.message}`);
+      console.error('[Constellation Orchestrator CRASH]:', err);
+      throw new Error(`Orchestration Engine Failure: ${err.message}`);
     }
   }
 
-  async refine(currentScript: string, feedback: string, ledger: KnowledgeLedger, state: GlobalConstellationState): Promise<StoryboardResult> {
+  async refine(nodeId: string, currentScript: string, feedback: string, state: GlobalConstellationState): Promise<StoryboardResult> {
     const { text: refinedScript } = await generateText({
       model: google('gemini-3.1-pro-preview'),
-      system: `You are the Iterative Refinement Agent. 
-      TASK: Perform a SURGICAL update to the script based on user feedback.
-      RULE: Do not change unaffected sections. Maintain [Fact_ID] anchors.
-      LEDGER: ${ledger.master_blueprint_md}`,
-      prompt: `CURRENT_SCRIPT:\n${currentScript}\n\nFEEDBACK:\n${feedback}`
+      system: `You are the Refiner Agent. Update the script based on feedback while maintaining the existing Global State: ${JSON.stringify(state)}`,
+      prompt: `CURRENT SCRIPT:\n${currentScript}\n\nFEEDBACK:\n${feedback}`
     });
 
     return {
