@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   ScrollText,
-  Settings2,
   Database,
   History,
   Activity
