@@ -6,8 +6,8 @@ export class SupabaseStateStore {
 
   async getState(blueprintId: string): Promise<GlobalConstellationState> {
     const { data, error } = await this.adminClient
-      .from('constellation_states')
-      .select('*')
+      .from('knowledge_ledgers')
+      .select('global_state')
       .eq('blueprint_id', blueprintId)
       .single();
 
@@ -16,7 +16,7 @@ export class SupabaseStateStore {
       throw error;
     }
 
-    if (!data) {
+    if (!data || !data.global_state || typeof data.global_state !== 'object') {
       return {
         blueprint_id: blueprintId,
         covered_fact_ids: [],
@@ -25,20 +25,23 @@ export class SupabaseStateStore {
       };
     }
 
+    const state = data.global_state as Record<string, unknown>;
+
     return {
-      blueprint_id: data.blueprint_id,
-      covered_fact_ids: data.metadata?.covered_fact_ids || [],
-      narrative_arc: data.metadata?.narrative_arc || 'Initial state. No narrative progression established yet.',
-      previous_node_outputs: data.metadata?.previous_node_outputs || []
+      blueprint_id: blueprintId,
+      covered_fact_ids: (state.covered_fact_ids as string[]) || [],
+      narrative_arc: (state.narrative_arc as string) || 'Initial state. No narrative progression established yet.',
+      previous_node_outputs: (state.previous_node_outputs as { node_id: string; summary: string; }[]) || []
     };
   }
 
   async saveState(state: GlobalConstellationState): Promise<void> {
+    // Robust Upsert for State persistence
     const { error } = await this.adminClient
-      .from('constellation_states')
+      .from('knowledge_ledgers')
       .upsert({
         blueprint_id: state.blueprint_id,
-        metadata: {
+        global_state: {
           covered_fact_ids: state.covered_fact_ids,
           narrative_arc: state.narrative_arc,
           previous_node_outputs: state.previous_node_outputs
@@ -47,8 +50,8 @@ export class SupabaseStateStore {
       }, { onConflict: 'blueprint_id' });
 
     if (error) {
-      console.error('[StateStore] Error saving state:', error);
-      throw error;
+      console.error('[StateStore] FATAL Error saving state:', error);
+      throw new Error(`State Persistence Failure: ${error.message}`);
     }
   }
 }

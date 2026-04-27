@@ -313,6 +313,8 @@ function ArchitectureCanvasContent() {
                    citations={activeScript?.citations || []} 
                    deliverables={activeScript?.deliverables || []}
                    auditLog={activeScript?.auditLog || []}
+                   schematic={activeScript?.schematic}
+                   state={activeScript?.state}
                    isLoading={isDrafting} 
                    nodeId={currentModule?.id || ""} 
                  />

@@ -2,9 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  BookOpen, 
-  Activity, 
-  History, 
   X, 
   Mic2,
   ChevronRight,
@@ -19,13 +16,18 @@ import {
   PackageCheck,
   Binary,
   Target,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  ScrollText,
+  Database,
+  History,
+  Activity
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IconButton, Modal, Backdrop, Fade, Box } from '@mui/material';
+import { IconButton, Modal, Fade, Box } from '@mui/material';
 import { supabase } from '@/lib/supabase';
 import { useSidebar } from '@/lib/SidebarContext';
 
@@ -92,6 +94,8 @@ interface ScriptDraftingWorkspaceProps {
   deliverables: string[];
   auditLog: string[];
   nodeId: string;
+  schematic?: unknown;
+  state?: unknown;
 }
 
 const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
@@ -101,7 +105,9 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   citations,
   deliverables,
   auditLog,
-  nodeId
+  nodeId,
+  schematic,
+  state: globalState
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
@@ -110,26 +116,28 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
-  // --- HYPER-RESILIENT ANCHORED PARSER ---
+  // --- HYPER-RESILIENT GLOBAL PARSER (V6) ---
   const { scenes, moduleTitle } = useMemo(() => {
     const sceneGroups: SceneGroup[] = [];
     if (!content) return { scenes: [], moduleTitle: 'Instructional Trace' };
     
-    // 1. Clean and Normalize
-    const cleanContent = content
-      .replace(/\*\*\[/g, '[')
-      .replace(/\]\*\*/g, ']')
-      .replace(/\*\*(Scene\s*\d+)\*\*/gi, '$1');
+    // 1. Nuclear Normalization
+    // Completely strip ALL markdown bolding/italics and horizontal rules
+    // Structural markers must be plain text for the regex to be 100% reliable
+    const nuclearClean = content
+      .replace(/[*_]{1,3}/g, '') // Strip *, **, ***, _, __, ___
+      .replace(/^-{3,}/gm, '')    // Strip horizontal rules
+      .replace(/^#{1,6}\s*/gm, '### '); // Standardize all headers to level 3
     
     // 2. Extract Module Title
-    const titleMatch = cleanContent.match(/Storyboard Constellation:\s*(.*)/i);
-    const mTitle = titleMatch ? titleMatch[1].replace(/[*#]/g, '').trim() : 'Instructional Trace';
+    const titleMatch = nuclearClean.match(/Storyboard Constellation:\s*(.*)/i);
+    const mTitle = titleMatch ? titleMatch[1].trim() : 'Instructional Trace';
 
-    // 3. Tokenize by Tags and Scene Headers
-    // Allowing optional whitespace in VISUAL: tag for LLM resilience
-    const tokenRegex = /((?:^|\n)\s*###\s*Scene\s*\d+.*)|(\[(?:VISUAL(?:\s*:\s*[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT)\])/gi;
+    // 3. Tokenize by any marker (Headers or Tags)
+    // We look for "### SCENE/SCREEN" or "[TAG]"
+    const tokenRegex = /((?:^|\n)\s*###\s*(?:SCENE|SCREEN|SLIDE|Scene|Screen)\s*\d+.*)|(\[(?:VISUAL(?:\s*:\s*[a-f0-9-]*)?|NARRATION|ACTIVITY|BRANCHING|SPEAKER_NOTES|VISUAL_PROMPT|NOTES)\])/gi;
     
-    const parts = cleanContent.split(tokenRegex);
+    const parts = nuclearClean.split(tokenRegex);
 
     let currentScene: SceneGroup = { id: 'scene-0', title: 'Sequence Opening', artifacts: [] };
     let currentArtifact: Artifact | null = null;
@@ -139,7 +147,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
       const part = parts[i];
       if (part === undefined || part === '') continue;
 
-      const isSceneHeader = /###\s*Scene\s*\d+/i.test(part);
+      const isSceneHeader = /###\s*(?:SCENE|SCREEN|SLIDE|Scene|Screen)\s*\d+/i.test(part);
       const isTag = part.trim().startsWith('[') && part.trim().endsWith(']');
 
       if (isSceneHeader) {
@@ -152,7 +160,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         sceneCount++;
         currentScene = {
           id: `scene-${sceneCount}`,
-          title: part.trim().replace(/^[#*\s]*/, '').replace(/\*+$/, '').trim() || `Scene ${sceneCount}`,
+          title: part.replace(/###\s*/i, '').trim() || `Screen ${sceneCount}`,
           artifacts: []
         };
       } else if (isTag) {
@@ -166,7 +174,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           currentArtifact = { type: '[DIRECTIVE]', content: '' };
         } else {
           const isVisualWithId = typeStr.startsWith('VISUAL:');
-          // Handle [VISUAL: uuid] or [VISUAL : uuid]
           const vId = isVisualWithId ? typeStr.split(':')[1].trim() : undefined;
           let typeValStr = isVisualWithId ? 'VISUAL' : typeStr;
           if (typeValStr === 'SPEAKER_NOTES') typeValStr = 'NOTES';
@@ -178,7 +185,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
           };
         }
       } else {
-        const cleanText = part.replace(/^[*: \n]+/, '').trim();
+        const cleanText = part.trim();
         if (!cleanText) continue;
 
         if (currentArtifact) {
@@ -226,16 +233,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   useEffect(() => {
     const handleTrigger = () => setIsInsightOpen(true);
     window.addEventListener('constellation-open-verification', handleTrigger);
-    
-    const handleConstellationData = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      console.log('[ScriptDraftingWorkspace] Sync received:', customEvent.detail);
-    };
-    window.addEventListener('constellation-sidebar-sync', handleConstellationData);
-    
     return () => {
       window.removeEventListener('constellation-open-verification', handleTrigger);
-      window.removeEventListener('constellation-sidebar-sync', handleConstellationData);
     };
   }, []);
 
@@ -396,7 +395,7 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                              const prompt = vis?.visualId ? visualPrompts[vis.visualId] : null;
                              
                              return url ? (
-                               <div className={cn(
+                               <div key={vis?.visualId} className={cn(
                                  "flex flex-col min-h-0",
                                  expandedSceneId === scene.id ? "h-full" : "flex-1"
                                )}>
@@ -417,7 +416,6 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                                      </div>
                                    )}
 
-                                   {/* Standard img tag is more resilient for dynamic external Supabase URLs */}
                                    <img 
                                       src={url} 
                                       alt="Scene Mockup" 
@@ -508,26 +506,90 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         </AnimatePresence>
       </div>
 
-      <Modal open={isInsightOpen} onClose={() => setIsInsightOpen(false)} closeAfterTransition BackdropComponent={Backdrop} BackdropProps={{ timeout: 500, sx: { backdropFilter: 'blur(40px)', bgcolor: 'rgba(2, 6, 23, 0.98)' } }}>
+      <Modal open={isInsightOpen} onClose={() => setIsInsightOpen(false)} closeAfterTransition slotProps={{ backdrop: { timeout: 500, sx: { backdropFilter: 'blur(32px)', bgcolor: 'rgba(2, 6, 23, 0.95)' } } }}>
         <Fade in={isInsightOpen}>
-          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '95%', maxWidth: '800px', maxHeight: '85vh', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '60px', p: { xs: 6, md: 10 }, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
-            <div className="flex justify-between items-center mb-20 shrink-0">
-               <div className="flex items-center gap-8">
-                  <div className="p-5 rounded-[2rem] bg-[#A7DADB]/10 border border-[#A7DADB]/20 shadow-2xl"><Activity size={32} className="text-[#A7DADB]" /></div>
-                  <div><h2 className="text-3xl font-bold text-white tracking-tighter uppercase mb-2 font-heading">Knowledge Verification</h2><p className="text-[11px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Strategic Integrity Protocol</p></div>
-               </div>
-               <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: '#A7DADB', bgcolor: 'rgba(167, 218, 219, 0.05)', p: 2, borderRadius: '20px', '&:hover': { bgcolor: 'rgba(167, 218, 219, 0.1)' } }}><X size={28} /></IconButton>
-            </div>
-            <div className="space-y-24 overflow-y-auto custom-scrollbar pr-4 flex-1">
-              <section className="space-y-8">
-                <div className="flex items-center gap-4"><History size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Semantic Integrity Pass</h4></div>
-                <div className="p-12 rounded-[3rem] bg-white/[0.01] border border-white/[0.05] relative overflow-hidden backdrop-blur-3xl"><div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#A7DADB]/40 to-transparent" /><div className="text-lg text-slate-400 leading-relaxed font-light italic text-slate-400"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{semanticDelta || "Synthesizing truth anchors..."}</ReactMarkdown></div></div>
-              </section>
-              <section className="space-y-8">
-                <div className="flex items-center gap-4"><BookOpen size={16} className="text-[#A7DADB]" /><h4 className="text-[11px] text-slate-500 uppercase tracking-[0.5em] font-black">Verified Institutional Citations</h4></div>
-                <div className="grid grid-cols-1 gap-5">{citations.map((cite, i) => (<div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite"><div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div><span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span></div>))}</div>
-              </section>
-            </div>
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '95%', maxWidth: '1000px', maxHeight: '85vh', bgcolor: '#020617', border: '1px solid rgba(167, 218, 219, 0.1)', borderRadius: '48px', p: 10, outline: 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 0 100px rgba(0,0,0,0.8)' }}>
+             <div className="flex justify-between items-center mb-12">
+                <div className="flex items-center gap-6">
+                   <div className="w-14 h-14 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 flex items-center justify-center">
+                      <Activity size={28} className="text-[#A7DADB]" />
+                   </div>
+                   <div>
+                      <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Knowledge Verification</h3>
+                      <p className="text-[9px] font-black text-[#A7DADB]/40 uppercase tracking-[0.4em]">Strategic Integrity Protocol</p>
+                   </div>
+                </div>
+                <IconButton onClick={() => setIsInsightOpen(false)} sx={{ color: '#A7DADB' }}><X size={28} /></IconButton>
+             </div>
+
+             <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-20">
+                <section className="space-y-6">
+                   <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                      <History size={14} /> Semantic Strategic Alignment
+                   </div>
+                   <div className="p-10 rounded-[2.5rem] bg-white/[0.02] border border-white/5 prose prose-invert prose-sm max-w-none shadow-inner">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                        {semanticDelta || "Waiting for constellation mapping to complete integrity pass..."}
+                      </ReactMarkdown>
+                   </div>
+                </section>
+
+                {auditLog && auditLog.length > 0 && (
+                   <section className="space-y-6">
+                      <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                         <ShieldAlert size={14} /> Sentinel Compliance Audit
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                         {auditLog.map((log: string, i: number) => (
+                           <div key={i} className="flex gap-4 items-start p-6 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-[#A7DADB]/20 transition-all">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#A7DADB] mt-1.5" />
+                              <span className="text-[12px] font-bold text-slate-400">{log}</span>
+                           </div>
+                         ))}
+                      </div>
+                   </section>
+                )}
+
+                {!!schematic && (
+                   <section className="space-y-6">
+                      <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                         <Workflow size={14} /> Tactical Schematic (Architect)
+                      </div>
+                      <div className="p-8 rounded-[2.5rem] bg-black/40 border border-white/[0.03] overflow-hidden">
+                         <pre className="text-[10px] text-[#A7DADB]/80 font-mono whitespace-pre-wrap leading-relaxed">
+                            {JSON.stringify(schematic, null, 2)}
+                         </pre>
+                      </div>
+                   </section>
+                )}
+
+                {!!globalState && (
+                   <section className="space-y-6">
+                      <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                         <Database size={14} /> Global Constellation State (Memory)
+                      </div>
+                      <div className="p-8 rounded-[2.5rem] bg-black/40 border border-white/[0.03] overflow-hidden">
+                         <pre className="text-[10px] text-indigo-300/80 font-mono whitespace-pre-wrap leading-relaxed">
+                            {JSON.stringify(globalState, null, 2)}
+                         </pre>
+                      </div>
+                   </section>
+                )}
+
+                <section className="space-y-6">
+                   <div className="flex items-center gap-4 text-slate-500 uppercase tracking-[0.3em] text-[10px] font-black">
+                      <ScrollText size={14} /> Verified Institutional Citations
+                   </div>
+                   <div className="grid grid-cols-1 gap-5">
+                      {citations.map((cite, i) => (
+                        <div key={i} className="flex gap-8 items-center p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/[0.03] hover:border-[#A7DADB]/20 transition-all group/cite">
+                           <div className="text-[11px] font-mono font-black text-[#A7DADB] bg-[#A7DADB]/10 w-10 h-10 flex items-center justify-center rounded-2xl border border-[#A7DADB]/20 group-hover/cite:bg-[#A7DADB] group-hover/cite:text-black transition-all">{i + 1}</div>
+                           <span className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">{cite}</span>
+                        </div>
+                      ))}
+                   </div>
+                </section>
+             </div>
           </Box>
         </Fade>
       </Modal>
