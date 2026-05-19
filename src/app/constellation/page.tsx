@@ -22,12 +22,12 @@ import {
   Fingerprint,
   Rocket,
   TriangleAlert,
+  CircleDashed,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useConstellationPersistence } from '@/lib/hooks/useConstellationPersistence';
 import { useSidebar } from '@/lib/SidebarContext';
 import ScriptDraftingWorkspace from '@/components/blueprints/ScriptDraftingWorkspace';
-import { KnowledgeVaultModal } from '@/components/blueprints/KnowledgeVaultModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { extractEnrichedModules } from '@/lib/services/modalityMapper';
 import { buildULS } from '@/domain/uls/builder';
@@ -56,7 +56,6 @@ function ArchitectureCanvasContent() {
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrafting, setIsDrafting] = useState(false);
-  const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [showUlsPreview, setShowUlsPreview] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ ok: boolean; message: string } | null>(null);
@@ -86,7 +85,7 @@ function ArchitectureCanvasContent() {
 
   const activeIdx = Math.min(Math.max(0, state.activeNodeIdx), Math.max(0, modules.length - 1));
   const currentModule = modules[activeIdx] || null;
-  const activeScript = state.scriptOutputs[state.activeNodeIdx];
+  const activeScript = state.scriptOutputs[activeIdx];
 
   // Compute real ULS from current state
   const uls = useMemo<ULSType | null>(() => {
@@ -112,6 +111,7 @@ function ArchitectureCanvasContent() {
   }, [modules, state.scriptOutputs]);
 
   const activeCLGOverload = (activeScript?.cognitiveLoadScore ?? 0) > CLG_THRESHOLD;
+  const integrityState = activeScript === undefined ? 'pending' : activeScript.hallucinationFlag ? 'flagged' : 'verified';
 
   useEffect(() => {
     async function loadBlueprint() {
@@ -249,15 +249,15 @@ function ArchitectureCanvasContent() {
             <div className="absolute inset-0 bg-[#A7DADB]/[0.02] group-hover/hud:bg-[#A7DADB]/[0.05] transition-colors" />
 
             <div className="flex items-center gap-10 relative z-10">
-              <Tooltip enterTouchDelay={0} title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. Verified means every factual claim is anchored to source documents." />}>
+              <Tooltip enterTouchDelay={0} title={<TooltipContent title="Hallucination Guardian" body="Measures content purity. Verified means every factual claim is anchored to source documents. Pending until first draft is run." />}>
                 <div className="flex items-center gap-3 cursor-help">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${activeScript?.hallucinationFlag ? 'bg-rose-500/10 text-rose-500' : 'bg-[#A7DADB]/10 text-[#A7DADB]'} border ${activeScript?.hallucinationFlag ? 'border-rose-500/20' : 'border-[#A7DADB]/20'}`}>
-                    {activeScript?.hallucinationFlag ? <AlertOctagon size={16} className="animate-pulse" /> : <Fingerprint size={16} />}
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-xl border ${integrityState === 'flagged' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : integrityState === 'pending' ? 'bg-slate-500/10 text-slate-500 border-slate-500/20' : 'bg-[#A7DADB]/10 text-[#A7DADB] border-[#A7DADB]/20'}`}>
+                    {integrityState === 'flagged' ? <AlertOctagon size={16} className="animate-pulse" /> : integrityState === 'pending' ? <CircleDashed size={16} /> : <Fingerprint size={16} />}
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#A7DADB]/40">Integrity</span>
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${activeScript?.hallucinationFlag ? 'text-rose-500' : 'text-[#A7DADB]'}`}>
-                      {activeScript?.hallucinationFlag ? 'Flagged' : 'Verified'}
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${integrityState === 'flagged' ? 'text-rose-500' : integrityState === 'pending' ? 'text-slate-500' : 'text-[#A7DADB]'}`}>
+                      {integrityState === 'flagged' ? 'Flagged' : integrityState === 'pending' ? 'Pending' : 'Verified'}
                     </span>
                   </div>
                 </div>
@@ -324,7 +324,7 @@ function ArchitectureCanvasContent() {
           <AnimatePresence mode="wait">
             {activeScript || isDrafting ? (
               <div className="space-y-12 w-full max-w-full">
-                <ScriptDraftingWorkspace nodeScript={activeScript?.nodeScript ?? null} semanticDelta={activeScript?.semanticDelta} citations={activeScript?.citations || []} isLoading={isDrafting} nodeId={currentModule?.id || ""} />
+                <ScriptDraftingWorkspace nodeScript={activeScript?.nodeScript ?? null} semanticDelta={activeScript?.semanticDelta} citations={activeScript?.citations || []} isLoading={isDrafting} nodeId={currentModule?.id || ""} pedagogicalMode={currentModule?.pedagogicalMode} targetModality={currentModule?.targetModality} groundingTypes={activeScript?.groundingTypes} />
               </div>
             ) : (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center text-center py-40">
@@ -333,22 +333,41 @@ function ArchitectureCanvasContent() {
                 </div>
                 <div className="p-10 rounded-[3rem] bg-white/[0.02] border border-white/[0.05] backdrop-blur-xl mb-8">
                   <h3 className="text-4xl font-black text-white mb-6 tracking-tighter uppercase font-heading">Architecture Canvas</h3>
-                  <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">Select a node from the neural trace to begin orchestration.</p>
+                  <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-medium uppercase tracking-widest">Select a node below to begin orchestration.</p>
                 </div>
-                <div className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 text-left max-w-lg backdrop-blur-3xl shadow-2xl">
+                <div className="flex items-center gap-6 p-8 rounded-[2.5rem] bg-white/[0.02] border border-[#A7DADB]/10 text-left max-w-lg backdrop-blur-3xl shadow-2xl mb-8">
                   <div className="p-4 rounded-2xl bg-[#A7DADB]/10 border border-[#A7DADB]/20 text-[#A7DADB]"><ShieldCheck size={28} /></div>
                   <div>
                     <h4 className="text-[11px] font-black text-white uppercase tracking-[0.2em] mb-1">Claim-Only Verification</h4>
                     <p className="text-xs text-slate-500 leading-relaxed font-medium">Instructional payloads are verified against the truth ledger using deterministic semantic anchors.</p>
                   </div>
                 </div>
+                {modules.length > 0 && (
+                  <div className="flex flex-wrap gap-3 justify-center max-w-2xl">
+                    {modules.map((m, idx) => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          updateState({ activeNodeIdx: idx });
+                          window.dispatchEvent(new CustomEvent('constellation-node-select', { detail: { idx } }));
+                        }}
+                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                          idx === activeIdx
+                            ? 'bg-[#4F46E5]/20 border-[#4F46E5]/40 text-indigo-300'
+                            : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:border-[#A7DADB]/30 hover:text-[#A7DADB]'
+                        }`}
+                      >
+                        <span className="text-[#A7DADB]/40 mr-2">{String(idx + 1).padStart(2, '0')}</span>
+                        {m.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </Box>
-
-      <KnowledgeVaultModal isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} blueprintId={blueprintId || ""} blueprintContext={blueprint?.blueprint_json || {}} />
 
       {/* ULS OVERLAY */}
       <AnimatePresence>

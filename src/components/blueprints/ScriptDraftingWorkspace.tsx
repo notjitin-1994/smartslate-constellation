@@ -17,6 +17,7 @@ import {
   Sparkles,
   Layers,
   AlertCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -96,6 +97,9 @@ interface ScriptDraftingWorkspaceProps {
   semanticDelta?: string;
   citations: string[];
   nodeId: string;
+  pedagogicalMode?: string;
+  targetModality?: string;
+  groundingTypes?: string[];
 }
 
 const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
@@ -104,16 +108,24 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
   semanticDelta,
   citations,
   nodeId,
+  pedagogicalMode,
+  targetModality,
+  groundingTypes,
 }) => {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [visualUrls, setVisualUrls] = useState<Record<string, string>>({});
   const [visualPrompts, setVisualPrompts] = useState<Record<string, string>>({});
+  const [visualStatuses, setVisualStatuses] = useState<Record<string, string>>({});
+  const [visualErrors, setVisualErrors] = useState<Record<string, string>>({});
   const { collapsed } = useSidebar();
   const scale = collapsed ? 1.0 : 0.88;
 
   const scenes = useMemo(() => nodeScript?.scenes ?? [], [nodeScript]);
   const moduleTitle = nodeScript?.nodeTitle ?? 'Instructional Trace';
+  const cognitiveVerb = nodeScript?.cognitiveVerb;
+  const scaffolding = nodeScript?.scaffolding;
+  const activeMode = nodeScript?.pedagogicalMode || pedagogicalMode;
 
   // --- REAL-TIME VISUAL SYNC ---
   useEffect(() => {
@@ -123,18 +135,23 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
     const fetchExisting = async () => {
       const { data } = await supabase
         .from('visual_generations')
-        .select('id, image_url, prompt, status')
-        .in('id', allVisualIds)
-        .eq('status', 'completed');
+        .select('id, image_url, prompt, status, error_message')
+        .in('id', allVisualIds);
       if (data) {
         const urlMap: Record<string, string> = {};
         const promptMap: Record<string, string> = {};
+        const statusMap: Record<string, string> = {};
+        const errorMap: Record<string, string> = {};
         data.forEach((g) => {
+          statusMap[g.id] = g.status;
           if (g.image_url) urlMap[g.id] = g.image_url;
           if (g.prompt) promptMap[g.id] = g.prompt;
+          if (g.error_message) errorMap[g.id] = g.error_message;
         });
         setVisualUrls((prev) => ({ ...prev, ...urlMap }));
         setVisualPrompts((prev) => ({ ...prev, ...promptMap }));
+        setVisualStatuses((prev) => ({ ...prev, ...statusMap }));
+        setVisualErrors((prev) => ({ ...prev, ...errorMap }));
       }
     };
     fetchExisting();
@@ -145,11 +162,14 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'visual_generations' },
         (payload) => {
-          if (
-            allVisualIds.includes(payload.new.id) &&
-            payload.new.status === 'completed'
-          ) {
-            setVisualUrls((prev) => ({ ...prev, [payload.new.id]: payload.new.image_url }));
+          if (allVisualIds.includes(payload.new.id)) {
+            setVisualStatuses((prev) => ({ ...prev, [payload.new.id]: payload.new.status }));
+            if (payload.new.status === 'completed') {
+              setVisualUrls((prev) => ({ ...prev, [payload.new.id]: payload.new.image_url }));
+            }
+            if (payload.new.error_message) {
+              setVisualErrors((prev) => ({ ...prev, [payload.new.id]: payload.new.error_message }));
+            }
           }
         }
       )
@@ -197,10 +217,35 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                       Instructional Architecture v2.0
                     </span>
                   </div>
+                  {(activeMode || cognitiveVerb || scaffolding || targetModality || (groundingTypes && groundingTypes.length > 0)) && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {activeMode && (
+                        <span className="px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black text-indigo-400 uppercase tracking-widest">{activeMode}</span>
+                      )}
+                      {targetModality && (
+                        <span className="px-3 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[9px] font-black text-purple-400 uppercase tracking-widest">{targetModality}</span>
+                      )}
+                      {cognitiveVerb && (
+                        <span className="px-3 py-1 rounded-lg bg-[#A7DADB]/5 border border-[#A7DADB]/10 text-[9px] font-black text-[#A7DADB] uppercase tracking-widest">Bloom: {cognitiveVerb}</span>
+                      )}
+                      {scaffolding && (
+                        <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${scaffolding === 'HIGH' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : scaffolding === 'LOW' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>Scaffold: {scaffolding}</span>
+                      )}
+                      {groundingTypes && groundingTypes.map((gt) => (
+                        <span key={gt} className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-widest">src:{gt}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
+            {semanticDelta && (
+              <div className="mt-8 px-6 py-4 rounded-2xl bg-[#A7DADB]/5 border border-[#A7DADB]/10 flex items-start gap-4">
+                <ShieldCheck size={14} className="text-[#A7DADB] mt-0.5 shrink-0" />
+                <p className="text-[11px] text-[#A7DADB]/70 leading-relaxed font-medium line-clamp-2">{semanticDelta}</p>
+              </div>
+            )}
             <div className="mt-12 pt-10 border-t border-white/5 flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
               {scenes.map((s, i) => (
                 <div
@@ -378,7 +423,8 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                         ) : (
                           <div className="flex-1 flex items-center justify-center min-h-[400px]">
                             <GenerativePlaceholder
-                              status={scene.visualId ? 'processing' : 'pending'}
+                              status={scene.visualId ? (visualStatuses[scene.visualId] || 'pending') : 'pending'}
+                              error={scene.visualId ? visualErrors[scene.visualId] : undefined}
                               scale={scale}
                             />
                           </div>
@@ -419,6 +465,18 @@ const ScriptDraftingWorkspace: React.FC<ScriptDraftingWorkspaceProps> = ({
                         </div>
                       </div>
                     </div>
+                    {scene.dataDeficits && scene.dataDeficits.length > 0 && (
+                      <div className="w-full p-8 rounded-[2.5rem] bg-amber-500/5 border border-amber-500/20 space-y-4">
+                        <div className="flex items-center gap-4 text-amber-400/60 uppercase tracking-[0.3em] text-[9px] font-black">
+                          <AlertCircle size={14} /> Data Deficits — {scene.dataDeficits.length} ungrounded claim{scene.dataDeficits.length !== 1 ? 's' : ''}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {scene.dataDeficits.map((deficit, i) => (
+                            <span key={i} className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono text-amber-300">{deficit}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </motion.section>
               );
