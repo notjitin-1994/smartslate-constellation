@@ -1,41 +1,83 @@
 # 🚀 Implementation Plan: Smartslate Constellation
 
-## ✅ Phase 2: Multi-modal Knowledge Harvesting & Architectural RAG (COMPLETED)
+## ✅ Phase 0: Schema Stabilization (COMPLETED)
 
-### 1. Overview
-Successfully implemented a world-class ingestion and architecting loop that grounds all instructional design in 100% organizational truth. The system now supports multi-module document segregation and strict zero-leakage RAG.
-
-### 2. Core Features Implemented
-*   **Frontier AI Integration:** Standardized on `gemini-3.1-pro-preview` (Reasoning) and `gemini-3-flash-preview` (Performance).
-*   **Unified Vector Space:** Switched to `gemini-embedding-2` with 3072 dimensions for perfect semantic precision.
-*   **Intelligent Modality Matcher:** Automated mapping of modules to optimal delivery methods (Video, Interactive, etc.).
-*   **Zen Architecture Workspace:** A distraction-free, high-fidelity editor with progressive disclosure panels.
-*   **Descriptive Gap Analysis:** Explicitly identifies missing content using amber warning chips and contextual missing data tags.
-*   **Dual-Persistence Sync Engine:** Real-time synchronization between LocalStorage and Supabase.
-
-### 3. Technical Architecture
-*   **Database:** Supabase with `pgvector` (vector(3072)) and HNSW indexing.
-*   **UI/UX:** Next.js 15.5, Tailwind CSS, Framer Motion, and React Markdown (GFM/Rehype).
-*   **Grounding:** Triple-Pass Integrity Shield (Retrieval -> Generation -> NLI Audit).
+- Reconciled DB schema drift: `user_id` column, `docx` content_type, `visual_generations` table
+- Added HNSW vector index via `halfvec` cast for 3072-dim vectors
+- Fixed embedding model: `gemini-embedding-001` (was `gemini-embedding-2`)
+- Fixed retrieval threshold inversion (strict=0.75, fallback=0.3)
+- Added `maxDuration = 300` and `runtime = 'nodejs'` to all generation routes
+- Forward migration: `supabase/migrations/20260519_stabilize_knowledge_vault.sql` applied to production
 
 ---
 
-## 🛠️ Phase 3: Interactive Visualization & Advanced Flow (CURRENT FOCUS)
+## ✅ Phase 1: Schema-First Generation (COMPLETED)
 
-### 1. Core Objectives
-*   **Interactive Constellation Graph:** Implement a node-based "Map View" using **React Flow** to visualize the curriculum hierarchy.
-*   **Voice-to-Architecture:** Add explicit **Audio (MP3)** ingestion support to the Knowledge Vault.
-*   **Collaborative Design:** Real-time multi-user editing in the Zen Workspace via Supabase Realtime.
-*   **Asset Linkage:** Direct visual citations to ingested image/video frames within the script editor.
-
-### 2. Success Metrics
-*   **Loading Speed:** First Load (LCP) under 1.2s via dynamic imports and asset optimization.
-*   **Instructional Fidelity:** 100% adherence to Polaris strategic DNA (audience, goals, metrics).
-*   **User Focus:** 90% reduction in UI clutter through progressive disclosure.
+- Replaced tagged-markdown + regex with Zod schemas + `generateObject` throughout
+- `src/types/architect.ts` — `NodeScript`, `Scene`, `AuditResult`, `FactLedger` Zod schemas
+- `src/types/knowledge.ts` — `ContentType`, `IngestAsset`, `KnowledgeChunk`
+- `ScriptDraftingWorkspace` — deleted multi-pass line parser, consumes `Scene[]` directly
+- `extractAtomicFacts` and `performAdversarialAudit` both use `generateObject` (no regex)
+- `modalityMapper.ts` promoted from test-only to real module, wired into `constellation/page.tsx`
 
 ---
 
-## 📜 Timeline & Status
-*   **Phase 1 (Core Architecture):** COMPLETED
-*   **Phase 2 (Knowledge Harvesting):** COMPLETED
-*   **Phase 3 (Interactive Flows):** IN PROGRESS
+## ✅ Phase 2: Hexagonal Refactor + Resilience + Security (COMPLETED)
+
+- `src/ports/` — `LlmPort`, `VaultPort` interfaces
+- `src/adapters/` — `GeminiLlmAdapter`, `SupabaseVaultAdapter`
+- `src/lib/retry.ts` — exponential backoff with jitter for 429/503/rate-limit
+- `src/lib/chunking.ts` — sentence-boundary, 800-token target, 80-token overlap
+- `src/lib/logger.ts` — JSON-lines structured logging with correlation IDs
+- `src/lib/routeAuth.ts` — `requireBlueprintOwner`, `requireAuth`, `authErrorResponse`
+- All generation routes protected with auth + ownership check before admin client use
+- Both services refactored to depend only on ports (fully unit-testable with mocks)
+
+---
+
+## ✅ Phase 3: Real ULS Handover + Pedagogical Intelligence (COMPLETED)
+
+### Merrill Strategy Layer
+- `src/domain/pedagogy/merrillStrategy.ts` — maps raw `pedagogicalMode` to one of five
+  Merrill First Principles phases (ACTIVATION, DEMONSTRATION, APPLICATION, INTEGRATION, TASK_CENTERED)
+- Resolved `merrillMode`, `cognitiveVerb`, `bloomLevel`, and `promptGuidance` injected into every
+  synthesis prompt (Pass 3) so the AI generates mode-appropriate content, not generic direct instruction
+
+### Cognitive Load Guardrail
+- `src/domain/pedagogy/cognitiveLoad.ts` — `assessCLG()`, `CLG_THRESHOLD = 8.5`
+- HUD cognitive bar turns amber when active node CLG > 8.5
+- CLG warning chip in header when any drafted node exceeds threshold
+- `POST /api/architect/export` returns HTTP 422 with violating node list when CLG gate fails
+
+### Universal Learning Schema
+- `src/domain/uls/schema.ts` — Zod `ULSSchema` matching HANDOVER_PROTOCOL §4
+- `src/domain/uls/builder.ts` — `buildULS()` assembles validated ULS from all `DraftResult` objects
+- "View Handover Schema" modal renders the real ULS: metadata, guardrails, per-node table, full JSON
+
+### Nova Export Endpoint
+- `POST /api/architect/export` — auth → ULS schema validation → CLG gate → status transition
+- Blueprint status transitions `completed → architecting` on successful export
+- Endpoint rejects invalid ULS payloads with structured Zod error details
+
+### Unit Tests (domain layer)
+- `src/domain/pedagogy/merrillStrategy.test.ts`
+- `src/domain/pedagogy/cognitiveLoad.test.ts`
+- `src/domain/uls/schema.test.ts`
+- `src/domain/uls/builder.test.ts`
+
+---
+
+## 📜 Current Status
+
+| Layer | Status |
+|---|---|
+| DB Schema | ✅ Stable — migrations applied, HNSW index active |
+| Embedding | ✅ `gemini-embedding-001`, 3072-dim, consistent write/read |
+| Retrieval | ✅ Tiered (strict→broad→metadata fallback), thresholds correct |
+| Generation | ✅ Schema-first (`generateObject`) — no regex on AI output |
+| Architecture | ✅ Hexagonal — services depend on ports, adapters implement them |
+| Auth | ✅ All routes protected; ownership checked before admin client |
+| Pedagogy | ✅ Merrill phase + Bloom verb resolved and injected per node |
+| ULS | ✅ Real schema built from DraftResults; validated before export |
+| CLG Gate | ✅ Blocks Nova export when any node CLG > 8.5 |
+| Tests | ✅ Domain layer unit-tested (merrillStrategy, cognitiveLoad, ULS schema, builder) |

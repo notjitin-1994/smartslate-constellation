@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ScriptOutput } from '@/lib/services/instructionalArchitectService';
+import type { DraftResult } from '@/types/architect';
 
 export interface ConstellationState {
   activeNodeIdx: number;
   isSidebarCollapsed: boolean;
-  scriptOutputs: Record<number, ScriptOutput>;
+  scriptOutputs: Record<number, DraftResult>;
   lastUpdated: string;
 }
 

@@ -1,118 +1,146 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
+
+const BLUEPRINT_ID = 'bceb2bbd-1908-48a8-b793-084f30ec8753';
+
+const MOCK_BLUEPRINT = {
+  id: BLUEPRINT_ID,
+  title: 'Interview Mastery Blueprint: Campus to Corporate',
+  user_id: 'mock-user',
+  blueprint_json: {
+    executive_summary: { content: 'Strategic goals for corporate transition.' },
+    learning_objectives: { objectives: [{ title: 'apply interview frameworks' }] },
+    target_audience: {
+      demographics: { roles: ['Graduate', 'Student'], experience_levels: ['Entry-level'] },
+    },
+    instructional_strategy: {
+      modalities: [
+        { type: 'Studio Video Lectures', rationale: 'High engagement.' },
+        { type: 'Interactive eLearning (SCORM)', rationale: 'Skill application.' },
+      ],
+    },
+    content_outline: {
+      modules: [
+        {
+          module_id: 'NODE_01',
+          title: 'The Corporate Mindset',
+          description: 'Transitioning from student to professional.',
+          delivery_method: 'Video Lectures',
+        },
+        {
+          module_id: 'NODE_02',
+          title: 'Personal Branding',
+          description: 'Building a professional identity.',
+          delivery_method: 'Interactive SCORM',
+        },
+      ],
+    },
+  },
+};
+
+const MOCK_DRAFT_RESULT = {
+  nodeScript: {
+    nodeTitle: 'The Corporate Mindset',
+    pedagogicalMode: 'Direct Instruction',
+    cognitiveVerb: 'explain',
+    scaffolding: 'MEDIUM' as const,
+    scenes: [
+      {
+        id: 'scene-01',
+        title: 'Scene 1: The Transition',
+        narration: 'Every professional journey starts with a shift in mindset. [Fact_ID: 1]',
+        visual: {
+          artDirection: 'Wide shot of a modern office lobby.',
+          generationPrompt: 'Photorealistic wide shot of a corporate lobby, 4K.',
+        },
+        activity: null,
+        branching: null,
+        speakerNotes: 'Pause for reflection.',
+        citations: ['Fact_ID: 1'],
+        dataDeficits: [],
+        visualId: 'vis-uuid-001',
+      },
+    ],
+  },
+  citations: ['interview_guide.pdf'],
+  groundingScore: 8,
+  cognitiveLoadScore: 3,
+  hallucinationFlag: false,
+  semanticDelta: 'All claims grounded.',
+  groundingTypes: ['pdf'],
+};
 
 test.describe('Full Architectural Loop: Interview Prep', () => {
-  const blueprintId = 'bceb2bbd-1908-48a8-b793-084f30ec8753';
-
   test.beforeEach(async ({ context }) => {
-    // Use the bypass header to avoid middleware redirect
-    await context.setExtraHTTPHeaders({
-      'x-test-bypass': 'true'
-    });
+    await context.setExtraHTTPHeaders({ 'x-test-bypass': 'true' });
   });
 
-  test('should map modalities, ingest document, and draft grounded script', async ({ page }) => {
-    // 0. Mock Supabase Responses
+  test('loads blueprint and Architecture Canvas heading', async ({ page }) => {
     await page.route('**/rest/v1/blueprint_generator*', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: blueprintId,
-          title: 'Interview Mastery Blueprint: Campus to Corporate',
-          blueprint_json: {
-            executive_summary: { content: 'Strategic goals for corporate transition.' },
-            learning_objectives: { objectives: [{ title: 'apply' }] },
-            instructional_strategy: {
-              modalities: [
-                { type: 'Studio Video Lectures', rationale: 'High engagement.' },
-                { type: 'Interactive eLearning (SCORM)', rationale: 'Skill application.' }
-              ]
-            },
-            content_outline: { 
-              modules: [
-                { 
-                  title: 'The Corporate Mindset & Personal Branding', 
-                  delivery_method: 'Video Lectures',
-                  description: 'Transitioning from student to professional.',
-                  learning_activities: [{ type: 'Video', activity: 'Intro', duration: '10m' }]
-                }
-              ] 
-            }
-          }
-        })
-      });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_BLUEPRINT) });
+    });
+    await page.route('**/rest/v1/constellation_states*', async (route) => {
+      if (route.request().method() === 'GET' || route.request().method() === 'HEAD') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      }
+    });
+    await page.route('**/api/ingest/harvest-blueprint', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
     });
 
-    // 1. Navigate to Constellation
-    console.log('🚀 Navigating to Constellation with bypass...');
-    await page.goto(`/constellation?blueprintId=${blueprintId}`, { waitUntil: 'networkidle' });
+    await page.goto(`/constellation?blueprintId=${BLUEPRINT_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('text=Architecture Canvas')).toBeVisible({ timeout: 15000 });
+  });
 
-    // 2. Verify Modality Mapping in Sidebar
-    console.log('🔍 Verifying Modality Mapping...');
-    
-    // Explicitly wait for "Neural Nodes" text
-    const neuralNodesHeader = page.locator('text=Neural Nodes');
-    await expect(neuralNodesHeader).toBeVisible({ timeout: 20000 });
-    
-    // Find node and check icon
-    const nodeItem = page.locator('div').filter({ hasText: /^NODE_01$/ }).first();
-    await expect(nodeItem).toBeVisible();
-    
-    // Check for the Video icon (lucide-video)
-    const videoIcon = page.locator('svg.lucide-video').first();
-    await expect(videoIcon).toBeVisible();
-    console.log('✅ Modality correctly mapped to Video.');
-
-    // 3. Open Knowledge Vault and Ingest
-    console.log('📥 Opening Knowledge Vault...');
-    await page.click('button:has-text("Open Knowledge Vault")');
-    
-    const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(path.join(process.cwd(), 'tests/fixtures/integration_test_sop.txt'));
-    
-    await page.route('**/api/ingest', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: { count: 1, contextHeader: 'Mocked Context' } })
-      });
+  test('full loop: blueprint loads, draft runs, scene renders', async ({ page }) => {
+    await page.route('**/rest/v1/blueprint_generator*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_BLUEPRINT) });
     });
-
-    await page.click('button:has-text("Initialize Ingest Engine")');
-
-    // 4. Wait for Synthesizing
-    await expect(page.locator('h3:has-text("Synthesizing Wisdom")')).toBeVisible();
-    await page.waitForTimeout(2000); 
-
-    // 5. Trigger Drafting
+    await page.route('**/rest/v1/constellation_states*', async (route) => {
+      if (route.request().method() === 'GET' || route.request().method() === 'HEAD') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+      } else {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      }
+    });
+    await page.route('**/api/ingest/harvest-blueprint', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
+    });
     await page.route('**/api/architect/draft', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ 
-          success: true, 
-          data: { 
-            script: '# Module Title\n## Introduction\n**Instructor:** Hello world [Source 1].',
-            citations: ['Source 1'],
-            groundingScore: 9,
-            hallucinationFlag: false,
-            cognitiveLoadScore: 3,
-            groundingTypes: ['text']
-          } 
-        })
+        body: JSON.stringify({ success: true, data: MOCK_DRAFT_RESULT }),
       });
     });
 
-    console.log('🎨 Drafting Modality-Aware Script...');
-    const draftBtn = page.locator('button:has-text("Draft Script")');
-    await expect(draftBtn).toBeVisible({ timeout: 15000 });
-    await draftBtn.click();
+    await page.goto(`/constellation?blueprintId=${BLUEPRINT_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('text=Architecture Canvas')).toBeVisible({ timeout: 15000 });
 
-    // 6. Verify Production Script Output
-    await expect(page.locator('div:has-text("Production Script")').first()).toBeVisible({ timeout: 30000 });
-    await expect(page.locator('span:has-text("Verified Grounded")')).toBeVisible();
-    
-    console.log('🎉 E2E Full Loop Verified: SUCCESS');
+    // Trigger the draft
+    await page.locator('button:has-text("Map Constellation")').click();
+
+    // Scene title from the mock should appear in the workspace
+    await expect(page.locator('text=Scene 1: The Transition')).toBeVisible({ timeout: 15000 });
+
+    // Grounding score should reflect mock value (8/10)
+    await expect(page.locator('text=8/10').first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('vault page loads for the blueprint', async ({ page }) => {
+    await page.route('**/rest/v1/blueprint_generator*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_BLUEPRINT) });
+    });
+    await page.route('**/rest/v1/knowledge_vault*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/rpc/match_knowledge*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+
+    await page.goto(`/constellation/vault?blueprintId=${BLUEPRINT_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('h1:has-text("Knowledge Vault")')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=Ingest Course Assets')).toBeVisible({ timeout: 10000 });
   });
 });

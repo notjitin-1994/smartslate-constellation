@@ -1,82 +1,93 @@
-import { supabase as defaultClient, createAdminClient } from '@/lib/supabase';
-import { generateText, embed, embedMany, generateObject } from 'ai';
-import { google } from '@/lib/google';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { generateText as sdkGenerateText } from 'ai';
+import { google, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from '@/lib/google';
 import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 import { z } from 'zod';
+import { withRetry } from '@/lib/retry';
+import { createLogger, type Logger } from '@/lib/logger';
+import { chunkText } from '@/lib/chunking';
+import type { LlmPort } from '@/ports/LlmPort';
+import type { VaultPort, ChunkInsertRow } from '@/ports/VaultPort';
+import type { ContentType, IngestAsset } from '@/types/knowledge';
+import { geminiLlmAdapter } from '@/adapters/gemini/GeminiLlmAdapter';
+import { supabaseVaultAdapter } from '@/adapters/supabase/SupabaseVaultAdapter';
 
-export type ContentType = 'text' | 'image' | 'video' | 'pdf' | 'docx';
+export type { ContentType, IngestAsset };
 
-export interface IngestAsset {
-  blueprintId: string | null;
-  userId?: string | null; // Track ownership for global assets
-  contentType: ContentType;
-  content: string; // Base64 for media/docs or raw text
-  fileName: string;
-  metadata?: Record<string, unknown>;
-  blueprintContext?: Record<string, unknown> | null;
-  useAdmin?: boolean; // New flag for server-side auth bypass
-}
+// Maximum chars passed to the LLM for module-content segregation.
+// ~200k chars ≈ 50k tokens — within Gemini Flash's context window.
+// Documents exceeding this fall back to generic chunking without LLM segregation.
+const SEGREGATION_CHAR_LIMIT = 200_000;
+
+const SegregationSchema = z.object({
+  contextHeader: z
+    .string()
+    .describe(
+      'Overall institutional context of the document. Who is it for and what procedure/knowledge it conveys?'
+    ),
+  moduleContents: z.array(
+    z.object({
+      moduleId: z.string().describe('Module ID, e.g. NODE_01'),
+      relevantContent: z
+        .string()
+        .describe(
+          'All extracted text relevant to this module. Empty string if none.'
+        ),
+    })
+  ),
+});
 
 export class KnowledgeIngestService {
+  constructor(
+    private readonly llm: LlmPort,
+    private readonly vault: VaultPort
+  ) {}
+
   async ingest(asset: IngestAsset) {
-    console.log(`[Ingest] Incoming asset: ${asset.fileName} (${asset.contentType})`);
+    const log = createLogger();
+    log.info('ingest.start', { fileName: asset.fileName, contentType: asset.contentType });
     if (['pdf', 'text', 'docx'].includes(asset.contentType)) {
-      return this.ingestDocument(asset);
-    } else {
-      return this.ingestMultimodalAsset(asset);
+      return this.ingestDocument(asset, log);
     }
+    return this.ingestMultimodalAsset(asset, log);
   }
 
-  /**
-   * Automatically harvests strategic facts from the Polaris Blueprint
-   * Uses Admin Client (RLS Bypass) as this is a background system task.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async harvestBlueprint(blueprintId: string, blueprintJson: any) {
-    console.log(`[Ingest] [HARVEST] Initializing Strategic Harvesting for: ${blueprintId}`);
-    const admin = createAdminClient();
-    
-    try {
-      // 1. Check if already harvested
-      const { count } = await admin
-        .from('knowledge_vault')
-        .select('*', { count: 'exact', head: true })
-        .eq('blueprint_id', blueprintId)
-        .eq('content_type', 'text')
-        .contains('metadata', { is_blueprint_source: true });
+    const log = createLogger();
+    log.info('harvest.start', { blueprintId });
 
-      if (count && count > 0) {
-        console.log('[Ingest] [HARVEST] Strategic data already present. Skipping.');
+    try {
+      if (await this.vault.isBlueprintHarvested(blueprintId)) {
+        log.info('harvest.skip — already harvested');
         return;
       }
 
-      // 2. Distill Blueprint to Atomic Facts with high-fidelity requirements
-      const { text: blueprintFacts } = await generateText({
-        model: google('gemini-3.1-pro-preview'), // Use Pro for better fact-gathering
-        system: `You are an expert Strategic Data Harvester. 
-        Your goal is to extract every verifiable metric, rule, and requirement from the Blueprint JSON.
-        PAY CRITICAL ATTENTION TO AND EXPLICITLY CAPTURE:
-        - Target Audience Details (e.g., "UG/PG students", roles, levels).
-        - Delivery & Technical Config (e.g., "SCORM package", "Vimeo", "LMS").
-        - Program Metrics (Durations, Passing Scores, Assessment counts).
-        Output as a granular numbered list of core institutional facts.`,
+      const blueprintFacts = await this.llm.generateText({
+        model: 'gemini-3.1-pro-preview',
+        system: `You are an expert Strategic Data Harvester.
+Extract every verifiable metric, rule, and requirement from the Blueprint JSON.
+Capture:
+- Target Audience Details (roles, levels, demographics)
+- Delivery & Technical Config (SCORM, LMS, Vimeo, etc.)
+- Program Metrics (durations, passing scores, assessment counts)
+Output as a granular numbered list of core institutional facts.`,
         prompt: `BLUEPRINT_JSON:\n${JSON.stringify(blueprintJson)}`,
       });
 
-      console.log(`[Ingest] [HARVEST] Extracted ${blueprintFacts.split('\n').length} strategic facts.`);
+      const chunks = chunkText(blueprintFacts);
+      const valuesToEmbed = chunks.map(
+        (chunk) => `[STRATEGIC_BLUEPRINT]\n\nDATA: ${chunk}`
+      );
 
-      // 3. Ingest into Vault
-      const chunks = this.chunkText(blueprintFacts, 1000);
-      const valuesToEmbed = chunks.map((chunk: string) => `[STRATEGIC_BLUEPRINT] \n\n DATA: ${chunk}`);
-      
-      const { embeddings } = await embedMany({
-        model: google.textEmbeddingModel('gemini-embedding-2'),
+      log.info('harvest.embedding', { chunkCount: chunks.length });
+      const embeddings = await this.llm.embedMany({
+        model: EMBEDDING_MODEL,
         values: valuesToEmbed,
-        providerOptions: { google: { outputDimensionality: 3072 } }
+        outputDimensionality: EMBEDDING_DIMENSIONS,
       });
 
-      const rows = chunks.map((chunk: string, i: number) => ({
+      const rows: ChunkInsertRow[] = chunks.map((chunk, i) => ({
         blueprint_id: blueprintId,
         content_type: 'text',
         raw_content: chunk,
@@ -86,150 +97,168 @@ export class KnowledgeIngestService {
           source_name: 'POLARIS_BLUEPRINT',
           is_blueprint_source: true,
           chunk_index: i,
+          total_chunks: chunks.length,
           processed_at: new Date().toISOString(),
         },
       }));
 
-      await admin.from('knowledge_vault').insert(rows);
-      console.log('[Ingest] [HARVEST] Strategic Blueprint successfully added to Truth Ledger.');
+      await this.vault.insertChunks(rows);
+      log.info('harvest.complete', { rowCount: rows.length });
     } catch (err) {
-      console.error('[Ingest] [HARVEST_ERROR]:', err);
+      log.error('harvest.error', { err: String(err) });
     }
   }
 
-  private async ingestDocument(asset: IngestAsset) {
-    const supabase = asset.useAdmin ? createAdminClient() : defaultClient;
+  private async ingestDocument(asset: IngestAsset, log: Logger) {
     let fullText = '';
-    console.log(`[Ingest] Processing document: ${asset.fileName}`);
 
-    try {
-      if (asset.contentType === 'pdf') {
-        console.log('[Ingest] Extracting PDF content...');
-        const buffer = Buffer.from(asset.content, 'base64');
-        const pdf = await getDocumentProxy(new Uint8Array(buffer));
-        const result = await extractText(pdf, { mergePages: true });
-        fullText = result.text;
-      } else if (asset.contentType === 'docx') {
-        console.log('[Ingest] Extracting DOCX content...');
-        const buffer = Buffer.from(asset.content, 'base64');
-        const result = await mammoth.extractRawText({ buffer });
-        fullText = result.value;
-      } else {
-        fullText = asset.content;
-      }
+    if (asset.contentType === 'pdf') {
+      log.info('doc.extract.pdf');
+      const buffer = Buffer.from(asset.content, 'base64');
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      const result = await extractText(pdf, { mergePages: true });
+      fullText = result.text;
+    } else if (asset.contentType === 'docx') {
+      log.info('doc.extract.docx');
+      const buffer = Buffer.from(asset.content, 'base64');
+      const result = await mammoth.extractRawText({ buffer });
+      fullText = result.value;
+    } else {
+      fullText = asset.content;
+    }
 
-      if (!fullText || fullText.trim().length === 0) {
-        throw new Error('Document extraction returned empty text.');
-      }
+    if (!fullText || !fullText.trim()) {
+      throw new Error('Document extraction returned empty text.');
+    }
 
-      console.log(`[Ingest] Extraction success. Length: ${fullText.length}. Generating context and segregating...`);
+    log.info('doc.extracted', { charCount: fullText.length, fileName: asset.fileName });
 
-      let modulesListStr = 'No modules available. Fallback to generic ingestion.';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bpContext: any = asset.blueprintContext;
-      if (bpContext?.content_outline?.modules) {
-        modulesListStr = bpContext.content_outline.modules.map((m: { title: string; description: string }, i: number) => `ID: NODE_0${i+1} | Title: ${m.title} | Desc: ${m.description}`).join('\n');
-      }
+    const bpContext: any = asset.blueprintContext;
+    const modulesListStr = bpContext?.content_outline?.modules
+      ? bpContext.content_outline.modules
+          .map(
+            (m: { title: string; description: string }, i: number) =>
+              `ID: NODE_0${i + 1} | Title: ${m.title} | Desc: ${m.description}`
+          )
+          .join('\n')
+      : 'No modules available. Use generic ingestion.';
 
-      const { object } = await generateObject({
-        model: google('gemini-3-flash-preview'),
-        schema: z.object({
-          contextHeader: z.string().describe('Overall institutional context of the document. Who is it for and what procedure/knowledge it conveys?'),
-          moduleContents: z.array(z.object({
-            moduleId: z.string().describe('The ID of the module, e.g. NODE_01'),
-            relevantContent: z.string().describe('All extracted text from the document relevant to this module. Leave empty if none.')
-          }))
-        }),
-        prompt: `You are an expert instructional design data parser. Read the document and segregate its content based on the provided modules. A document may contain content for multiple modules. Extract and assign the relevant sections to each matching module.\n\nModules:\n${modulesListStr}\n\nDocument:\n${fullText.substring(0, 50000)}`
+    const rows: ChunkInsertRow[] = [];
+
+    if (fullText.length <= SEGREGATION_CHAR_LIMIT) {
+      // LLM-based module segregation
+      log.info('doc.segregate.llm');
+      const segregation = await this.llm.generateObject({
+        model: 'gemini-3-flash-preview',
+        schema: SegregationSchema,
+        prompt: `You are an expert instructional design data parser. Segregate the document content by module.
+A document may contain content for multiple modules — assign each section to the most relevant module.
+
+Modules:\n${modulesListStr}
+
+Document:\n${fullText}`,
       });
 
-      console.log(`[Ingest] Context generated: ${object.contextHeader.substring(0, 50)}...`);
+      log.info('doc.segregated', { contextHeader: segregation.contextHeader.slice(0, 60) });
 
-      const rows: Record<string, unknown>[] = [];
-      for (const mc of object.moduleContents) {
-        if (!mc.relevantContent || mc.relevantContent.trim() === '') continue;
-        
-        const chunks = this.chunkText(mc.relevantContent, 1000);
-        if (chunks.length === 0) continue;
-        
-        console.log(`[Ingest] Embedding ${chunks.length} chunks for module ${mc.moduleId}...`);
-        const valuesToEmbed = chunks.map((chunk: string) => `[MODULE: ${mc.moduleId}] [CONTEXT: ${object.contextHeader}] \n\n DATA: ${chunk}`);
-        
-        const { embeddings } = await embedMany({
-          model: google.textEmbeddingModel('gemini-embedding-2'),
+      for (const mc of segregation.moduleContents) {
+        if (!mc.relevantContent?.trim()) continue;
+        const moduleChunks = chunkText(mc.relevantContent);
+        if (moduleChunks.length === 0) continue;
+
+        log.info('doc.embed.module', { moduleId: mc.moduleId, chunkCount: moduleChunks.length });
+        const valuesToEmbed = moduleChunks.map(
+          (chunk) => `[MODULE: ${mc.moduleId}] [CONTEXT: ${segregation.contextHeader}]\n\nDATA: ${chunk}`
+        );
+
+        const embeddings = await this.llm.embedMany({
+          model: EMBEDDING_MODEL,
           values: valuesToEmbed,
-          providerOptions: { google: { outputDimensionality: 3072 } }
+          outputDimensionality: EMBEDDING_DIMENSIONS,
         });
 
-        const chunkRows = chunks.map((chunk: string, i: number) => ({
-          blueprint_id: asset.blueprintId,
-          user_id: asset.userId,
-          content_type: asset.contentType,
-          raw_content: chunk,
-          contextual_header: object.contextHeader,
-          embedding: embeddings[i],
-          metadata: {
-            ...(asset.metadata || {}),
-            source_name: asset.fileName,
-            module_id: mc.moduleId,
-            chunk_index: i,
-            total_chunks: chunks.length,
-            processed_at: new Date().toISOString(),
-          },
-        }));
-        rows.push(...chunkRows);
+        rows.push(
+          ...moduleChunks.map((chunk, i) => ({
+            blueprint_id: asset.blueprintId,
+            user_id: asset.userId,
+            content_type: asset.contentType,
+            raw_content: chunk,
+            contextual_header: segregation.contextHeader,
+            embedding: embeddings[i],
+            metadata: {
+              ...(asset.metadata || {}),
+              source_name: asset.fileName,
+              module_id: mc.moduleId,
+              chunk_index: i,
+              total_chunks: moduleChunks.length,
+              processed_at: new Date().toISOString(),
+            },
+          }))
+        );
       }
-      
+
+      // If LLM returned no content, fall back to generic chunking
       if (rows.length === 0) {
-        console.warn(`[Ingest] No specific module content extracted. Falling back to generic ingestion.`);
-        const chunks = this.chunkText(fullText, 1000);
-        const valuesToEmbed = chunks.map((chunk: string) => `[CONTEXT: ${object.contextHeader}] \n\n DATA: ${chunk}`);
-        
-        const { embeddings } = await embedMany({
-          model: google.textEmbeddingModel('gemini-embedding-2'),
-          values: valuesToEmbed,
-          providerOptions: { google: { outputDimensionality: 3072 } }
-        });
-        
-        const chunkRows = chunks.map((chunk: string, i: number) => ({
-          blueprint_id: asset.blueprintId,
-          user_id: asset.userId,
-          content_type: asset.contentType,
-          raw_content: chunk,
-          contextual_header: object.contextHeader,
-          embedding: embeddings[i],
-          metadata: {
-            ...(asset.metadata || {}),
-            source_name: asset.fileName,
-            chunk_index: i,
-            total_chunks: chunks.length,
-            processed_at: new Date().toISOString(),
-          },
-        }));
-        rows.push(...chunkRows);
+        log.warn('doc.segregate.empty — falling back to generic chunking');
+        const fallback = await this.buildEmbeddedRows(fullText, segregation.contextHeader, asset, log);
+        rows.push(...fallback);
       }
-
-      console.log(`[Ingest] Storing ${rows.length} rows in Supabase...`);
-      const { data, error } = await supabase.from('knowledge_vault').insert(rows).select();
-      
-      if (error) {
-        console.error('[Ingest API Error]:', error);
-        throw error;
-      }
-      
-      console.log('[Ingest] Transaction Complete.');
-      return { count: data ? data.length : 0, contextHeader: object.contextHeader };
-    } catch (err) {
-      console.error(`[Ingest Error] ${asset.fileName}:`, err);
-      throw err;
+    } else {
+      // Document exceeds segregation limit — chunk directly without LLM
+      log.info('doc.segregate.generic', { reason: 'document exceeds segregation limit', charCount: fullText.length });
+      const generic = await this.buildEmbeddedRows(fullText, asset.fileName, asset, log);
+      rows.push(...generic);
     }
+
+    if (rows.length > 0) {
+      log.info('doc.insert', { rowCount: rows.length });
+      await this.vault.insertChunks(rows);
+    }
+
+    log.info('doc.complete', { rowCount: rows.length });
+    return { count: rows.length };
   }
 
-  private async ingestMultimodalAsset(asset: IngestAsset) {
-    const supabase = asset.useAdmin ? createAdminClient() : defaultClient;
-    console.log(`[Ingest] Processing multi-modal: ${asset.fileName}`);
-    try {
-      const { text: description } = await generateText({
+  private async buildEmbeddedRows(
+    text: string,
+    contextHeader: string,
+    asset: IngestAsset,
+    log: Logger
+  ): Promise<ChunkInsertRow[]> {
+    const chunks = chunkText(text);
+    if (chunks.length === 0) return [];
+
+    log.info('doc.embed.generic', { chunkCount: chunks.length });
+    const valuesToEmbed = chunks.map((c) => `[CONTEXT: ${contextHeader}]\n\nDATA: ${c}`);
+    const embeddings = await this.llm.embedMany({
+      model: EMBEDDING_MODEL,
+      values: valuesToEmbed,
+      outputDimensionality: EMBEDDING_DIMENSIONS,
+    });
+
+    return chunks.map((chunk, i) => ({
+      blueprint_id: asset.blueprintId,
+      user_id: asset.userId,
+      content_type: asset.contentType,
+      raw_content: chunk,
+      contextual_header: contextHeader,
+      embedding: embeddings[i],
+      metadata: {
+        ...(asset.metadata || {}),
+        source_name: asset.fileName,
+        chunk_index: i,
+        total_chunks: chunks.length,
+        processed_at: new Date().toISOString(),
+      },
+    }));
+  }
+
+  private async ingestMultimodalAsset(asset: IngestAsset, log: Logger) {
+    log.info('multimodal.start', { fileName: asset.fileName, contentType: asset.contentType });
+
+    // multimodal messages use provider-specific 'file' content type — kept here intentionally
+    const { text: description } = await withRetry(() =>
+      sdkGenerateText({
         model: google('gemini-3-flash-preview'),
         messages: [
           {
@@ -242,72 +271,57 @@ export class KnowledgeIngestService {
               {
                 type: 'file',
                 data: asset.content,
-                mediaType: this.getMimeType(asset.contentType, asset.fileName) as "image/png" | "image/jpeg" | "video/mp4",
+                mediaType: this.getMimeType(
+                  asset.contentType,
+                  asset.fileName
+                ) as 'image/png' | 'image/jpeg' | 'video/mp4',
               },
             ],
           },
         ],
-      });
+      })
+    );
 
-      console.log(`[Ingest] Media analysis complete. Embedding description...`);
+    log.info('multimodal.described', { descriptionLength: description.length });
 
-      const { embedding } = await embed({
-        model: google.textEmbeddingModel('gemini-embedding-2'),
-        value: description,
-        providerOptions: {
-          google: {
-            outputDimensionality: 3072,
-          }
-        }
-      });
+    const embedding = await this.llm.embed({
+      model: EMBEDDING_MODEL,
+      value: description,
+      outputDimensionality: EMBEDDING_DIMENSIONS,
+    });
 
-      const { data, error } = await supabase
-        .from('knowledge_vault')
-        .insert({
-          blueprint_id: asset.blueprintId,
-          user_id: asset.userId,
-          content_type: asset.contentType,
-          raw_content: description,
-          embedding,
-          metadata: {
-            ...(asset.metadata || {}),
-            source_name: asset.fileName,
-            is_multimodal: true,
-            processed_at: new Date().toISOString(),
-          },
-        })
-        .select()
-        .single();
+    await this.vault.insertChunks([
+      {
+        blueprint_id: asset.blueprintId,
+        user_id: asset.userId,
+        content_type: asset.contentType,
+        raw_content: description,
+        embedding,
+        metadata: {
+          ...(asset.metadata || {}),
+          source_name: asset.fileName,
+          is_multimodal: true,
+          processed_at: new Date().toISOString(),
+        },
+      },
+    ]);
 
-      if (error) {
-        console.error('[Ingest API Error Media]:', error);
-        throw error;
-      }
-      console.log('[Ingest] Media Stored successfully.');
-      return data;
-    } catch (err) {
-      console.error(`[Ingest Error] Media ${asset.fileName}:`, err);
-      throw err;
-    }
-  }
-
-  private chunkText(text: string, size: number): string[] {
-    const chunks: string[] = [];
-    let i = 0;
-    while (i < text.length) {
-      chunks.push(text.substring(i, i + size * 4));
-      i += size * 4;
-    }
-    return chunks;
+    log.info('multimodal.complete');
+    return { count: 1 };
   }
 
   private getMimeType(type: string, fileName: string): string {
     if (type === 'image') return fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
     if (type === 'video') return 'video/mp4';
     if (type === 'pdf') return 'application/pdf';
-    if (type === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (type === 'docx')
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     return 'text/plain';
   }
 }
 
-export const knowledgeIngestService = new KnowledgeIngestService();
+// Default singleton wired to real adapters
+export const knowledgeIngestService = new KnowledgeIngestService(
+  geminiLlmAdapter,
+  supabaseVaultAdapter
+);

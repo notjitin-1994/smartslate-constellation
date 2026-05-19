@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-// Helper to create a chainable mock
+// --- Supabase mock ---
 const createMockChain = (responseData: Record<string, unknown> | Record<string, unknown>[] = { id: 'mock-id' }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: any = {
@@ -9,42 +9,65 @@ const createMockChain = (responseData: Record<string, unknown> | Record<string, 
     eq: vi.fn(() => chain),
     order: vi.fn(() => chain),
     insert: vi.fn(() => chain),
-    // Make the chain itself thenable to act like a promise
+    update: vi.fn(() => chain),
+    maybeSingle: vi.fn(() => Promise.resolve({ data: responseData, error: null })),
+    contains: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    then: (resolve: (value: any) => void) => Promise.resolve({ data: Array.isArray(responseData) ? responseData : [responseData], error: null }).then(resolve),
+    then: (resolve: (value: any) => void) =>
+      Promise.resolve({ data: Array.isArray(responseData) ? responseData : [responseData], error: null }).then(resolve),
   };
   return chain;
 };
 
-// Mock Supabase
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     from: vi.fn(() => createMockChain() as any),
     rpc: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    auth: {
+      getUser: vi.fn(() => Promise.resolve({ data: { user: { id: 'mock-user-id' } } })),
+    },
   },
+  createAdminClient: vi.fn(() => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    from: vi.fn(() => createMockChain() as any),
+    rpc: vi.fn(() => Promise.resolve({ data: [], error: null })),
+  })),
 }));
 
-// Mock AI SDK
+// --- AI SDK mock ---
 vi.mock('ai', () => ({
   generateText: vi.fn(() => Promise.resolve({ text: 'Mocked AI Response' })),
-  embed: vi.fn(() => Promise.resolve({ embedding: new Array(768).fill(0) })),
-  embedMany: vi.fn(() => Promise.resolve({ embeddings: [new Array(768).fill(0)] })),
+  generateObject: vi.fn(() => Promise.resolve({ object: {} })),
+  embed: vi.fn(() => Promise.resolve({ embedding: new Array(3072).fill(0.1) })),
+  embedMany: vi.fn(() =>
+    Promise.resolve({ embeddings: [new Array(3072).fill(0.1), new Array(3072).fill(0.1)] })
+  ),
 }));
 
+// --- @ai-sdk/google mock (exports createGoogleGenerativeAI + google) ---
 vi.mock('@ai-sdk/google', () => ({
-  google: Object.assign(vi.fn(() => ({})), {
-    textEmbeddingModel: vi.fn(() => ({})),
+  createGoogleGenerativeAI: vi.fn(() =>
+    Object.assign(vi.fn(() => ({ modelId: 'mock-model' })), {
+      textEmbeddingModel: vi.fn(() => ({ modelId: 'mock-embedding-model' })),
+    })
+  ),
+  google: Object.assign(vi.fn(() => ({ modelId: 'mock-model' })), {
+    textEmbeddingModel: vi.fn(() => ({ modelId: 'mock-embedding-model' })),
   }),
 }));
 
-// Mock unpdf
+// --- Document parsing mocks ---
 vi.mock('unpdf', () => ({
   getDocumentProxy: vi.fn(() => Promise.resolve({})),
-  extractText: vi.fn(() => Promise.resolve({ text: 'Mocked PDF Text' })),
+  extractText: vi.fn(() =>
+    Promise.resolve({ text: 'Mocked PDF content. This is a second sentence.' })
+  ),
 }));
 
-// Mock mammoth
 vi.mock('mammoth', () => ({
-  extractRawText: vi.fn(() => Promise.resolve({ value: 'Mocked DOCX Text' })),
+  default: {
+    extractRawText: vi.fn(() => Promise.resolve({ value: 'Mocked DOCX content.' })),
+  },
 }));

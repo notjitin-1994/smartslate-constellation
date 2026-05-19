@@ -1,280 +1,264 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createAdminClient } from '@/lib/supabase';
-import { generateText, embed } from 'ai';
-import { google } from '@/lib/google';
-
-export type ContentType = 'text' | 'image' | 'video' | 'pdf' | 'docx';
-
-export interface IngestAsset {
-  blueprintId: string;
-  contentType: ContentType;
-  content: string; // Base64 for media/docs or raw text
-  fileName: string;
-  metadata?: Record<string, unknown>;
-  blueprintContext?: Record<string, unknown> | null;
-  useAdmin?: boolean; 
-}
+import {
+  NodeScript,
+  AuditResult,
+  FactLedger,
+  type NodeScriptType,
+  type AuditResultType,
+  type FactLedgerType,
+  type DraftResult,
+} from '@/types/architect';
+import type { LlmPort } from '@/ports/LlmPort';
+import type { VaultPort } from '@/ports/VaultPort';
+import type { KnowledgeChunk } from '@/types/knowledge';
+import { createLogger, type Logger } from '@/lib/logger';
+import { EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from '@/lib/google';
+import { resolveInstructionalStrategy } from '@/domain/pedagogy/merrillStrategy';
+import { geminiLlmAdapter } from '@/adapters/gemini/GeminiLlmAdapter';
+import { supabaseVaultAdapter } from '@/adapters/supabase/SupabaseVaultAdapter';
 
 export interface ArchitecturalNode {
   id: string;
   title: string;
   description: string;
   pedagogicalMode: string;
-  targetModality?: string; 
+  targetModality?: string;
   blueprintId: string;
   blueprintContext?: Record<string, unknown> | null;
 }
 
-export interface ScriptOutput {
-  script: string;
-  citations: string[];
-  groundingScore: number;
-  cognitiveLoadScore: number; 
-  hallucinationFlag: boolean;
-  semanticDelta?: string;
-  groundingTypes: string[]; 
-}
-
 export class InstructionalArchitectService {
-  /**
-   * Generates a grounded conversational instructional script.
-   * Implementation: Structured Fact-Verification (0% Hallucination Target).
-   */
-  async draftNodeScript(node: ArchitecturalNode): Promise<ScriptOutput> {
-    console.log(`[Architect] [VERIFY_INIT] Mapping Constellation for: ${node.title}`);
+  constructor(
+    private readonly llm: LlmPort,
+    private readonly vault: VaultPort
+  ) {}
 
-    // --- PASS 0: PRE-FLIGHT DIAGNOSTIC ---
-    try {
-      const supabase = createAdminClient();
-      const { error: healthCheck } = await supabase.from('knowledge_vault').select('id').limit(1);
-      if (healthCheck) {
-        console.error('[Architect Health] Supabase Access Denied:', healthCheck);
-        throw new Error(`Database Access Denied: ${healthCheck.message}`);
-      }
-    } catch (err: any) {
-      throw new Error(`Infrastructure Denied: ${err.message}`);
+  async draftNodeScript(
+    node: ArchitecturalNode,
+    correlationId?: string
+  ): Promise<DraftResult> {
+    const log: Logger = createLogger(correlationId);
+    log.info('pipeline.start', { nodeId: node.id, nodeTitle: node.title });
+
+    // PASS 0: PRE-FLIGHT
+    await this.vault.health();
+
+    // PASS 1: TIERED RETRIEVAL
+    let sourceChunks = await this.retrieveGroundingContext(node, true, log);
+    let isDataSparse = false;
+
+    if (sourceChunks.length === 0) {
+      log.info('retrieval.strict.empty — falling back to broad pass');
+      sourceChunks = await this.retrieveGroundingContext(node, false, log);
+      if (sourceChunks.length === 0) isDataSparse = true;
     }
 
-    try {
-      // --- PASS 1: TIERED RETRIEVAL ---
-      let sourceChunks = await this.retrieveGroundingContext(node, true);
-      let isDataSparse = false;
+    log.info('retrieval.done', { chunkCount: sourceChunks.length, isDataSparse });
 
-      if (sourceChunks.length === 0) {
-        console.log('[Architect] Strict match empty. Fetching module-specific and global blueprint facts...');
-        sourceChunks = await this.retrieveGroundingContext(node, false);
-        if (sourceChunks.length === 0) isDataSparse = true;
+    // Build strategic context
+    const bp = node.blueprintContext as any;
+    let strategicContext = 'Institutional context unavailable.';
+    if (bp) {
+      try {
+        const roles = bp.target_audience?.demographics?.roles || [];
+        const levels = bp.target_audience?.demographics?.experience_levels || [];
+        const goal = bp.executive_summary?.content || 'Standard Instructional Goal';
+        const delivery = bp.delivery_config?.method || bp.delivery_method || 'Standard Online';
+        strategicContext = [
+          `Audience Roles: ${Array.isArray(roles) ? roles.join(', ') : 'General'}`,
+          `Expertise Levels: ${Array.isArray(levels) ? levels.join(', ') : 'Foundational'}`,
+          `Strategic Goal: ${goal}`,
+          `Delivery Infrastructure: ${delivery}`,
+        ].join(' | ');
+      } catch (err) {
+        log.warn('context.extraction.partial', { err: String(err) });
       }
+    }
 
-      // --- PASS 2: STRUCTURED FACT DISTILLATION ---
-      // Polaris Context - HARDENED DEFENSIVE EXTRACTION
-      const bp = node.blueprintContext as any;
-      let strategicContext = 'Institutional context unavailable.';
-      
-      if (bp) {
-        try {
-          const roles = bp.target_audience?.demographics?.roles || [];
-          const levels = bp.target_audience?.demographics?.experience_levels || [];
-          const goal = bp.executive_summary?.content || 'Standard Instructional Goal';
-          const delivery = bp.delivery_config?.method || bp.delivery_method || 'Standard Online';
-          
-          strategicContext = `
-          - Audience Roles: ${Array.isArray(roles) ? roles.join(', ') : 'General'}
-          - Expertise Levels: ${Array.isArray(levels) ? levels.join(', ') : 'Foundational'}
-          - Strategic Goal: ${goal}
-          - Delivery Infrastructure: ${delivery}
-          `;
-        } catch (ctxErr) {
-          console.warn('[Architect] Context extraction partial failure:', ctxErr);
-        }
-      }
+    const rawContextText =
+      `[STRATEGIC_BLUEPRINT_CONTEXT]: ${strategicContext}\n\n` +
+      sourceChunks.map((c, i) => `[SOURCE ${i + 1}]: ${c.raw_content}`).join('\n\n');
 
-      // Merge strategic context into the distillation payload
-      const contextText = `[STRATEGIC_BLUEPRINT_CONTEXT]:\n${strategicContext}\n\n` + 
-        sourceChunks
-          .map((c: any, i: number) => `[SOURCE ${i + 1}]: ${c.raw_content}`)
-          .join('\n\n');
+    // PASS 2: STRUCTURED FACT DISTILLATION
+    log.info('distillation.start');
+    const factLedger = await this.extractAtomicFacts(rawContextText, node.title, log);
+    const factText = factLedger.isEmpty
+      ? 'EMPTY — no relevant source material found.'
+      : factLedger.facts.map((f) => `[Fact_ID: ${f.id}] ${f.fact}`).join('\n');
+    log.info('distillation.done', { factCount: factLedger.facts.length, isEmpty: factLedger.isEmpty });
 
-      const factLedger = await this.extractAtomicFacts(contextText, node.title);
+    // PASS 3: SCHEMA-FIRST SYNTHESIS
+    log.info('synthesis.start');
+    const strategy = resolveInstructionalStrategy(node.pedagogicalMode || 'Direct Instruction');
+    const nodeScript = await this.llm.generateObject({
+      model: 'gemini-3.1-pro-preview',
+      schema: NodeScript,
+      system: `You are an elite Instructional Designer and Storyboard Artist with deep expertise in cognitive load theory, Merrill's First Principles of Instruction, and high-engagement branching scenarios.
 
-      // --- PASS 3: CONSTRAINED SYNTHESIS (SCE 2026 WORLD-CLASS ID OVERHAUL) ---
-      const { text: draft } = await generateText({
-        model: google('gemini-3.1-pro-preview'),
-        temperature: 0.1, 
-        system: `
-<instructional_persona>
-  You are an elite, industry-leading Instructional Designer and Storyboard Artist. You are a world-class expert in cognitive load theory, Gagne's Nine Events of Instruction, and high-engagement branching scenarios. Your mission is to architect learning experiences that are pedagogically superior, visually cinematic, and strategically aligned.
-</instructional_persona>
+MERRILL PHASE GUIDE:
+- ACTIVATION: Open with a knowledge-activation hook — a question, familiar analogy, or prior experience bridge. Do NOT start with objectives.
+- DEMONSTRATION: Lead with a worked example, annotated walkthrough, or expert think-aloud. Narration explains WHY, not just WHAT.
+- APPLICATION: Present a realistic problem with at least one branching decision and explicit corrective feedback in speakerNotes.
+- INTEGRATION: Bridge to the learner's real work context. Activity must require real-world application, not a quiz.
+- TASK_CENTERED: Anchor every scene to a single authentic professional task. Every decision mirrors a real job choice.
 
-<strict_domain_amnesia>
-  CRITICAL: You suffer from absolute domain amnesia. You know ZERO facts, metrics, or definitions regarding the subject matter other than what is explicitly provided in the <fact_ledger>.
-  - You MAY use your world-class ID expertise to structure, pace, and storyboard the module.
-  - You MUST NOT introduce any statistics, rules, or data points from your own training data.
-  - Every factual claim MUST end with its [Fact_ID: N] citation.
-</strict_domain_amnesia>
+STRICT DOMAIN AMNESIA: You know ZERO domain facts other than what is in the <fact_ledger>. Use your ID expertise to structure and pace — never introduce statistics, rules, or data from training data. Every narration claim MUST be traceable to a Fact_ID in the scene's citations array.
 
-<data_scarcity_protocol>
-  IF the <fact_ledger> is "EMPTY" or critically insufficient to cover the required node objectives:
-  1. DO NOT FAIL. Transition to "Diagnostic Architect" mode.
-  2. Generate a high-fidelity STRUCTURAL SKELETON of the module.
-  3. Map out the ideal pedagogical flow, but use stylized placeholders where facts are missing.
-  4. Placeholder Format: [DATA_DEFICIT: Brief description of the organizational fact required here].
-  5. Include an aesthetic call-to-action in the [SPEAKER_NOTES] for every scene: "*Architecture Alert: Please ingest organizational assets regarding [Topic] to finalize this sequence.*"
-</data_scarcity_protocol>
+DATA SCARCITY PROTOCOL: If the fact ledger is EMPTY or critically insufficient, build a structural skeleton. Use each scene's dataDeficits array to list what source material is needed. Do NOT hallucinate facts.
 
-<production_standards>
-  1. ORCHESTRATION: Organize output into explicit "Scenes" (e.g., Scene 1, Scene 2).
-  2. TITLE: Start with "Storyboard Constellation: [Node Title]".
-  3. TAGS: Use exactly these tags. 
-  
-  - [VISUAL]: Elite director's description. Focus on composition (e.g., "Medium shot," "POV"), focal point, and instructional purpose. 
-  - [VISUAL_PROMPT]: MANDATORY. Self-contained 4k prompt for Nano Banana Pro. 
-    *   SUBJECT: Accurate to the scene content. CRITICAL: Inject specific terminology, text snippets, and data points from the <fact_ledger> that should be visible on-screen or in the environment (e.g., "A screen displaying the [Fact_ID: N] process flow," "A document titled [Fact_ID: N] being reviewed").
-    *   ENVIRONMENT: Strictly contextual to the course domain. Use specific names of labs, offices, or settings if mentioned in the facts.
-    *   LIGHTING: Professional cinematic lighting.
-    *   TECHNICAL: "Photorealistic, 8k, sharp focus, cinematic depth of field, professional color grading."
-    *   CONTENT FIDELITY: Ensure all text mentioned in the prompt is spelled correctly and reflects the exact instructional content of this node.
-    *   CRITICAL NEGATIVE CONSTRAINT: DO NOT use any terms from this application's UI identity (e.g., "Deep Space," "Zen," "Obsidian," "Neural Network," "Glow," "Constellation," "Teal accents").
-  
-  - [NARRATION]: Verbatim spoken dialogue. World-class tone—professional, engaging, authoritative.
-  - [ACTIVITY]: High-engagement interaction (simulation, branching, active recall).
-  - [BRANCHING]: Strategic decision points with logical consequences.
-  - [SPEAKER_NOTES]: Technical and pedagogical advice for production.
-</production_standards>
+VISUAL DIRECTION: artDirection = elite director's shot (composition, focal point, instructional purpose). generationPrompt = self-contained 4K cinematic prompt — inject specific fact text/terminology visible on-screen. NEVER use: "Deep Space", "Zen", "Obsidian", "Neural Network", "Glow", "Constellation", "Teal accents".
 
-<formatting_rules>
-  - Use clean markdown. No bold on tags. Clear spacing.
-</formatting_rules>`,
-        prompt: `
-<strategic_context>
-  - Audience: ${strategicContext}
-  - Strategic Node: ${node.title}
-  - Target Modality: ${node.targetModality}
+AIM FOR 3–6 scenes per node. scaffolding: LOW=remember/understand, MEDIUM=apply/analyze, HIGH=evaluate/create.`,
+      prompt: `<strategic_context>
+Node: ${node.title}
+Audience: ${strategicContext}
+Merrill Phase: ${strategy.merrillMode} — ${strategy.merrillPhase}
+Target Cognitive Verb: ${strategy.cognitiveVerb} (Bloom: ${strategy.bloomLevel})
+Phase Guidance: ${strategy.promptGuidance}
+Target Modality: ${node.targetModality || 'TEXT'}
 </strategic_context>
 
 <fact_ledger>
-  ${factLedger}
+${factText}
 </fact_ledger>
 
-TASK: Architect the instructional sequence. If facts are present, build a high-fidelity grounded script. If facts are sparse, build a world-class structural skeleton using the [DATA_DEFICIT] protocol.`,
-      });
+Architect the instructional sequence for this node following the Merrill phase above. Set the nodeScript.cognitiveVerb to "${strategy.cognitiveVerb}". If facts are present, build a grounded high-fidelity script. If the ledger is sparse, build a structural skeleton using the DATA SCARCITY PROTOCOL.`,
+    });
+    log.info('synthesis.done', { sceneCount: nodeScript.scenes.length });
 
-      // --- PASS 4: ADVERSARIAL SENTINEL ---
-      const audit = await this.performAdversarialAudit(draft, factLedger);
+    // PASS 4: ADVERSARIAL AUDIT
+    log.info('audit.start');
+    const audit = await this.performAdversarialAudit(nodeScript, factLedger, log);
+    log.info('audit.done', {
+      groundingScore: audit.groundingScore,
+      cognitiveLoad: audit.cognitiveLoad,
+      hallucinated: audit.hallucinated,
+    });
 
-      const isHallucinated = audit.hallucinated || (isDataSparse && draft.length > 200 && !draft.includes('INSUFFICIENT_DOCUMENTATION'));
+    const allDeficits = nodeScript.scenes.flatMap((s) => s.dataDeficits);
+    const isHallucinated = audit.hallucinated || (isDataSparse && allDeficits.length === 0);
 
-      return {
-        script: draft,
-        citations: sourceChunks.map((c: any) => c.metadata?.source_name || 'Source'),
-        groundingScore: audit.groundingScore,
-        cognitiveLoadScore: audit.cognitiveLoad,
-        hallucinationFlag: isHallucinated,
-        semanticDelta: audit.critique,
-        groundingTypes: Array.from(new Set(sourceChunks.map((c: any) => c.content_type)))
-      };
-    } catch (err) {
-      console.error(`[Architect Error] Pipeline Crash:`, err);
-      throw err;
-    }
+    log.info('pipeline.complete', { hallucinationFlag: isHallucinated });
+
+    return {
+      nodeScript,
+      citations: sourceChunks.map((c) => (c.metadata as any)?.source_name || 'Source'),
+      groundingScore: audit.groundingScore,
+      cognitiveLoadScore: audit.cognitiveLoad,
+      hallucinationFlag: isHallucinated,
+      semanticDelta: audit.critique,
+      groundingTypes: Array.from(new Set(sourceChunks.map((c) => c.content_type))),
+    };
   }
 
-  private async extractAtomicFacts(rawContext: string, nodeTitle: string) {
-    if (!rawContext.trim()) return '<fact_ledger>EMPTY</fact_ledger>';
-    const { text } = await generateText({
-      model: google('gemini-3-flash-preview'),
-      system: `
-      You are a Strict Knowledge Harvester. 
-      Your task is to extract every unique fact, metric, definition, and procedural step from the provided [RAW_CHUNKS] related to "${nodeTitle}".
-      
-      RULES:
-      1. Use a strict numbered list format.
-      2. Prefix every fact with [Fact_ID: N] (e.g., [Fact_ID: 1]).
-      3. Capture granular details, advice, and organizational specificities.
-      4. If the provided chunks contain no relevant facts for "${nodeTitle}", output exactly: <fact_ledger>EMPTY</fact_ledger>.
-      5. Do NOT use your own knowledge. If it's not in the chunks, it's not a fact.
-      `,
-      prompt: `[RAW_CHUNKS]:\n${rawContext}`,
-    });
-    return text.includes('<fact_ledger>EMPTY</fact_ledger>') ? '<fact_ledger>EMPTY</fact_ledger>' : text;
-  }
-
-  private async retrieveGroundingContext(node: ArchitecturalNode, strictModule: boolean) {
-    // USE ADMIN CLIENT FOR SERVER-SIDE RAG: Bypasses RLS to allow the Architect to "read" the vault.
-    // Security: This key never leaves the server.
-    const supabase = createAdminClient();
-    
-    const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
-    const { embedding } = await embed({
-      model: google.textEmbeddingModel('gemini-embedding-2'),
-      value: queryText,
-    });
+  private async extractAtomicFacts(
+    rawContext: string,
+    nodeTitle: string,
+    log: Logger
+  ): Promise<FactLedgerType> {
+    if (!rawContext.trim()) return { isEmpty: true, facts: [] };
 
     try {
-      const { data, error } = await supabase.rpc('match_knowledge', {
-        query_embedding: embedding,
-        match_threshold: strictModule ? 0.3 : 0.75, 
-        match_count: 15,
-        p_blueprint_id: node.blueprintId,
-        p_module_id: strictModule ? node.id : null
+      return await this.llm.generateObject({
+        model: 'gemini-3-flash-preview',
+        schema: FactLedger,
+        system: `You are a Strict Knowledge Harvester. Extract every unique fact, metric, definition, and procedural step from the provided source chunks that is relevant to "${nodeTitle}".
+
+RULES:
+1. Capture granular details, advice, and organizational specifics.
+2. Do NOT use knowledge outside the provided chunks.
+3. If no relevant facts exist, set isEmpty to true and return an empty facts array.`,
+        prompt: `[RAW_CHUNKS]:\n${rawContext}`,
       });
-
-      if (error) {
-        console.error('[Architect DB Error] RPC Failed:', error);
-        throw error;
-      }
-
-      // If strict match fails, perform a fallback query to ensure we catch global blueprint data
-      if (strictModule && (!data || data.length === 0)) {
-        const moduleNum = node.id.split('_')[1]?.replace(/^0+/, '') || node.id.replace(/[^\d]/g, '');
-        const { data: sourceData, error: fetchError } = await supabase
-          .from('knowledge_vault')
-          .select('id, content_type, raw_content, media_url, metadata')
-          .eq('blueprint_id', node.blueprintId)
-          .or(`metadata->>source_name.ilike.%M${moduleNum}%,metadata->>source_name.ilike.%Module ${moduleNum}%,metadata->>source_name.eq.POLARIS_BLUEPRINT`)
-          .limit(15);
-        
-        if (fetchError) {
-          console.error('[Architect DB Error] Manual fallback failed:', fetchError);
-          throw fetchError;
-        }
-        return sourceData || [];
-      }
-
-      return data || [];
     } catch (err) {
-      console.error('[Architect DB Error] Critical Retrieval Crash:', err);
-      throw err;
+      log.error('distillation.failed', { err: String(err) });
+      return { isEmpty: true, facts: [] };
     }
   }
 
-  private async performAdversarialAudit(draft: string, factLedger: string) {
-    const { text } = await generateText({
-      model: google('gemini-3-flash-preview'),
-      system: `
-      You are an Adversarial Integrity Sentinel. 
-      
-      CRITICAL TASKS:
-      1. Verify that every factual claim in the DRAFT is explicitly supported by a [Fact_ID: N] in the [FACT_LEDGER].
-      2. RECOGNIZE placeholders like [DATA_DEFICIT: ...] as VALID diagnostic markers. Do NOT flag them as hallucinations.
-      3. Flag any factual detail (names, dates, metrics, definitions) that is NOT in the ledger and NOT marked as a [DATA_DEFICIT].
-      
-      Output format: 
-      SCORE: [0-10] (10 = Perfect grounding or perfect skeleton)
-      COGNITIVE_LOAD: [0-10]
-      HALLUCINATED: [YES/NO]
-      CRITIQUE: [List unsupported factual claims only. If it's a valid skeleton, state "SKELETON_VERIFIED"]
-      `,
-      prompt: `DRAFT:\n${draft}\n\n[FACT_LEDGER]:\n${factLedger}`,
+  private async retrieveGroundingContext(
+    node: ArchitecturalNode,
+    strictModule: boolean,
+    log: Logger
+  ): Promise<KnowledgeChunk[]> {
+    const queryText = `Strict procedural data for: ${node.title}. ${node.description}`;
+
+    const queryEmbedding = await this.llm.embed({
+      model: EMBEDDING_MODEL,
+      value: queryText,
+      outputDimensionality: EMBEDDING_DIMENSIONS,
     });
 
-    const groundingScore = parseInt(text.match(/SCORE:\s*(\d+)/i)?.[1] || '0');
-    const cognitiveLoad = parseInt(text.match(/COGNITIVE_LOAD:\s*(\d+)/i)?.[1] || '5');
-    const hallucinated = /HALLUCINATED:\s*YES/i.test(text);
-    const critique = text.split(/CRITIQUE:/i)[1]?.trim();
+    const chunks = await this.vault.matchKnowledge({
+      queryEmbedding,
+      matchThreshold: strictModule ? 0.75 : 0.3,
+      matchCount: 15,
+      blueprintId: node.blueprintId,
+      moduleId: strictModule ? node.id : null,
+    });
 
-    return { groundingScore, cognitiveLoad, hallucinated, critique };
+    // If strict module pass returned nothing, try a metadata-based fallback
+    if (strictModule && chunks.length === 0) {
+      const moduleNum =
+        node.id.split('_')[1]?.replace(/^0+/, '') || node.id.replace(/[^\d]/g, '');
+
+      log.info('retrieval.metadata-fallback', { moduleNum });
+
+      return this.vault.fallbackKnowledge({
+        blueprintId: node.blueprintId,
+        moduleNum,
+        limit: 15,
+      });
+    }
+
+    return chunks;
+  }
+
+  private async performAdversarialAudit(
+    nodeScript: NodeScriptType,
+    factLedger: FactLedgerType,
+    log: Logger
+  ): Promise<AuditResultType> {
+    const narrations = nodeScript.scenes
+      .map((s, i) => `Scene ${i + 1} (${s.title}) narration: ${s.narration}`)
+      .join('\n\n');
+
+    const factText = factLedger.isEmpty
+      ? 'EMPTY'
+      : factLedger.facts.map((f) => `[Fact_ID: ${f.id}] ${f.fact}`).join('\n');
+
+    const deficitScenes = nodeScript.scenes
+      .filter((s) => s.dataDeficits.length > 0)
+      .map((s) => s.title)
+      .join(', ');
+
+    try {
+      return await this.llm.generateObject({
+        model: 'gemini-3-flash-preview',
+        schema: AuditResult,
+        system: `You are an Adversarial Integrity Sentinel.
+
+TASKS:
+1. Verify every factual claim in the NARRATIONS is explicitly supported by a Fact_ID in the FACT_LEDGER.
+2. Treat scenes whose dataDeficits field is non-empty as valid structural skeletons — do NOT flag those as hallucinated.
+3. Flag only factual details (names, dates, metrics, definitions) that are NOT in the ledger and NOT in a data deficit scene.
+
+groundingScore: 10 = all claims anchored or legitimately skeletal. 0 = pure hallucination.
+cognitiveLoad: estimated learner cognitive demand (0 = trivial, 10 = overwhelming).`,
+        prompt: `NARRATIONS:\n${narrations}\n\nFACT_LEDGER:\n${factText}\n\nData-deficit scenes (expect skeletons): ${deficitScenes || 'none'}`,
+      });
+    } catch (err) {
+      log.error('audit.failed — using conservative defaults', { err: String(err) });
+      // Surface the real failure rather than defaulting silently
+      return { groundingScore: 0, cognitiveLoad: 5, hallucinated: true, critique: `Audit failed: ${String(err)}` };
+    }
   }
 }
 
-export const instructionalArchitectService = new InstructionalArchitectService();
+export type { DraftResult, NodeScriptType };
+
+// Default singleton wired to real adapters
+export const instructionalArchitectService = new InstructionalArchitectService(
+  geminiLlmAdapter,
+  supabaseVaultAdapter
+);

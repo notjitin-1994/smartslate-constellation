@@ -1,64 +1,115 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
+
+const BLUEPRINT_ID = '9ed8d030-f189-4cfb-9713-cafd113da263';
+
+const MOCK_BLUEPRINT = {
+  id: BLUEPRINT_ID,
+  title: 'E2E Test Blueprint',
+  user_id: 'mock-user',
+  blueprint_json: {
+    executive_summary: { content: 'Strategic goals for E2E testing.' },
+    content_outline: {
+      modules: [
+        { module_id: 'NODE_01', title: 'Module 1', description: 'Test Module', delivery_method: 'Video Lectures' },
+      ],
+    },
+  },
+};
 
 test.describe('Knowledge Ingestion E2E', () => {
-  const blueprintId = '9ed8d030-f189-4cfb-9713-cafd113da263';
+  test.beforeEach(async ({ context }) => {
+    await context.setExtraHTTPHeaders({ 'x-test-bypass': 'true' });
+  });
 
-  test('should open vault, upload file, and show progress', async ({ page }) => {
-    // 0. Mock Supabase Responses to bypass RLS and Auth for testing
+  test('vault page loads with correct heading and upload area', async ({ page }) => {
     await page.route('**/rest/v1/blueprint_generator*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_BLUEPRINT) });
+    });
+    await page.route('**/rest/v1/knowledge_vault*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/rpc/match_knowledge*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+
+    await page.goto(`/constellation/vault?blueprintId=${BLUEPRINT_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Main heading
+    await expect(page.locator('h1:has-text("Knowledge Vault")')).toBeVisible({ timeout: 15000 });
+
+    // Upload drop-zone
+    await expect(page.locator('text=Ingest Course Assets')).toBeVisible({ timeout: 10000 });
+
+    // Fact Ledger section
+    await expect(page.locator('text=Course Fact Ledger')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('file upload triggers batch ingest button', async ({ page }) => {
+    await page.route('**/rest/v1/blueprint_generator*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_BLUEPRINT) });
+    });
+    await page.route('**/rest/v1/knowledge_vault*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/rpc/match_knowledge*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/api/ingest', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          id: blueprintId,
-          title: 'E2E Test Blueprint',
-          blueprint_json: {
-            executive_summary: { content: 'Strategic goals for E2E testing.' },
-            content_outline: { modules: [{ title: 'Module 1', description: 'Test Module' }] }
-          }
-        })
+        body: JSON.stringify({ success: true, data: { count: 3, contextHeader: 'Test SOP' } }),
       });
     });
 
-    // Navigate to the constellation page
-    await page.goto(`/constellation?blueprintId=${blueprintId}`, { waitUntil: 'networkidle' });
+    await page.goto(`/constellation/vault?blueprintId=${BLUEPRINT_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('text=Ingest Course Assets')).toBeVisible({ timeout: 15000 });
 
-    // 1. Open Knowledge Vault
-    const openVaultBtn = page.locator('button:has-text("Open Knowledge Vault")');
-    await expect(openVaultBtn).toBeVisible({ timeout: 10000 });
-    await openVaultBtn.click();
+    // Upload a file via the hidden file input inside the drop-zone
+    const fileInput = page.locator('input[type="file"]').first();
+    await fileInput.setInputFiles({
+      name: 'dummy_sop.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('This is a test SOP document with safety procedures.'),
+    });
 
-    // 2. Verify Modal is open
-    await expect(page.getByText(/Ground your architecture with multi-modal assets/i)).toBeVisible();
+    // After a file is queued, the "Initialize Batch Ingestion" button appears
+    await expect(page.locator('button:has-text("Initialize Batch Ingestion")')).toBeVisible({ timeout: 5000 });
+  });
 
-    // 3. Upload a file
-    const filePath = path.join(process.cwd(), 'tests/fixtures/dummy_sop.txt');
-    const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.getByText(/Click to upload/i).click();
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles(filePath);
+  test('ingest process shows harvesting state', async ({ page }) => {
+    await page.route('**/rest/v1/blueprint_generator*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_BLUEPRINT) });
+    });
+    await page.route('**/rest/v1/knowledge_vault*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.route('**/rpc/match_knowledge*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    // Slow mock so we can catch the "Harvesting" state
+    await page.route('**/api/ingest', async (route) => {
+      await new Promise((r) => setTimeout(r, 800));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { count: 2, contextHeader: 'SOP Manual' } }),
+      });
+    });
 
-    // 4. Verify file is in the list
-    await expect(page.getByText('dummy_sop.txt')).toBeVisible();
+    await page.goto(`/constellation/vault?blueprintId=${BLUEPRINT_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('text=Ingest Course Assets')).toBeVisible({ timeout: 15000 });
 
-    // 5. Initialize Ingest Engine
-    const initializeBtn = page.getByRole('button', { name: /Initialize Ingest Engine/i });
-    await initializeBtn.click();
+    const fileInput = page.locator('input[type="file"]').first();
+    await fileInput.setInputFiles({
+      name: 'sop_manual.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Safety procedure document for E2E testing.'),
+    });
 
-    // 6. Verify "Synthesizing Wisdom" state
-    await expect(page.getByText(/Synthesizing Wisdom/i)).toBeVisible();
+    await page.locator('button:has-text("Initialize Batch Ingestion")').click();
 
-    // 7. Wait for completion (look for the checkmark icon or 100%)
-    await page.waitForSelector('text=100%', { timeout: 30000 });
-    
-    // 8. Close modal
-    await page.getByRole('button').filter({ has: page.locator('svg[class*="lucide-x"]') }).first().click();
-
-    // 9. Verify Grounding Status changed in the node (optional visual check)
-    // For now, just ensure modal closes without error
-    await expect(page.getByText(/Knowledge Vault/i)).not.toBeVisible();
-    
-    console.log('✅ E2E Ingestion Test Passed');
+    // Should show harvesting state during processing
+    await expect(page.locator('text=Harvesting Course Data')).toBeVisible({ timeout: 5000 });
   });
 });

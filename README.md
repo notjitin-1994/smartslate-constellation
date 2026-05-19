@@ -24,7 +24,9 @@
 - **Animations**: [Framer Motion 12](https://www.framer.com/motion/)
 - **Backend**: [Supabase](https://supabase.com/) (PostgreSQL, Real-time, Auth, SSR)
 - **AI Frontier**: [Google Gemini 3.1 Pro & 3.0 Flash](https://ai.google.dev/) (2026 Edition)
-- **Vector Engine**: `gemini-embedding-2` for 3072-dimension multimodal vectors.
+- **AI SDK**: [Vercel AI SDK v6](https://sdk.vercel.ai/) — schema-first `generateObject` throughout
+- **Vector Engine**: `gemini-embedding-001` (3072-dim vectors, HNSW via `halfvec` cast)
+- **Pedagogy Layer**: Merrill's First Principles + Bloom's Taxonomy — resolved per-node at synthesis time
 
 ---
 
@@ -34,10 +36,15 @@ Refer to [docs/SYSTEM_DESIGN.md](./docs/SYSTEM_DESIGN.md) for a deep dive into t
 ### Directory Structure
 ```text
 src/
-├── app/                  # App Router: /constellation, /handover, /assets
-├── components/           # Zen UI: ScriptWorkspace, VaultModal, Sidebar
-├── lib/                  # Services & Hooks: useConstellationPersistence, knowledgeIngest
-└── types/                # Strict TypeScript definitions
+├── app/                  # App Router: /constellation, /api/architect, /api/ingest
+├── components/           # UI: ScriptDraftingWorkspace, KnowledgeVaultModal, Sidebar
+├── domain/               # Pure domain logic — pedagogy, ULS schema, builder
+│   ├── pedagogy/         # merrillStrategy.ts, cognitiveLoad.ts
+│   └── uls/              # schema.ts (Zod), builder.ts (assembles ULS from DraftResults)
+├── ports/                # LlmPort, VaultPort interfaces (hexagonal boundary)
+├── adapters/             # GeminiLlmAdapter, SupabaseVaultAdapter
+├── lib/                  # Services, hooks, utilities: retry, chunking, logger, routeAuth
+└── types/                # Shared TS types: architect.ts, knowledge.ts
 ```
 
 ---
